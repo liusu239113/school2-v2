@@ -1,0 +1,93 @@
+# =============================================
+# 云效 Flow 流水线 — 校长我来当 Android 自动打包
+# =============================================
+# 使用方式:
+#   1. 在 Codeup 仓库 → 流水线 → 新建 → 选择「YAML 模式」
+#   2. 关联本仓库，Flow 会自动读取此文件
+#   3. 每次 push main 分支自动触发构建
+# =============================================
+
+sources:
+  my_repo:
+    type: codeup
+    name: school
+    endpoint: https://codeup.aliyun.com/6a14300543bb1dd511787190/school.git
+    branch: main
+    certificate:
+      type: serviceConnection
+      serviceConnection: China
+
+defaultWorkspace: my_repo
+
+stages:
+  build_stage:
+    name: 构建APK
+    jobs:
+      build_job:
+        name: Android构建
+        runsOn: public/cn-beijing
+        steps:
+          # Step 1: 代码检出
+          - step: Checkout
+            name: 代码检出
+            with:
+              repo: my_repo
+
+          # Step 2: 构建 Release APK
+          - step: Command
+            name: 编译Release APK
+            with:
+              run: |
+                # 设置 JDK 17
+                export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                if [ ! -d "$JAVA_HOME" ]; then
+                  export JAVA_HOME=/usr/lib/jvm/java-17
+                fi
+                if [ ! -d "$JAVA_HOME" ]; then
+                  # 云效公共构建机通常预装了多版本 JDK
+                  export JAVA_HOME=$(find /usr/lib/jvm -maxdepth 1 -name "*17*" -type d | head -1)
+                fi
+                export PATH=$JAVA_HOME/bin:$PATH
+                java -version
+
+                # 设置 Android SDK（云效构建机预装路径）
+                export ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}
+                if [ ! -d "$ANDROID_HOME" ]; then
+                  export ANDROID_HOME=/usr/local/android-sdk
+                fi
+                if [ ! -d "$ANDROID_HOME" ]; then
+                  # 如果构建机没有预装 Android SDK，使用 sdkmanager 安装
+                  export ANDROID_HOME=$HOME/android-sdk
+                  mkdir -p $ANDROID_HOME/cmdline-tools
+                  cd $ANDROID_HOME/cmdline-tools
+                  if [ ! -d "latest" ]; then
+                    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+                    unzip -q tools.zip
+                    mv cmdline-tools latest
+                    rm tools.zip
+                  fi
+                  yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+                  $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" > /dev/null 2>&1
+                  cd -
+                fi
+                export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+                # 写入 local.properties
+                echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+                # Gradle 构建
+                chmod +x ./gradlew
+                ./gradlew assembleRelease --no-daemon --stacktrace -Dorg.gradle.java.home=$JAVA_HOME
+
+                # 输出 APK 路径
+                echo "=== 构建完成 ==="
+                find app/build/outputs -name "*.apk" -type f
+
+          # Step 3: 上传 APK 制品（可从流水线运行详情页下载）
+          - step: ArtifactUpload
+            name: 上传APK制品
+            with:
+              uploadType: flowPublic
+              artifact: release-apk
+              filePath:
+                - app/build/outputs/apk/release/*.apk

@@ -1,0 +1,58 @@
+# =============================================
+# 校长我来当 — 阿里云云效流水线配置
+# 触发条件: main 分支 push 自动构建
+# 产物: 签名 Release APK
+# =============================================
+
+name: "校长我来当-Android构建"
+version: 1
+
+# ---- 触发规则 ----
+sources:
+  provider: repo
+  webhook: true
+
+triggers:
+  push:
+    branches:
+      include:
+        - main
+
+# ---- 构建阶段 ----
+stages:
+  - stage: android_build
+    name: "编译APK"
+    jobs:
+      - job: gradle_build
+        name: "Gradle打包"
+        component: android-build
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dkotlin.compiler.execution.strategy=in-process"
+        steps:
+          # Step 1: 代码检出
+          - checkout: self
+          
+          # Step 2: 设置JDK 17 + Gradle执行权限
+          - run: |
+              chmod +x gradlew
+              java -version
+          
+          # Step 3: 编译 Release APK
+          - task: gradle
+            inputs:
+              gradleWrapperFile: gradlew
+              tasks: "assembleRelease"
+              jdkVersion: "17"
+              options: "--no-daemon --stacktrace"
+          
+          # Step 4: 收集产物
+          - artifacts:
+              name: "release-apk"
+              files:
+                - "app/build/outputs/apk/release/app-release.apk"
+              retention: 30
+
+# ---- 通知（可选）----
+notifications:
+  - type: dingtalk
+    enabled: false

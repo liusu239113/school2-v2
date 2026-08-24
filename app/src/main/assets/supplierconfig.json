@@ -1,0 +1,49 @@
+{
+  "supplier": {
+    "vivo": {
+      "classpath": "com.bun.miitmdid.provider.vivo.VivoIdentifier"
+    },
+    "xiaomi": {
+      "classpath": "com.bun.miitmdid.provider.xiaomi.XiaomiIdentifier"
+    },
+    "oppo": {
+      "classpath": "com.bun.miitmdid.provider.oppo.OppoIdentifier"
+    },
+    "huawei": {
+      "classpath": "com.bun.miitmdid.provider.huawei.HuaweiIdentifier"
+    },
+    "samsung": {
+      "classpath": "com.bun.miitmdid.provider.samsung.SamsungIdentifier"
+    },
+    "lenovo": {
+      "classpath": "com.bun.miitmdid.provider.lenovo.LenovoIdentifier"
+    },
+    "zte": {
+      "classpath": "com.bun.miitmdid.provider.zte.ZteIdentifier"
+    },
+    "asus": {
+      "classpath": "com.bun.miitmdid.provider.asus.AsusIdentifier"
+    },
+    "meizu": {
+      "classpath": "com.bun.miitmdid.provider.meizu.MeizuIdentifier"
+    },
+    "nubia": {
+      "classpath": "com.bun.miitmdid.provider.nubia.NubiaIdentifier"
+    },
+    "oneplus": {
+      "classpath": "com.bun.miitmdid.provider.oneplus.OneplusIdentifier"
+    },
+    "freeme": {
+      "classpath": "com.bun.miitmdid.provider.freeme.FreemeIdentifier"
+    },
+    "ssui": {
+      "classpath": "com.bun.miitmdid.provider.ssui.SsuiIdentifier"
+    },
+    "coolpad": {
+      "classpath": "com.bun.miitmdid.provider.coolpad.CoolpadIdentifier"
+    },
+    "motorola": {
+      "classpath": "com.bun.miitmdid.provider.motorola.MotorolaIdentifier"
+    }
+  }
+}
