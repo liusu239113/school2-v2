@@ -218,7 +218,7 @@ fun FacilityScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "请到「学区」页面升级校舍以解锁更多设施位",
+                                text = "请到「社会」页面升级大学校园以解锁更多设施位",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )

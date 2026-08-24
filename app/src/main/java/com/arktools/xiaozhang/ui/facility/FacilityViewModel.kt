@@ -85,7 +85,7 @@ class FacilityViewModel @Inject constructor(
             val result = schoolRepository.mutateSchool { school ->
                 val maxFacilities = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel)
                 if (school.facilities.size >= maxFacilities) {
-                    _uiState.value = _uiState.value.copy(message = "设施数量已达当前等级上限（${maxFacilities}/${maxFacilities}），请到「学区」页面升级校舍以解锁更多设施位")
+                    _uiState.value = _uiState.value.copy(message = "设施数量已达当前等级上限（${maxFacilities}/${maxFacilities}），请到「社会」页面升级大学校园以解锁更多设施位")
                     return@mutateSchool false
                 }
                 val cost = type.baseCost

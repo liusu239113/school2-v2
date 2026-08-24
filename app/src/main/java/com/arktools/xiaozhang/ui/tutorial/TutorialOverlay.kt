@@ -511,9 +511,9 @@ private fun getActionHint(condition: CompletionCondition): String {
     return when (condition) {
         CompletionCondition.TAP_TAB_TEACHER -> "请点击「教师」标签 ↓"
         CompletionCondition.TAP_TAB_TEACHING -> "请点击「教学」标签 ↓"
-        CompletionCondition.TAP_TAB_RESEARCH -> "请点击「教研」标签 ↓"
+        CompletionCondition.TAP_TAB_RESEARCH -> "请点击「科研」标签 ↓"
         CompletionCondition.TAP_TAB_OVERVIEW -> "请点击「总览」标签 ↓"
-        CompletionCondition.TAP_TAB_DISTRICT -> "请点击「学区」标签 ↓"
+        CompletionCondition.TAP_TAB_DISTRICT -> "请点击「社会」标签 ↓"
         CompletionCondition.HIRE_TEACHER -> "等待你招聘教师..."
         CompletionCondition.CONFIGURE_TEACHING -> "等待你完成教学配置..."
         CompletionCondition.NAVIGATE_STUDENT -> "请点击「学生概况」卡片"
