@@ -261,7 +261,7 @@ class MainViewModel @Inject constructor(
 
     private fun updateBgmByState(school: School) {
         val bgmType = when {
-            school.cash < 5.0 -> AudioManager.BgmType.CRISIS       // 资金低于5万 → 紧张
+            school.cash < 50.0 -> AudioManager.BgmType.CRISIS       // 资金低于5万 → 紧张
             school.reputation > 500 && school.cash > 100 -> AudioManager.BgmType.BUSY  // 高声誉高资金 → 繁忙
             school.currentMonth in listOf(7, 8, 1, 2) -> AudioManager.BgmType.RELAXED  // 假期月份 → 轻松
             else -> AudioManager.BgmType.MAIN                       // 默认主题

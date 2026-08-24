@@ -72,27 +72,26 @@ class AudioManager @Inject constructor(
 
     private val soundResNames = mapOf(
         SoundType.BUTTON_CLICK to "v2_ui_click",
-        SoundType.CARD_OPEN to "sfx_card_open",
-        SoundType.COURSE_CREATE to "sfx_course_create",
-        SoundType.COURSE_RELEASE to "sfx_course_release",
-        SoundType.TEACHER_HIRE to "sfx_hire",
+        SoundType.CARD_OPEN to "v2_ui_click",
+        SoundType.COURSE_CREATE to "v2_ui_confirm",
+        SoundType.COURSE_RELEASE to "v2_ui_confirm",
+        SoundType.TEACHER_HIRE to "v2_ui_confirm",
         SoundType.RESEARCH_UNLOCK to "v2_research_complete",
-        SoundType.CASH_EARN to "sfx_cash_earn",
-        SoundType.CASH_LOSE to "sfx_cash_lose",
-        SoundType.EVENT_POSITIVE to "sfx_event_positive",
-        SoundType.EVENT_NEGATIVE to "sfx_event_negative",
-        SoundType.MILESTONE to "sfx_milestone",
-        SoundType.LEVEL_UP to "sfx_level_up",
-        // 新增音效映射
-        SoundType.BUILD_FACILITY to "build_facility",
-        SoundType.SAVE_SUCCESS to "save_success",
-        SoundType.TEACHER_HIRED to "teacher_hired",
-        SoundType.STUDENT_ENROLLED to "student_enrolled",
+        SoundType.CASH_EARN to "v2_money_earn",
+        SoundType.CASH_LOSE to "v2_event_negative",
+        SoundType.EVENT_POSITIVE to "v2_event_positive",
+        SoundType.EVENT_NEGATIVE to "v2_event_negative",
+        SoundType.MILESTONE to "v2_level_up",
+        SoundType.LEVEL_UP to "v2_level_up",
+        SoundType.BUILD_FACILITY to "v2_facility_build",
+        SoundType.SAVE_SUCCESS to "v2_save_success",
+        SoundType.TEACHER_HIRED to "v2_ui_confirm",
+        SoundType.STUDENT_ENROLLED to "v2_student_enroll",
         SoundType.CRISIS_ALERT to "v2_crisis",
-        SoundType.MINIGAME_WIN to "minigame_win",
-        SoundType.MINIGAME_FAIL to "minigame_fail",
-        SoundType.MONEY_EARNED to "money_earned",
-        SoundType.REPUTATION_UP to "reputation_up"
+        SoundType.MINIGAME_WIN to "v2_event_positive",
+        SoundType.MINIGAME_FAIL to "v2_event_negative",
+        SoundType.MONEY_EARNED to "v2_money_earn",
+        SoundType.REPUTATION_UP to "v2_reputation_up"
     )
 
     private fun getResId(name: String): Int {
@@ -146,7 +145,7 @@ class AudioManager @Inject constructor(
      * The music will loop until stopped.
      * 所有 MediaPlayer 操作统一在 Main 线程执行，避免竞态。
      */
-    fun startBgm(resName: String = "bgm_main") {
+    fun startBgm(resName: String = "v2_bgm_campus") {
         scope.launch {
             if (!settingsDataStore.musicEnabled.first()) return@launch
 

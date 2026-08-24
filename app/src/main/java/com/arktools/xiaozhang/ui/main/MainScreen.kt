@@ -584,11 +584,11 @@ fun MainScreen(
 
     PixelGameBackground {
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = Color(0xCC0B2038),
         topBar = {
             TopAppBar(
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color(0xCC0B2038)
                 ),
                 navigationIcon = {
                     if (selectedTab > 4) {
@@ -654,7 +654,7 @@ fun MainScreen(
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.Transparent) {
+            NavigationBar(containerColor = Color(0xE60B2038)) {
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_campus_v2), contentDescription = "总览", modifier = Modifier.size(28.dp)) },
                     label = { Text("总览") },
@@ -668,7 +668,7 @@ fun MainScreen(
                     onClick = { selectedTab = 1; tutorialManager.notifyTabChanged(1) }
                 )
                 NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_teacher), contentDescription = null, modifier = Modifier.size(28.dp)) },
+                    icon = { Image(painter = painterResource(id = R.drawable.nav_teacher_v2), contentDescription = "师资", modifier = Modifier.size(28.dp)) },
                     label = { Text("师资") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2; tutorialManager.notifyTabChanged(2) }

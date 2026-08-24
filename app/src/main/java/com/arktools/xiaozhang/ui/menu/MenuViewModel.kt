@@ -60,7 +60,7 @@ class MenuViewModel @Inject constructor(
     }
 
     fun startMenuBgm() {
-        audioManager.startBgm("bgm_menu")
+        audioManager.startBgm("v2_bgm_menu")
     }
 
     fun stopMenuBgm() {

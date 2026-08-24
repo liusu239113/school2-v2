@@ -101,6 +101,10 @@ fun OverviewScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            UniversityHeroCard()
+        }
+
         // 季节指示 + 学校健康度
         item {
             Row(
@@ -501,6 +505,44 @@ fun OverviewScreen(
             SectionHeader(title = "经营指南")
             Spacer(modifier = Modifier.height(8.dp))
             TipsCard(tips = tips)
+        }
+    }
+}
+
+@Composable
+private fun UniversityHeroCard() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(158.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.facility_classroom),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0x9911263D))
+                .padding(18.dp),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "大学治理驾驶舱",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "学术 · 人才 · 社会影响力",
+                    color = Color(0xFFD4B06A),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }

@@ -126,7 +126,7 @@ private fun TitleScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -138,11 +138,19 @@ private fun TitleScreen(
             Image(
                 painter = painterResource(id = R.drawable.logo_game_v2),
                 contentDescription = "校长我来当 2：大学时代",
-                modifier = Modifier.size(220.dp).scale(logoScale),
+                modifier = Modifier.size(176.dp).scale(logoScale),
                 contentScale = ContentScale.Fit
             )
         }
-        Spacer(modifier = Modifier.weight(0.1f))
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "UNIVERSITY ERA  ·  大学经营模拟",
+            color = Color(0xFFD4B06A),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp
+        )
+        Spacer(modifier = Modifier.height(20.dp))
         AnimatedVisibility(
             visible = buttonsVisible,
             enter = fadeIn(tween(400)) + slideInVertically(
@@ -152,7 +160,8 @@ private fun TitleScreen(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(0.88f)
             ) {
                 if (hasSaveData) {
                     PixelMenuButton(
@@ -189,7 +198,7 @@ private fun PixelMenuButton(
 ) {
     val buttonResource = if (isPrimary) R.drawable.btn_primary else R.drawable.btn_secondary
     Box(
-        modifier = Modifier.fillMaxWidth().height(60.dp)
+        modifier = Modifier.fillMaxWidth().height(56.dp)
     ) {
         Image(
             painter = painterResource(id = buttonResource),
@@ -204,7 +213,7 @@ private fun PixelMenuButton(
                 containerColor = Color.Transparent,
                 contentColor = Color.White
             ),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(12.dp),
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
         ) {
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(22.dp))
@@ -247,7 +256,7 @@ private fun NewGamePanel(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xE611263D)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
@@ -264,7 +273,7 @@ private fun NewGamePanel(
                     Text(
                         text = "创建你的大学",
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF212121)
+                        color = Color(0xFFE7F1F8)
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     OutlinedTextField(

@@ -120,7 +120,7 @@ fun PixelButton(
                 disabledContainerColor = Color.Transparent,
                 disabledContentColor = Color.White.copy(alpha = 0.5f)
             ),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
         ) {
@@ -164,7 +164,7 @@ fun PixelCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             content = content
         )
     }
@@ -190,7 +190,7 @@ fun PixelDialogBackground(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(22.dp),
             content = content
         )
     }
@@ -208,7 +208,7 @@ fun PixelInfoBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(76.dp)
     ) {
         Image(
             painter = painterResource(id = R.drawable.bar_bg),
@@ -273,7 +273,7 @@ fun PixelAlertDialog(
                         fontWeight = FontWeight.Bold
                     ),
                     textAlign = TextAlign.Center,
-                    color = Color(0xFF3E2723)
+                    color = Color(0xFFE7F1F8)
                 )
 
                 if (text != null) {
@@ -281,7 +281,7 @@ fun PixelAlertDialog(
                         text = text,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
-                        color = Color(0xFF5D4037)
+                        color = Color(0xFFC7D9E8)
                     )
                 }
 
