@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -148,10 +147,8 @@ private fun TeacherOptionCard(
             Image(
                 painter = painterResource(id = TeacherAvatarHelper.getAvatarResId(teacher)),
                 contentDescription = teacher.name,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
+                modifier = Modifier.size(32.dp),
+                contentScale = ContentScale.Fit
             )
             Spacer(modifier = Modifier.width(10.dp))
 

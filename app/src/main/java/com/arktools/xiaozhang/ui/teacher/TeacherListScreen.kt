@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -466,10 +465,8 @@ private fun TeacherCard(
             Image(
                 painter = painterResource(id = TeacherAvatarHelper.getAvatarResId(teacher)),
                 contentDescription = teacher.name,
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
+                modifier = Modifier.size(56.dp),
+                contentScale = ContentScale.Fit
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -770,10 +767,8 @@ private fun CandidateCard(
             Image(
                 painter = painterResource(id = TeacherAvatarHelper.getAvatarResId(candidate)),
                 contentDescription = candidate.name,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
+                modifier = Modifier.size(44.dp),
+                contentScale = ContentScale.Fit
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -854,10 +849,8 @@ private fun TeacherDetailBottomSheet(
                 Image(
                     painter = painterResource(id = TeacherAvatarHelper.getAvatarResId(teacher)),
                     contentDescription = teacher.name,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                    modifier = Modifier.size(56.dp),
+                    contentScale = ContentScale.Fit
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
