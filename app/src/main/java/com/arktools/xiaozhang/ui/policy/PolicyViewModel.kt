@@ -1,12 +1,16 @@
 package com.arktools.xiaozhang.ui.policy
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.arktools.xiaozhang.domain.engine.GameEngine
 import com.arktools.xiaozhang.domain.engine.SchoolDecision
 import com.arktools.xiaozhang.domain.policy.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
+import com.arktools.xiaozhang.util.safeLaunch
 
 @HiltViewModel
 class PolicyViewModel @Inject constructor(
@@ -15,6 +19,9 @@ class PolicyViewModel @Inject constructor(
 ) : ViewModel() {
 
     val policies: StateFlow<SchoolPolicies> = policyManager.policies
+
+    private val _operationMessage = MutableStateFlow<String?>(null)
+    val operationMessage: StateFlow<String?> = _operationMessage.asStateFlow()
 
     fun setTuitionLevel(level: TuitionLevel) {
         val oldLevel = policyManager.policies.value.tuitionLevel
@@ -46,6 +53,16 @@ class PolicyViewModel @Inject constructor(
     fun adjustBudget(line: BudgetLine, delta: Int) {
         val next = policyManager.policies.value.budgetAllocation.adjust(line, delta)
         policyManager.setBudgetAllocation(next)
+    }
+    fun setAnnualGoal(goal: AnnualGoal) = policyManager.setAnnualGoal(goal)
+    fun foundCollege(type: CollegeType) {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.foundCollege(type)
+            _operationMessage.value = result.message
+        }
+    }
+    fun consumeOperationMessage() {
+        _operationMessage.value = null
     }
 
     fun getPolicyEffects(): PolicyEffects = policyManager.getPolicyEffects()

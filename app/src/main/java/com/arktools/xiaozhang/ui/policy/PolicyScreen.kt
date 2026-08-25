@@ -28,6 +28,7 @@ fun PolicyScreen(
     viewModel: PolicyViewModel = hiltViewModel()
 ) {
     val policies by viewModel.policies.collectAsState()
+    val operationMessage by viewModel.operationMessage.collectAsState()
     val effects = viewModel.getPolicyEffects()
 
     PixelGameBackground {
@@ -197,6 +198,47 @@ fun PolicyScreen(
                         description = plan.description,
                         isSelected = policies.enrollmentPlan == plan,
                         onClick = { viewModel.setEnrollmentPlan(plan) }
+                    )
+                }
+            }
+        }
+
+        item {
+            PolicySection(
+                title = "本学年目标",
+                description = "6月会按这项考核。达标给声誉和专项拨款，未达标扣声誉。"
+            ) {
+                AnnualGoal.entries.forEach { goal ->
+                    PolicyOption(
+                        icon = goal.icon,
+                        name = goal.displayName,
+                        description = goal.description,
+                        isSelected = policies.collegeDevelopment.annualGoal == goal,
+                        onClick = { viewModel.setAnnualGoal(goal) }
+                    )
+                }
+            }
+        }
+
+        item {
+            PolicySection(
+                title = "学院建设",
+                description = "成立学院会立刻花钱，之后每月持续抽走办学成本，同时改变招生、科研、就业和口碑。"
+            ) {
+                operationMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                CollegeType.entries.forEach { type ->
+                    val founded = policies.collegeDevelopment.founded.contains(type)
+                    CollegeFoundRow(
+                        type = type,
+                        founded = founded,
+                        onFound = { viewModel.foundCollege(type) }
                     )
                 }
             }
@@ -382,6 +424,36 @@ private fun BudgetLineRow(
         )
         IconButton(onClick = onIncrease, enabled = canIncrease) {
             Text("+", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CollegeFoundRow(
+    type: CollegeType,
+    founded: Boolean,
+    onFound: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("${type.icon} ${type.displayName}", fontWeight = FontWeight.SemiBold)
+            Text(
+                "${type.description} 校园${type.unlockLevel}级解锁 · 成立 ${type.foundingCostWan.toInt()}万 · 每月 ${"%.1f".format(type.monthlyCostWan)}万",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (founded) {
+            Text("已成立", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+        } else {
+            OutlinedButton(onClick = onFound) {
+                Text("成立")
+            }
         }
     }
 }

@@ -71,6 +71,85 @@ class SchoolPolicyManager @Inject constructor() {
         _policies.value = _policies.value.copy(budgetAllocation = allocation.normalized())
     }
 
+    fun setAnnualGoal(goal: AnnualGoal) {
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = _policies.value.collegeDevelopment.copy(annualGoal = goal)
+        )
+    }
+
+    fun previewFoundCollege(type: CollegeType, campusLevel: Int, cash: Double): ManagedCollegeResult {
+        val current = _policies.value.collegeDevelopment
+        if (current.founded.contains(type)) {
+            return ManagedCollegeResult(false, "${type.displayName}已经成立")
+        }
+        if (campusLevel < type.unlockLevel) {
+            return ManagedCollegeResult(
+                false,
+                "${type.displayName}需要校园${type.unlockLevel}级（当前 ${campusLevel}级）"
+            )
+        }
+        if (cash < type.foundingCostWan) {
+            return ManagedCollegeResult(
+                false,
+                "资金不足，成立${type.displayName}需要 ${type.foundingCostWan.toInt()}万"
+            )
+        }
+        return ManagedCollegeResult(
+            true,
+            "成立${type.displayName}将投入 ${type.foundingCostWan.toInt()}万，此后每月约 ${"%.1f".format(type.monthlyCostWan)}万"
+        )
+    }
+
+    fun tryFoundCollege(type: CollegeType, campusLevel: Int, cash: Double): ManagedCollegeResult {
+        val preview = previewFoundCollege(type, campusLevel, cash)
+        if (!preview.success) return preview
+        val current = _policies.value.collegeDevelopment
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = current.copy(founded = current.founded + type)
+        )
+        return ManagedCollegeResult(
+            true,
+            "已成立${type.displayName}，投入 ${type.foundingCostWan.toInt()}万，此后每月约 ${"%.1f".format(type.monthlyCostWan)}万"
+        )
+    }
+
+    fun evaluateAnnualGoal(
+        year: Int,
+        campusLevel: Int,
+        students: Int,
+        research: Int,
+        reputation: Long,
+        satisfaction: Float,
+        employmentRate: Float,
+        profit: Double
+    ): AnnualGoalResult {
+        val development = _policies.value.collegeDevelopment
+        val goal = development.annualGoal
+        val result = goal.evaluate(
+            campusLevel = campusLevel,
+            students = students,
+            research = research,
+            reputation = reputation,
+            satisfaction = satisfaction,
+            employmentRate = employmentRate,
+            previousReputation = development.lastReviewReputation,
+            previousResearch = development.lastReviewResearch,
+            previousStudents = development.lastReviewStudents,
+            previousSatisfaction = development.lastReviewSatisfaction
+        )
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = development.copy(
+                lastReviewYear = year,
+                lastReviewReputation = reputation,
+                lastReviewResearch = research,
+                lastReviewStudents = students,
+                lastReviewSatisfaction = satisfaction
+            )
+        )
+        val profitNote = if (profit >= 0) "学期财务平衡。" else "学期出现亏损，评估偏紧。"
+        return result.copy(detail = result.detail + profitNote)
+    }
+
     /**
      * 获取所有政策的综合效果
      */
@@ -89,13 +168,22 @@ class SchoolPolicyManager @Inject constructor() {
             specialTalentMultiplier = p.enrollmentPlan.specialTalentMultiplier,
             welfareReputationBonus = p.enrollmentPlan.welfareReputationBonus,
             extraResearchDays = p.universityStrategy.extraResearchDays +
-                p.budgetAllocation.extraResearchDays(),
+                p.budgetAllocation.extraResearchDays() +
+                p.collegeDevelopment.extraResearchDays(),
             strategyName = p.universityStrategy.displayName,
             teachingFocus = p.budgetAllocation.teachingWeight,
             researchFocus = p.budgetAllocation.researchWeight,
             campusLifeFocus = p.budgetAllocation.campusLifeWeight,
             societyFocus = p.budgetAllocation.societyWeight,
-            monthlySpecialBudgetCost = p.budgetAllocation.monthlyCostWan()
+            monthlySpecialBudgetCost = p.budgetAllocation.monthlyCostWan() +
+                p.collegeDevelopment.monthlyCostWan(),
+            collegeEnrollmentMultiplier = p.collegeDevelopment.enrollmentMultiplier(),
+            collegeQualityMultiplier = p.collegeDevelopment.qualityMultiplier(),
+            collegeSatisfactionModifier = p.collegeDevelopment.satisfactionModifier(),
+            collegeReputationModifier = p.collegeDevelopment.reputationModifier(),
+            collegeEmploymentBonus = p.collegeDevelopment.employmentBonus(),
+            annualGoalName = p.collegeDevelopment.annualGoal.displayName,
+            foundedCollegeNames = p.collegeDevelopment.founded.map { it.displayName }
         )
     }
 
@@ -108,6 +196,7 @@ class SchoolPolicyManager @Inject constructor() {
         mult *= p.admissionPolicy.enrollmentMultiplier
         mult *= p.enrollmentPlan.enrollmentMultiplier
         mult *= p.universityStrategy.enrollmentMultiplier
+        mult *= p.collegeDevelopment.enrollmentMultiplier()
         return mult
     }
 
@@ -119,6 +208,7 @@ class SchoolPolicyManager @Inject constructor() {
         mult *= p.examDifficulty.qualityMultiplier
         mult *= p.universityStrategy.qualityMultiplier
         mult *= p.budgetAllocation.qualityMultiplier()
+        mult *= p.collegeDevelopment.qualityMultiplier()
         return mult
     }
 
@@ -133,6 +223,7 @@ class SchoolPolicyManager @Inject constructor() {
         // 教师薪资间接提高满意度（更好的教师）
         mod += p.teacherPayPolicy.satisfactionBonus
         mod += p.budgetAllocation.satisfactionModifier()
+        mod += p.collegeDevelopment.satisfactionModifier()
         return mod
     }
 
@@ -148,6 +239,7 @@ class SchoolPolicyManager @Inject constructor() {
         mod += p.extracurricularPolicy.reputationBonus
         mod += p.universityStrategy.reputationModifier
         mod += p.budgetAllocation.reputationModifier()
+        mod += p.collegeDevelopment.reputationModifier()
         return mod
     }
 
@@ -193,7 +285,14 @@ class SchoolPolicyManager @Inject constructor() {
                 teachingWeight = p.budgetAllocation.teachingWeight,
                 researchWeight = p.budgetAllocation.researchWeight,
                 campusLifeWeight = p.budgetAllocation.campusLifeWeight,
-                societyWeight = p.budgetAllocation.societyWeight
+                societyWeight = p.budgetAllocation.societyWeight,
+                foundedColleges = p.collegeDevelopment.founded.map { it.name },
+                annualGoal = p.collegeDevelopment.annualGoal.name,
+                lastReviewYear = p.collegeDevelopment.lastReviewYear,
+                lastReviewReputation = p.collegeDevelopment.lastReviewReputation,
+                lastReviewResearch = p.collegeDevelopment.lastReviewResearch,
+                lastReviewStudents = p.collegeDevelopment.lastReviewStudents,
+                lastReviewSatisfaction = p.collegeDevelopment.lastReviewSatisfaction
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -216,7 +315,22 @@ class SchoolPolicyManager @Inject constructor() {
                     researchWeight = data.researchWeight,
                     campusLifeWeight = data.campusLifeWeight,
                     societyWeight = data.societyWeight
-                ).normalized()
+                ).normalized(),
+                collegeDevelopment = CollegeDevelopment(
+                    founded = data.foundedColleges.mapNotNull { name ->
+                        try { CollegeType.valueOf(name) } catch (_: Exception) { null }
+                    }.distinct(),
+                    annualGoal = try {
+                        AnnualGoal.valueOf(data.annualGoal)
+                    } catch (_: Exception) {
+                        AnnualGoal.BALANCED_GROWTH
+                    },
+                    lastReviewYear = data.lastReviewYear,
+                    lastReviewReputation = data.lastReviewReputation,
+                    lastReviewResearch = data.lastReviewResearch,
+                    lastReviewStudents = data.lastReviewStudents,
+                    lastReviewSatisfaction = data.lastReviewSatisfaction
+                )
             )
             _policies.value = restoredPolicies
         } catch (e: Exception) {
@@ -236,7 +350,8 @@ data class SchoolPolicies(
     val admissionPolicy: AdmissionPolicy = AdmissionPolicy.BALANCED,
     val enrollmentPlan: EnrollmentPlan = EnrollmentPlan.BALANCED,
     val universityStrategy: UniversityStrategy = UniversityStrategy.BALANCED,
-    val budgetAllocation: BudgetAllocation = BudgetAllocation()
+    val budgetAllocation: BudgetAllocation = BudgetAllocation(),
+    val collegeDevelopment: CollegeDevelopment = CollegeDevelopment()
 )
 
 /**
@@ -490,7 +605,14 @@ data class PolicyEffects(
     val researchFocus: Int = 2,
     val campusLifeFocus: Int = 3,
     val societyFocus: Int = 2,
-    val monthlySpecialBudgetCost: Double = 8.0
+    val monthlySpecialBudgetCost: Double = 8.0,
+    val collegeEnrollmentMultiplier: Float = 1f,
+    val collegeQualityMultiplier: Float = 1f,
+    val collegeSatisfactionModifier: Float = 0f,
+    val collegeReputationModifier: Long = 0L,
+    val collegeEmploymentBonus: Float = 0f,
+    val annualGoalName: String = "均衡发展",
+    val foundedCollegeNames: List<String> = emptyList()
 )
 
 @Serializable
@@ -505,5 +627,156 @@ data class PolicyPersistData(
     val teachingWeight: Int = 3,
     val researchWeight: Int = 2,
     val campusLifeWeight: Int = 3,
-    val societyWeight: Int = 2
+    val societyWeight: Int = 2,
+    val foundedColleges: List<String> = emptyList(),
+    val annualGoal: String = "BALANCED_GROWTH",
+    val lastReviewYear: Int = 0,
+    val lastReviewReputation: Long = 0L,
+    val lastReviewResearch: Int = 0,
+    val lastReviewStudents: Int = 0,
+    val lastReviewSatisfaction: Float = 0f
 )
+
+data class ManagedCollegeResult(
+    val success: Boolean,
+    val message: String
+)
+
+data class AnnualGoalResult(
+    val success: Boolean,
+    val title: String,
+    val detail: String,
+    val reputationDelta: Long,
+    val cashDelta: Double
+)
+
+data class CollegeDevelopment(
+    val founded: List<CollegeType> = emptyList(),
+    val annualGoal: AnnualGoal = AnnualGoal.BALANCED_GROWTH,
+    val lastReviewYear: Int = 0,
+    val lastReviewReputation: Long = 0L,
+    val lastReviewResearch: Int = 0,
+    val lastReviewStudents: Int = 0,
+    val lastReviewSatisfaction: Float = 0f
+) {
+    fun monthlyCostWan(): Double = founded.sumOf { it.monthlyCostWan }
+
+    fun extraResearchDays(): Int = if (founded.contains(CollegeType.SCIENCE)) 1 else 0
+
+    fun enrollmentMultiplier(): Float = 1f + founded.sumOf { it.enrollmentBonus.toDouble() }.toFloat()
+
+    fun qualityMultiplier(): Float = 1f + founded.sumOf { it.qualityBonus.toDouble() }.toFloat()
+
+    fun satisfactionModifier(): Float = founded.sumOf { it.satisfactionBonus.toDouble() }.toFloat()
+
+    fun reputationModifier(): Long = founded.sumOf { it.reputationBonus }
+
+    fun employmentBonus(): Float = founded.sumOf { it.employmentBonus.toDouble() }.toFloat()
+}
+
+enum class CollegeType(
+    val displayName: String,
+    val icon: String,
+    val description: String,
+    val unlockLevel: Int,
+    val foundingCostWan: Double,
+    val monthlyCostWan: Double,
+    val enrollmentBonus: Float,
+    val qualityBonus: Float,
+    val satisfactionBonus: Float,
+    val reputationBonus: Long,
+    val employmentBonus: Float
+) {
+    LIBERAL_ARTS(
+        "人文学院", "📖",
+        "稳住基础招生和校园氛围，月费较低。",
+        1, 18.0, 1.2, 0.04f, 0.02f, 2.0f, 2L, 0.00f
+    ),
+    SCIENCE(
+        "理学院", "🔬",
+        "加快科研，提高培养质量，日常开支上升。",
+        2, 36.0, 2.4, 0.02f, 0.06f, 0.0f, 4L, 0.01f
+    ),
+    ENGINEERING(
+        "工学院", "🛠️",
+        "扩大就业出口和招生规模，建设成本最高。",
+        3, 58.0, 3.6, 0.06f, 0.03f, 1.0f, 3L, 0.06f
+    ),
+    BUSINESS(
+        "商学院", "💼",
+        "换取社会声誉和产业合作，对满意度帮助有限。",
+        4, 72.0, 4.2, 0.03f, 0.02f, -1.0f, 8L, 0.04f
+    )
+}
+
+enum class AnnualGoal(
+    val displayName: String,
+    val icon: String,
+    val description: String
+) {
+    BALANCED_GROWTH("均衡发展", "⚖️", "学生规模、科研和满意度都要稳住，不追求单项爆发。"),
+    RESEARCH_BREAKTHROUGH("科研突破", "🔬", "本学年科研项目必须明显增加。"),
+    EMPLOYMENT_QUALITY("就业质量", "💼", "毕业出口和就业率必须达标。"),
+    CAMPUS_LIFE("校园体验", "🏠", "学生满意度必须明显高于去年。"),
+    SOCIAL_INFLUENCE("社会影响", "📣", "声誉必须明显高于去年。");
+
+    fun evaluate(
+        campusLevel: Int,
+        students: Int,
+        research: Int,
+        reputation: Long,
+        satisfaction: Float,
+        employmentRate: Float,
+        previousReputation: Long,
+        previousResearch: Int,
+        previousStudents: Int,
+        previousSatisfaction: Float
+    ): AnnualGoalResult {
+        val firstYear = previousReputation == 0L && previousResearch == 0 && previousStudents == 0
+        val passed = when (this) {
+            BALANCED_GROWTH -> students >= 40 + campusLevel * 20 &&
+                research >= campusLevel &&
+                satisfaction >= 62f
+            RESEARCH_BREAKTHROUGH -> if (firstYear) {
+                research >= campusLevel + 1
+            } else {
+                research >= previousResearch + 1
+            }
+            EMPLOYMENT_QUALITY -> employmentRate >= (0.42f + campusLevel * 0.04f)
+            CAMPUS_LIFE -> if (firstYear) {
+                satisfaction >= 70f
+            } else {
+                satisfaction >= previousSatisfaction + 4f
+            }
+            SOCIAL_INFLUENCE -> if (firstYear) {
+                reputation >= 80L + campusLevel * 40L
+            } else {
+                reputation >= previousReputation + 40L + campusLevel * 10L
+            }
+        }
+        val detail = when (this) {
+            BALANCED_GROWTH -> "在校生${students}人，科研${research}项，满意度${satisfaction.toInt()}%。"
+            RESEARCH_BREAKTHROUGH -> "科研项目从${previousResearch}项到${research}项。"
+            EMPLOYMENT_QUALITY -> "当前就业/升学率为${(employmentRate * 100).toInt()}%。"
+            CAMPUS_LIFE -> "学生满意度从${previousSatisfaction.toInt()}%到${satisfaction.toInt()}%。"
+            SOCIAL_INFLUENCE -> "社会声誉从${previousReputation}到${reputation}。"
+        }
+        return if (passed) {
+            AnnualGoalResult(
+                success = true,
+                title = "学年目标达成",
+                detail = "目标「$displayName」完成。$detail",
+                reputationDelta = 18L + campusLevel * 4L,
+                cashDelta = 8.0 + campusLevel * 4.0
+            )
+        } else {
+            AnnualGoalResult(
+                success = false,
+                title = "学年目标未完成",
+                detail = "目标「$displayName」未达标。$detail",
+                reputationDelta = -8L - campusLevel * 2L,
+                cashDelta = 0.0
+            )
+        }
+    }
+}

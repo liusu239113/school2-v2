@@ -16,6 +16,7 @@ import com.arktools.xiaozhang.domain.engine.HealthReport
 import com.arktools.xiaozhang.domain.engine.HealthStatus
 import com.arktools.xiaozhang.domain.engine.SemesterCalendar
 import com.arktools.xiaozhang.domain.notification.NotificationManager
+import com.arktools.xiaozhang.domain.policy.SchoolPolicyManager
 import com.arktools.xiaozhang.domain.suggestion.SuggestionBoxManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +35,8 @@ class OverviewViewModel @Inject constructor(
     private val researchRepository: ResearchRepository,
     private val gameOverDetector: GameOverDetector,
     private val notificationManager: NotificationManager,
-    private val suggestionBoxManager: SuggestionBoxManager
+    private val suggestionBoxManager: SuggestionBoxManager,
+    private val policyManager: SchoolPolicyManager
 ) : ViewModel() {
 
     data class SchoolOverviewStats(
@@ -70,7 +72,10 @@ class OverviewViewModel @Inject constructor(
         val avgCourseQuality: Float = 0f,
         val topCourseQuality: Float = 0f,
         val totalCourseRevenue: Double = 0.0,
-        val coursePreparingCount: Int = 0
+        val coursePreparingCount: Int = 0,
+        val annualGoalName: String = "均衡发展",
+        val foundedCollegeNames: List<String> = emptyList(),
+        val collegeMonthlyCost: Double = 0.0
     )
 
     private val _schoolStats = MutableStateFlow(SchoolOverviewStats())
@@ -91,8 +96,9 @@ class OverviewViewModel @Inject constructor(
                 schoolRepository.getSchoolFlow(),
                 courseRepository.getCoursesFlow(),
                 teacherRepository.getTeachersFlow(),
-                studentRepository.observeActiveStudentCount()
-            ) { school, courses, teachers, activeStudentCount ->
+                studentRepository.observeActiveStudentCount(),
+                policyManager.policies
+            ) { school, courses, teachers, activeStudentCount, _ ->
                 if (school == null) return@combine SchoolOverviewStats()
 
                 val releasedCourses = courses.filter { it.status == CourseStatus.RELEASED }
@@ -151,6 +157,7 @@ class OverviewViewModel @Inject constructor(
                     .distinct()
                     .count { roleName -> Subject.entries.any { it.name == roleName } }
 
+                val policyEffects = policyManager.getPolicyEffects()
                 SchoolOverviewStats(
                     totalStudents = totalStudents,
                     monthlyNewStudents = monthlyNew,
@@ -180,7 +187,10 @@ class OverviewViewModel @Inject constructor(
                     avgCourseQuality = avgCourseQuality,
                     topCourseQuality = topCourseQuality,
                     totalCourseRevenue = totalCourseRevenue,
-                    coursePreparingCount = coursePreparingCount
+                    coursePreparingCount = coursePreparingCount,
+                    annualGoalName = policyEffects.annualGoalName,
+                    foundedCollegeNames = policyEffects.foundedCollegeNames,
+                    collegeMonthlyCost = policyEffects.monthlySpecialBudgetCost
                 )
             }.collect { stats ->
                 _schoolStats.value = stats
@@ -227,6 +237,14 @@ class OverviewViewModel @Inject constructor(
         val nextUnlocks = com.arktools.xiaozhang.domain.engine.GameBalanceConfig.getNextStageUnlocks(stats.campusLevel)
         if (nextUnlocks.isNotEmpty()) {
             tips.add("升到校园${stats.campusLevel + 1}级将开放：${nextUnlocks.take(3).joinToString("、") { it.displayName }}")
+        }
+        if (stats.foundedCollegeNames.isEmpty()) {
+            tips.add("政策页可以成立人文学院，立刻花钱、每月持续开支，但会稳住招生和校园氛围")
+        } else if (stats.campusLevel >= 2 && stats.foundedCollegeNames.none { it.contains("理") }) {
+            tips.add("理学院会加快科研，适合把学年目标定为科研突破")
+        }
+        if (stats.currentMonth in 4..6) {
+            tips.add("6月会按「${stats.annualGoalName}」考核。达标有拨款，未达标扣声誉")
         }
 
         if (tips.isEmpty()) {

@@ -454,6 +454,40 @@ class GameEngine @Inject constructor(
         }
     }
 
+    suspend fun foundCollege(type: com.arktools.xiaozhang.domain.policy.CollegeType): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+                return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            val snapshot = policyManager.toJson()
+            var foundedName = type.displayName
+            val committed = schoolRepository.mutateSchool { school ->
+                val preview = policyManager.previewFoundCollege(type, school.campusLevel, school.cash)
+                if (!preview.success) return@mutateSchool false
+                val result = policyManager.tryFoundCollege(type, school.campusLevel, school.cash)
+                if (!result.success) return@mutateSchool false
+                school.cash -= type.foundingCostWan
+                school.policyJson = policyManager.toJson()
+                foundedName = type.displayName
+                true
+            }
+            if (committed == null) {
+                policyManager.restoreFromJson(snapshot)
+                val school = schoolRepository.getSchool()
+                val preview = policyManager.previewFoundCollege(
+                    type,
+                    school?.campusLevel ?: 1,
+                    school?.cash ?: 0.0
+                )
+                return@withLock ManagedOperationResult(false, preview.message)
+            }
+            ManagedOperationResult(
+                true,
+                "已成立${foundedName}，投入 ${type.foundingCostWan.toInt()}万",
+                type.foundingCostWan
+            )
+        }
+
     suspend fun startAcademicConference(
         type: com.arktools.xiaozhang.domain.conference.ConferenceType,
         role: com.arktools.xiaozhang.domain.conference.ConferenceRole,
@@ -4397,6 +4431,11 @@ class GameEngine @Inject constructor(
                 val profit = monthlyRevenue - monthlyExpenses
                 val studentCount = studentRepository.getActiveStudentCount()
                 val researchCount = researchRepository.getUnlockedMethods().size
+                val satisfaction = studentRepository.getAverageSatisfaction()
+                val employmentRate = (
+                    employmentMarket.state.value.stats.employmentRate +
+                        effects.collegeEmploymentBonus
+                    ).coerceIn(0f, 1f)
                 val strongestLine = listOf(
                     "教学" to effects.teachingFocus,
                     "科研" to effects.researchFocus,
@@ -4408,15 +4447,51 @@ class GameEngine @Inject constructor(
                     profit >= 0 -> 20L
                     else -> 0L
                 }
+                val collegeText = if (effects.foundedCollegeNames.isEmpty()) {
+                    "尚未成立特色学院"
+                } else {
+                    "已建学院：${effects.foundedCollegeNames.joinToString("、")}"
+                }
                 emitEvent(
                     GameEvent.PositiveEvent(
                         title = "学年办学评估",
-                        message = "本学年方针「${effects.strategyName}」，专项预算偏向「${strongestLine.first}」。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
+                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
                         bonusCash = 0.0,
                         bonusReputation = reviewBonus
                     ),
                     school
                 )
+                val goalResult = policyManager.evaluateAnnualGoal(
+                    year = school.currentYear,
+                    campusLevel = school.campusLevel,
+                    students = studentCount,
+                    research = researchCount,
+                    reputation = school.reputation,
+                    satisfaction = satisfaction,
+                    employmentRate = employmentRate,
+                    profit = profit
+                )
+                if (goalResult.success) {
+                    emitEvent(
+                        GameEvent.PositiveEvent(
+                            title = goalResult.title,
+                            message = goalResult.detail,
+                            bonusCash = goalResult.cashDelta,
+                            bonusReputation = goalResult.reputationDelta
+                        ),
+                        school
+                    )
+                } else {
+                    emitEvent(
+                        GameEvent.NegativeEvent(
+                            title = goalResult.title,
+                            message = goalResult.detail,
+                            penaltyCash = 0.0,
+                            penaltyReputation = kotlin.math.abs(goalResult.reputationDelta)
+                        ),
+                        school
+                    )
+                }
             }
 
             checkNotNull(schoolRepository.mutateSchool { latest ->
@@ -5737,9 +5812,14 @@ class GameEngine @Inject constructor(
             val actualClassCount = plannedClasses.count {
                 it.gradeLevel == GradeLevel.GRADE_1
             }
+            val collegeNote = if (policyEffects.foundedCollegeNames.isEmpty()) {
+                "当前还没有特色学院，招生主要靠声誉和教室容量。"
+            } else {
+                "学院加成来自${policyEffects.foundedCollegeNames.joinToString("、")}。"
+            }
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学年开学",
-                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。",
+                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。$collegeNote",
                 bonusCash = 0.0,
                 bonusReputation = (assignedStudents.size / 10).toLong() + policyEffects.welfareReputationBonus
             ), school)
