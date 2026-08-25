@@ -2267,8 +2267,8 @@ class GameEngine @Inject constructor(
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学校成立",
                 message = "恭喜！${school.name}正式成立。\n" +
-                        "当务之急：招聘教师、招收学生。\n" +
-                        "三年后将迎来第一届高考，加油！",
+                        "当务之急：招聘教师、准备9月招生。\n" +
+                        "新生先按报考大类入学，大二进入专业，三年后毕业就业。",
                 bonusCash = 0.0,
                 bonusReputation = 0L
             ), school)
@@ -5730,9 +5730,13 @@ class GameEngine @Inject constructor(
                 dPhysical = (qualityFactor - 1f) * 10f,
                 dCreativity = (qualityFactor - 1f) * 10f
             )
+            val track = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickFreshmanTrack(
+                weights = policyManager.policies.value.admissionTrackPlan,
+                founded = policyManager.policies.value.collegeDevelopment.founded
+            )
             val student = Student(
                 name = StudentNameGenerator.generate(),
-                courseId = "GENERAL",  // 通识课程，不绑定具体课程
+                courseId = track.courseId,
                 traits = assignedTraits,
                 schoolId = school.id,
                 status = StudentStatus.ENROLLED,
@@ -5812,14 +5816,19 @@ class GameEngine @Inject constructor(
             val actualClassCount = plannedClasses.count {
                 it.gradeLevel == GradeLevel.GRADE_1
             }
+            val trackCounts = assignedStudents.groupingBy {
+                com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.parseTrack(it.courseId)?.displayName
+                    ?: "通识"
+            }.eachCount()
+            val trackNote = trackCounts.entries.joinToString("、") { "${it.key}${it.value}人" }
             val collegeNote = if (policyEffects.foundedCollegeNames.isEmpty()) {
-                "当前还没有特色学院，招生主要靠声誉和教室容量。"
+                "当前还没有特色学院，大二还不能进入专业。"
             } else {
-                "学院加成来自${policyEffects.foundedCollegeNames.joinToString("、")}。"
+                "已建学院：${policyEffects.foundedCollegeNames.joinToString("、")}。"
             }
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学年开学",
-                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。$collegeNote",
+                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。报考结构：$trackNote。$collegeNote",
                 bonusCash = 0.0,
                 bonusReputation = (assignedStudents.size / 10).toLong() + policyEffects.welfareReputationBonus
             ), school)
@@ -5984,6 +5993,43 @@ class GameEngine @Inject constructor(
             }
             check(committed) {
                 "Student year-end transaction rejected"
+            }
+            val majorUpdates = mutableMapOf<String, String>()
+            val founded = policyManager.policies.value.collegeDevelopment.founded
+            promotedStudents.forEach { student ->
+                if (student.gradeLevel != GradeLevel.GRADE_1) return@forEach
+                val track = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.parseTrack(student.courseId)
+                    ?: return@forEach
+                if (com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.parseMajor(student.courseId) != null) {
+                    return@forEach
+                }
+                val major = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickMajor(
+                    track = track,
+                    attributes = student.attributes,
+                    founded = founded
+                )
+                if (major != null) {
+                    majorUpdates[student.id] = major.courseId
+                }
+            }
+            if (majorUpdates.isNotEmpty()) {
+                studentRepository.updateStudentMajors(majorUpdates)
+                if (emitNotifications) {
+                    val byMajor = majorUpdates.values
+                        .map { com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.displayName(it) }
+                        .groupingBy { it }
+                        .eachCount()
+                    val detail = byMajor.entries.take(6).joinToString("、") { "${it.key}${it.value}人" }
+                    emitEvent(
+                        GameEvent.PositiveEvent(
+                            title = "大二分专业",
+                            message = "本届${majorUpdates.size}名大一学生进入专业：$detail。未建对应学院的学生会继续留在大类培养。",
+                            bonusCash = 0.0,
+                            bonusReputation = (majorUpdates.size / 12).toLong()
+                        ),
+                        school
+                    )
+                }
             }
         }
 
@@ -6351,14 +6397,14 @@ class GameEngine @Inject constructor(
                     if (shouldNotify && examConsequence != null) {
                         if (examConsequence.isPositive) {
                             deferEvent(GameEvent.PositiveEvent(
-                                title = "高考排名上升",
+                                title = "就业排名上升",
                                 message = examConsequence.description,
                                 bonusCash = 0.0,
                                 bonusReputation = 0
                             ))
                         } else {
                             deferEvent(GameEvent.NegativeEvent(
-                                title = "高考排名下滑",
+                                title = "就业排名下滑",
                                 message = examConsequence.description,
                                 penaltyCash = 0.0,
                                 penaltyReputation = 0
@@ -6371,7 +6417,7 @@ class GameEngine @Inject constructor(
                                 graduationYear
                             )
                         val message = buildString {
-                            append("本届${cohortStats.totalStudents}名考生高考放榜！\n")
+                            append("本届${cohortStats.totalStudents}名学生毕业就业放榜！\n")
                             append("今年录取线：${lines.formatForDisplay()}\n")
                             append("平均分${cohortStats.averageScore.toInt()}，")
                             append("最高分${cohortStats.highestScore.toInt()}。")
@@ -6389,7 +6435,7 @@ class GameEngine @Inject constructor(
                             }
                         }
                         emitEvent(GameEvent.PositiveEvent(
-                            title = "高考放榜",
+                            title = "毕业就业放榜",
                             message = message,
                             bonusCash = 0.0,
                             bonusReputation = 0

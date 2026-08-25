@@ -205,6 +205,32 @@ fun PolicyScreen(
 
         item {
             PolicySection(
+                title = "报考大类计划",
+                description = "共10点，决定9月新生先进入文史、理学、工学还是经管。大二再按学院进入具体专业。"
+            ) {
+                val plan = policies.admissionTrackPlan
+                Text(
+                    text = "已分配 ${plan.totalPoints()}/${com.arktools.xiaozhang.domain.model.AdmissionTrackPlan.TOTAL_POINTS} 点",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                com.arktools.xiaozhang.domain.model.AdmissionTrack.entries.forEach { track ->
+                    val value = plan.weightOf(track)
+                    AdmissionTrackRow(
+                        track = track,
+                        value = value,
+                        canIncrease = plan.totalPoints() < com.arktools.xiaozhang.domain.model.AdmissionTrackPlan.TOTAL_POINTS && value < com.arktools.xiaozhang.domain.model.AdmissionTrackPlan.TOTAL_POINTS,
+                        canDecrease = value > 0,
+                        onDecrease = { viewModel.adjustAdmissionTrack(track, -1) },
+                        onIncrease = { viewModel.adjustAdmissionTrack(track, 1) }
+                    )
+                }
+            }
+        }
+
+        item {
+            PolicySection(
                 title = "本学年目标",
                 description = "6月会按这项考核。达标给声誉和专项拨款，未达标扣声誉。"
             ) {
@@ -412,6 +438,44 @@ private fun BudgetLineRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(line.displayName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             Text(line.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = onDecrease, enabled = canDecrease) {
+            Text("-", fontWeight = FontWeight.Bold)
+        }
+        Text(
+            "$value",
+            modifier = Modifier.width(24.dp),
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall
+        )
+        IconButton(onClick = onIncrease, enabled = canIncrease) {
+            Text("+", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun AdmissionTrackRow(
+    track: com.arktools.xiaozhang.domain.model.AdmissionTrack,
+    value: Int,
+    canIncrease: Boolean,
+    canDecrease: Boolean,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("${track.icon} ${track.displayName}", fontWeight = FontWeight.SemiBold)
+            Text(
+                "${track.description} 对应${track.college.displayName}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         IconButton(onClick = onDecrease, enabled = canDecrease) {
             Text("-", fontWeight = FontWeight.Bold)

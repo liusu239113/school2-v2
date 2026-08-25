@@ -243,6 +243,9 @@ class AudioManager @Inject constructor(
     fun playEventNegative() = playSound(SoundType.EVENT_NEGATIVE)
     fun playMilestone() = playSound(SoundType.MILESTONE)
     fun playLevelUp() = playSound(SoundType.LEVEL_UP)
+    fun playStudentEnrolled() = playSound(SoundType.STUDENT_ENROLLED)
+    fun playBuildFacility() = playSound(SoundType.BUILD_FACILITY)
+    fun playReputationUp() = playSound(SoundType.REPUTATION_UP)
 
     /**
      * 释放资源。作为 @Singleton，正常情况下不应该被调用。

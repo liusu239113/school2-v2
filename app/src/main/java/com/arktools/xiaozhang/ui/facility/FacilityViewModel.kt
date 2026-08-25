@@ -98,7 +98,7 @@ class FacilityViewModel @Inject constructor(
                 true
             }
             if (result != null) {
-                audioManager.playCashLose()
+                audioManager.playBuildFacility()
                 gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
                 _uiState.value = _uiState.value.copy(message = "${type.displayName} 建设完成！")
             }

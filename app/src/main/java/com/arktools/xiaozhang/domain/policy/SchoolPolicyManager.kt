@@ -77,6 +77,10 @@ class SchoolPolicyManager @Inject constructor() {
         )
     }
 
+    fun setAdmissionTrackPlan(plan: com.arktools.xiaozhang.domain.model.AdmissionTrackPlan) {
+        _policies.value = _policies.value.copy(admissionTrackPlan = plan.normalized())
+    }
+
     fun previewFoundCollege(type: CollegeType, campusLevel: Int, cash: Double): ManagedCollegeResult {
         val current = _policies.value.collegeDevelopment
         if (current.founded.contains(type)) {
@@ -292,7 +296,11 @@ class SchoolPolicyManager @Inject constructor() {
                 lastReviewReputation = p.collegeDevelopment.lastReviewReputation,
                 lastReviewResearch = p.collegeDevelopment.lastReviewResearch,
                 lastReviewStudents = p.collegeDevelopment.lastReviewStudents,
-                lastReviewSatisfaction = p.collegeDevelopment.lastReviewSatisfaction
+                lastReviewSatisfaction = p.collegeDevelopment.lastReviewSatisfaction,
+                liberalTrackWeight = p.admissionTrackPlan.liberalWeight,
+                scienceTrackWeight = p.admissionTrackPlan.scienceWeight,
+                engineeringTrackWeight = p.admissionTrackPlan.engineeringWeight,
+                businessTrackWeight = p.admissionTrackPlan.businessWeight
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -330,7 +338,13 @@ class SchoolPolicyManager @Inject constructor() {
                     lastReviewResearch = data.lastReviewResearch,
                     lastReviewStudents = data.lastReviewStudents,
                     lastReviewSatisfaction = data.lastReviewSatisfaction
-                )
+                ),
+                admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
+                    liberalWeight = data.liberalTrackWeight,
+                    scienceWeight = data.scienceTrackWeight,
+                    engineeringWeight = data.engineeringTrackWeight,
+                    businessWeight = data.businessTrackWeight
+                ).normalized()
             )
             _policies.value = restoredPolicies
         } catch (e: Exception) {
@@ -351,7 +365,9 @@ data class SchoolPolicies(
     val enrollmentPlan: EnrollmentPlan = EnrollmentPlan.BALANCED,
     val universityStrategy: UniversityStrategy = UniversityStrategy.BALANCED,
     val budgetAllocation: BudgetAllocation = BudgetAllocation(),
-    val collegeDevelopment: CollegeDevelopment = CollegeDevelopment()
+    val collegeDevelopment: CollegeDevelopment = CollegeDevelopment(),
+    val admissionTrackPlan: com.arktools.xiaozhang.domain.model.AdmissionTrackPlan =
+        com.arktools.xiaozhang.domain.model.AdmissionTrackPlan()
 )
 
 /**
@@ -634,7 +650,11 @@ data class PolicyPersistData(
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,
     val lastReviewStudents: Int = 0,
-    val lastReviewSatisfaction: Float = 0f
+    val lastReviewSatisfaction: Float = 0f,
+    val liberalTrackWeight: Int = 3,
+    val scienceTrackWeight: Int = 3,
+    val engineeringTrackWeight: Int = 2,
+    val businessTrackWeight: Int = 2
 )
 
 data class ManagedCollegeResult(

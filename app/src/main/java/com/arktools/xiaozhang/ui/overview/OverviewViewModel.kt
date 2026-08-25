@@ -239,9 +239,12 @@ class OverviewViewModel @Inject constructor(
             tips.add("升到校园${stats.campusLevel + 1}级将开放：${nextUnlocks.take(3).joinToString("、") { it.displayName }}")
         }
         if (stats.foundedCollegeNames.isEmpty()) {
-            tips.add("政策页可以成立人文学院，立刻花钱、每月持续开支，但会稳住招生和校园氛围")
+            tips.add("9月新生先按报考大类入学。成立人文学院后，大二才能进入汉语言、历史、哲学等专业")
         } else if (stats.campusLevel >= 2 && stats.foundedCollegeNames.none { it.contains("理") }) {
-            tips.add("理学院会加快科研，适合把学年目标定为科研突破")
+            tips.add("理学院会让理学大类在大二进入数学、物理、化学专业，并加快科研")
+        }
+        if (stats.currentMonth == 9) {
+            tips.add("招生季到了。政策页的报考大类计划会决定文史、理学、工学、经管各招多少人")
         }
         if (stats.currentMonth in 4..6) {
             tips.add("6月会按「${stats.annualGoalName}」考核。达标有拨款，未达标扣声誉")

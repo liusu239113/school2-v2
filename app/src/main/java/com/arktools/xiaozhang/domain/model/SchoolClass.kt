@@ -42,7 +42,7 @@ data class SchoolClass(
     val createdYear: Int = 0,
     val createdMonth: Int = 0
 ) {
-    /** 班级名称，如 "高一(1)班·火箭班" */
+    /** 班级名称，如 "大一(1)班·火箭班" */
     val displayName: String
         get() = "${gradeLevel.displayName}(${classNumber})班·${classTier.displayName}"
 
@@ -81,9 +81,9 @@ enum class GradeLevel(
     val order: Int,          // 排序用 (1=高一, 2=高二, 3=高三)
     val isGraduating: Boolean // 是否为毕业年级
 ) {
-    GRADE_1("高一", 1, false),
-    GRADE_2("高二", 2, false),
-    GRADE_3("高三", 3, true);
+    GRADE_1("大一", 1, false),
+    GRADE_2("大二", 2, false),
+    GRADE_3("大三", 3, true);
 
     /** 升入下一年级 (高三无法再升) */
     val nextGrade: GradeLevel?

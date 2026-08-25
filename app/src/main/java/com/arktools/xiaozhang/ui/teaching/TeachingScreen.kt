@@ -92,7 +92,7 @@ fun TeachingScreen(
         item { IntensitySection(viewModel, state) }
 
         // === 文理方向 ===
-        item { SectionTitle("文理方向（高二起生效）") }
+        item { SectionTitle("培养方向（大二起进入专业）") }
         item { SubjectTrackSection(viewModel, state) }
 
         // === 作息政策 ===

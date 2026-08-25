@@ -122,12 +122,14 @@ class StudentViewModel @Inject constructor(
             val students = _uiState.value.activeStudents + _uiState.value.recentGraduates
             students.forEach { student ->
                 val classInfo = classes.find { it.id == student.classId }
-                val gradeName = student.gradeLevel.displayName
                 val className = classInfo?.displayName ?: "未分班"
-                nameMap[student.courseId] = "$gradeName"  // courseId 分组时显示年级
-                nameMap[student.id] = "$gradeName · $className"  // 学生维度显示详细
+                val path = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(
+                    student.gradeLevel,
+                    student.courseId
+                )
+                nameMap[student.courseId] = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.displayName(student.courseId)
+                nameMap[student.id] = "$path · $className"
             }
-            // 确保 "GENERAL" courseId 有默认名
             nameMap["GENERAL"] = "大学通识"
             _uiState.value = _uiState.value.copy(courseNames = nameMap)
         }
@@ -179,14 +181,21 @@ class StudentViewModel @Inject constructor(
         return baseList.filter { student ->
             student.name.lowercase().contains(query) ||
                 student.traits.any { it.displayName.lowercase().contains(query) } ||
-                student.gradeLevel.displayName.lowercase().contains(query)
+                student.gradeLevel.displayName.lowercase().contains(query) ||
+                com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.displayName(student.courseId)
+                    .lowercase().contains(query) ||
+                com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.collegeName(student.courseId)
+                    .lowercase().contains(query)
         }
     }
 
     fun getGroupedStudents(): Map<String, List<Student>> {
         val students = getFilteredStudents()
         return students.groupBy { student ->
-            student.gradeLevel.displayName
+            com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(
+                student.gradeLevel,
+                student.courseId
+            )
         }
     }
 

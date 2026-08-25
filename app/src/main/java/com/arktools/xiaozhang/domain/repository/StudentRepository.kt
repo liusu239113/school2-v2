@@ -98,6 +98,7 @@ interface StudentRepository {
         processingYear: Int,
         classTierMapJson: String
     ): Boolean
+    suspend fun updateStudentMajors(updates: Map<String, String>): Int
 
     // ======= 清理 =======
     suspend fun deleteAll()

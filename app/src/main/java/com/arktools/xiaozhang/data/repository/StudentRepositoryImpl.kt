@@ -457,6 +457,17 @@ class StudentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateStudentMajors(updates: Map<String, String>): Int {
+        val schoolId = settingsDataStore.getSchoolId()
+        if (schoolId.isBlank() || updates.isEmpty()) return 0
+        var changed = 0
+        updates.forEach { (studentId, courseId) ->
+            if (studentId.isBlank() || courseId.isBlank()) return@forEach
+            changed += studentDao.updateStudentCourseId(schoolId, studentId, courseId)
+        }
+        return changed
+    }
+
     // ======= 清理 =======
 
     override suspend fun deleteAll() {

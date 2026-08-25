@@ -347,6 +347,17 @@ interface StudentDao {
     ): Int
 
     @Query(
+        "UPDATE students SET courseId = :courseId " +
+            "WHERE schoolId = :schoolId AND id = :studentId " +
+            "AND status IN ('ENROLLED', 'STUDYING')"
+    )
+    suspend fun updateStudentCourseId(
+        schoolId: String,
+        studentId: String,
+        courseId: String
+    ): Int
+
+    @Query(
         "UPDATE students SET " +
             "gradeLevel = CASE WHEN :newGradeLevel IS NULL " +
             "THEN gradeLevel ELSE :newGradeLevel END, " +

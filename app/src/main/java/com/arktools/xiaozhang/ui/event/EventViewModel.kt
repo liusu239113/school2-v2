@@ -336,7 +336,12 @@ class EventViewModel @Inject constructor(
                 val isGraduationNews = event.title.contains("毕业生喜讯")
                 val isInspirationEvent = event.title.contains("灵感")
                 val isClubEvent = event.title.contains("社团")
-                if (isGraduationNews || isInspirationEvent || isClubEvent || isLowImpact) {
+                val isEnrollmentNews = event.title.contains("新学年开学") || event.title.contains("大二分专业")
+                if (isGraduationNews || isInspirationEvent || isClubEvent) {
+                    false
+                } else if (isEnrollmentNews) {
+                    true
+                } else if (isLowImpact) {
                     false
                 } else {
                     event.bonusCash > 0.0 || event.bonusReputation > 0L || event.bonusTeacherSkill > 0
@@ -358,7 +363,13 @@ class EventViewModel @Inject constructor(
     private suspend fun applyEventEffects(event: GameEvent) {
         when (event) {
             is GameEvent.PositiveEvent -> {
-                audioManager.playEventPositive()
+                when {
+                    event.title.contains("新学年开学") || event.title.contains("大二分专业") ->
+                        audioManager.playStudentEnrolled()
+                    event.title.contains("学年目标达成") || event.title.contains("毕业就业放榜") ->
+                        audioManager.playReputationUp()
+                    else -> audioManager.playEventPositive()
+                }
                 if (event.bonusCash > 0.0 || event.bonusReputation > 0L) {
                     // 原子操作：现金和声望变更在同一事务中完成
                     // 设施加成：礼堂的 eventRewardBonus 提升事件奖励

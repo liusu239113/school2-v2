@@ -2,6 +2,7 @@ package com.arktools.xiaozhang.ui.policy
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arktools.xiaozhang.audio.AudioManager
 import com.arktools.xiaozhang.domain.engine.GameEngine
 import com.arktools.xiaozhang.domain.engine.SchoolDecision
 import com.arktools.xiaozhang.domain.policy.*
@@ -15,7 +16,8 @@ import com.arktools.xiaozhang.util.safeLaunch
 @HiltViewModel
 class PolicyViewModel @Inject constructor(
     private val policyManager: SchoolPolicyManager,
-    private val gameEngine: GameEngine
+    private val gameEngine: GameEngine,
+    private val audioManager: AudioManager
 ) : ViewModel() {
 
     val policies: StateFlow<SchoolPolicies> = policyManager.policies
@@ -55,10 +57,20 @@ class PolicyViewModel @Inject constructor(
         policyManager.setBudgetAllocation(next)
     }
     fun setAnnualGoal(goal: AnnualGoal) = policyManager.setAnnualGoal(goal)
+    fun adjustAdmissionTrack(track: com.arktools.xiaozhang.domain.model.AdmissionTrack, delta: Int) {
+        val next = policyManager.policies.value.admissionTrackPlan.adjust(track, delta)
+        policyManager.setAdmissionTrackPlan(next)
+    }
     fun foundCollege(type: CollegeType) {
         viewModelScope.safeLaunch {
             val result = gameEngine.foundCollege(type)
             _operationMessage.value = result.message
+            if (result.success) {
+                audioManager.playBuildFacility()
+                gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
+            } else {
+                audioManager.playEventNegative()
+            }
         }
     }
     fun consumeOperationMessage() {

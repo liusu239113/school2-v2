@@ -249,7 +249,11 @@ private fun StudentManageContent(viewModel: StudentViewModel) {
                         items(students, key = { it.id }) { student ->
                             StudentCard(
                                 student = student,
-                                courseName = student.gradeLevel.displayName,
+                                courseName = uiState.courseNames[student.id]
+                                    ?: com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(
+                                        student.gradeLevel,
+                                        student.courseId
+                                    ),
                                 showCourseName = false,
                                 onClick = { viewModel.selectStudent(student) }
                             )
@@ -266,7 +270,11 @@ private fun StudentManageContent(viewModel: StudentViewModel) {
                 items(filteredStudents, key = { it.id }) { student ->
                     StudentCard(
                         student = student,
-                        courseName = student.gradeLevel.displayName,
+                        courseName = uiState.courseNames[student.id]
+                            ?: com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(
+                                student.gradeLevel,
+                                student.courseId
+                            ),
                         showCourseName = true,
                         onClick = { viewModel.selectStudent(student) }
                     )
@@ -283,7 +291,11 @@ private fun StudentManageContent(viewModel: StudentViewModel) {
         ) {
             StudentDetailSheet(
                 student = student,
-                courseName = student.gradeLevel.displayName,
+                courseName = uiState.courseNames[student.id]
+                    ?: com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(
+                        student.gradeLevel,
+                        student.courseId
+                    ),
                 latestScores = viewModel.getStudentLatestScores(student.id)
             )
         }
@@ -1036,7 +1048,11 @@ private fun StudentDetailWithRadar(student: Student) {
         }
 
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = "${student.gradeLevel.displayName} | 家庭: ${student.backgroundTier.displayName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = "${com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(student.gradeLevel, student.courseId)} | 家庭: ${student.backgroundTier.displayName}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = "五维属性", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
