@@ -41,6 +41,7 @@ class PolicyViewModel @Inject constructor(
         }
     }
     fun setAdmissionPolicy(policy: AdmissionPolicy) = policyManager.setAdmissionPolicy(policy)
+    fun setEnrollmentPlan(plan: EnrollmentPlan) = policyManager.setEnrollmentPlan(plan)
 
     fun getPolicyEffects(): PolicyEffects = policyManager.getPolicyEffects()
     fun resetToDefaults() = policyManager.resetToDefaults()

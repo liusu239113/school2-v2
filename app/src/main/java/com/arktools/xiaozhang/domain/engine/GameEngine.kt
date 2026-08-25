@@ -50,6 +50,7 @@ import com.arktools.xiaozhang.domain.repository.StudentRepository
 import com.arktools.xiaozhang.domain.repository.StudentYearEndTransition
 import com.arktools.xiaozhang.domain.repository.TeacherDevelopmentProfileUpdate
 import com.arktools.xiaozhang.domain.repository.TeacherRepository
+import com.arktools.xiaozhang.domain.policy.EnrollmentPlan
 import com.arktools.xiaozhang.data.pref.SettingsDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -5551,15 +5552,41 @@ class GameEngine @Inject constructor(
         val existingGradeOneCount = studentRepository.getGradeStudentCount(GradeLevel.GRADE_1)
         val enrollCount = (targetEnrollCount - existingGradeOneCount).coerceAtLeast(0)
 
-        // 6. 生成新生
+        val plan = policyManager.policies.value.enrollmentPlan
+        val planName = plan.displayName
+        val qualityFactor = policyEffects.enrollmentQualityMultiplier
+        val specialFactor = policyEffects.specialTalentMultiplier
+        val welfareBackground = if (plan == EnrollmentPlan.PUBLIC_WELFARE) {
+            BackgroundTier.POOR
+        } else null
+
+        // 6. 生成新生：招生定位改变生源结构，不改变 Student 数据模型。
         val newStudents = mutableListOf<Student>()
         repeat(enrollCount) {
-            val assignedTraits = StudentTraitAssigner.assignTraits()
-            val background = BackgroundTier.randomByProbability()
+            val baseTraits = StudentTraitAssigner.assignTraits()
+            val assignedTraits = if (
+                specialFactor > 1f && Random.nextFloat() < 0.20f * specialFactor
+            ) {
+                (baseTraits + listOf(
+                    com.arktools.xiaozhang.domain.model.StudentTrait.ARTISTIC,
+                    com.arktools.xiaozhang.domain.model.StudentTrait.ATHLETIC,
+                    com.arktools.xiaozhang.domain.model.StudentTrait.COMPETITIVE
+                ).random()).distinct()
+            } else {
+                baseTraits
+            }
+            val background = if (
+                welfareBackground != null && Random.nextFloat() < 0.55f
+            ) welfareBackground else BackgroundTier.randomByProbability()
             val initialAttributes = StudentAttributes.generateForNewStudent(background)
+            val qualityAttributes = initialAttributes.applyDelta(
+                dIntelligence = (qualityFactor - 1f) * 20f,
+                dPhysical = (qualityFactor - 1f) * 10f,
+                dCreativity = (qualityFactor - 1f) * 10f
+            )
             val student = Student(
                 name = StudentNameGenerator.generate(),
-                courseId = "GENERAL",  // 高中通识，不再绑定具体课程
+                courseId = "GENERAL",  // 通识课程，不绑定具体课程
                 traits = assignedTraits,
                 schoolId = school.id,
                 status = StudentStatus.ENROLLED,
@@ -5567,7 +5594,7 @@ class GameEngine @Inject constructor(
                 enrollYear = school.currentYear,
                 enrollMonth = school.currentMonth,
                 gradeLevel = GradeLevel.GRADE_1,
-                attributes = initialAttributes,
+                attributes = qualityAttributes,
                 backgroundTier = background,
                 healthStatus = HealthStatus.HEALTHY,
                 mealQuality = 50f,
@@ -5635,15 +5662,16 @@ class GameEngine @Inject constructor(
                 return
             }
 
+            val plan = policyManager.policies.value.enrollmentPlan
             // 招生通知事件
             val actualClassCount = plannedClasses.count {
                 it.gradeLevel == GradeLevel.GRADE_1
             }
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学年开学",
-                message = "本届补招${assignedStudents.size}名高一新生，当前高一共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。",
+                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。",
                 bonusCash = 0.0,
-                bonusReputation = (assignedStudents.size / 10).toLong()
+                bonusReputation = (assignedStudents.size / 10).toLong() + policyEffects.welfareReputationBonus
             ), school)
 
             // P0-6: 最低招生线检查

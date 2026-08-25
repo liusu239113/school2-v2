@@ -135,6 +135,24 @@ fun PolicyScreen(
             }
         }
 
+        // 年度招生定位：招生数量、生源质量和社会责任的取舍
+        item {
+            PolicySection(
+                title = "年度招生定位",
+                description = "每年招生季生效，影响规模、生源质量与长期口碑"
+            ) {
+                EnrollmentPlan.entries.forEach { plan ->
+                    PolicyOption(
+                        icon = plan.icon,
+                        name = plan.displayName,
+                        description = plan.description,
+                        isSelected = policies.enrollmentPlan == plan,
+                        onClick = { viewModel.setEnrollmentPlan(plan) }
+                    )
+                }
+            }
+        }
+
         // 重置按钮
         item {
             OutlinedButton(

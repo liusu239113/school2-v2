@@ -57,6 +57,13 @@ class SchoolPolicyManager @Inject constructor() {
     }
 
     /**
+     * 更新年度招生定位
+     */
+    fun setEnrollmentPlan(plan: EnrollmentPlan) {
+        _policies.value = _policies.value.copy(enrollmentPlan = plan)
+    }
+
+    /**
      * 获取所有政策的综合效果
      */
     fun getPolicyEffects(): PolicyEffects {
@@ -69,7 +76,10 @@ class SchoolPolicyManager @Inject constructor() {
             reputationModifier = calculateReputationModifier(p),
             expenseMultiplier = calculateExpenseMultiplier(p),
             dropoutRateModifier = calculateDropoutModifier(p),
-            graduationQualityBonus = calculateGraduationBonus(p)
+            graduationQualityBonus = calculateGraduationBonus(p),
+            enrollmentQualityMultiplier = p.enrollmentPlan.qualityMultiplier,
+            specialTalentMultiplier = p.enrollmentPlan.specialTalentMultiplier,
+            welfareReputationBonus = p.enrollmentPlan.welfareReputationBonus
         )
     }
 
@@ -78,8 +88,9 @@ class SchoolPolicyManager @Inject constructor() {
         // 学费越高，报名意愿越低
         mult *= p.tuitionLevel.enrollmentMultiplier
         // 奖学金招生加成已在 ScholarshipManager.getEnrollmentBonus() 中应用
-        // 宽松招生提高数量
+        // 基础招生政策与年度招生定位叠加
         mult *= p.admissionPolicy.enrollmentMultiplier
+        mult *= p.enrollmentPlan.enrollmentMultiplier
         return mult
     }
 
@@ -153,7 +164,8 @@ class SchoolPolicyManager @Inject constructor() {
                 examDifficulty = p.examDifficulty.name,
                 teacherPayPolicy = p.teacherPayPolicy.name,
                 extracurricularPolicy = p.extracurricularPolicy.name,
-                admissionPolicy = p.admissionPolicy.name
+                admissionPolicy = p.admissionPolicy.name,
+                enrollmentPlan = p.enrollmentPlan.name
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -168,7 +180,8 @@ class SchoolPolicyManager @Inject constructor() {
                 examDifficulty = try { ExamDifficulty.valueOf(data.examDifficulty) } catch (_: Exception) { ExamDifficulty.MODERATE },
                 teacherPayPolicy = try { TeacherPayPolicy.valueOf(data.teacherPayPolicy) } catch (_: Exception) { TeacherPayPolicy.COMPETITIVE },
                 extracurricularPolicy = try { ExtracurricularPolicy.valueOf(data.extracurricularPolicy) } catch (_: Exception) { ExtracurricularPolicy.STANDARD },
-                admissionPolicy = try { AdmissionPolicy.valueOf(data.admissionPolicy) } catch (_: Exception) { AdmissionPolicy.BALANCED }
+                admissionPolicy = try { AdmissionPolicy.valueOf(data.admissionPolicy) } catch (_: Exception) { AdmissionPolicy.BALANCED },
+                enrollmentPlan = try { EnrollmentPlan.valueOf(data.enrollmentPlan) } catch (_: Exception) { EnrollmentPlan.BALANCED }
             )
             _policies.value = restoredPolicies
         } catch (e: Exception) {
@@ -185,8 +198,8 @@ data class SchoolPolicies(
     val examDifficulty: ExamDifficulty = ExamDifficulty.MODERATE,
     val teacherPayPolicy: TeacherPayPolicy = TeacherPayPolicy.COMPETITIVE,
     val extracurricularPolicy: ExtracurricularPolicy = ExtracurricularPolicy.STANDARD,
-    val admissionPolicy: AdmissionPolicy = AdmissionPolicy.BALANCED
-)
+    val admissionPolicy: AdmissionPolicy = AdmissionPolicy.BALANCED,
+    val enrollmentPlan: EnrollmentPlan = EnrollmentPlan.BALANCED)
 
 /**
  * 学费等级
@@ -308,6 +321,25 @@ enum class AdmissionPolicy(
 }
 
 /**
+ * 年度招生定位：在招生数量、生源质量与社会责任之间取舍。
+ */
+enum class EnrollmentPlan(
+    val displayName: String,
+    val icon: String,
+    val description: String,
+    val enrollmentMultiplier: Float,
+    val qualityMultiplier: Float,
+    val specialTalentMultiplier: Float,
+    val welfareReputationBonus: Long
+) {
+    BALANCED("均衡招生", "⚖️", "平衡规模、质量和收入，适合常规经营。", 1.00f, 1.00f, 1.00f, 0L),
+    SCALE_FIRST("规模扩张", "📈", "优先扩大生源规模，但平均生源质量略低。", 1.15f, 0.92f, 1.00f, -2L),
+    QUALITY_FIRST("质量优先", "🎓", "减少招生数量，提升高潜力生源比例和毕业质量。", 0.80f, 1.15f, 1.00f, 8L),
+    SPECIAL_TALENT("特长生优先", "🏅", "重点吸引艺术、体育和竞赛特长生。", 0.90f, 1.03f, 1.60f, 5L),
+    PUBLIC_WELFARE("公益招生", "🤝", "扩大困难家庭学生机会，换取社会声誉和公共评价。", 0.95f, 0.98f, 1.00f, 15L)
+}
+
+/**
  * 政策效果汇总
  */
 data class PolicyEffects(
@@ -318,8 +350,10 @@ data class PolicyEffects(
     val reputationModifier: Long = 0L,
     val expenseMultiplier: Float = 1f,
     val dropoutRateModifier: Float = 0f,
-    val graduationQualityBonus: Float = 0f
-)
+    val graduationQualityBonus: Float = 0f,
+    val enrollmentQualityMultiplier: Float = 1f,
+    val specialTalentMultiplier: Float = 1f,
+    val welfareReputationBonus: Long = 0L)
 
 @Serializable
 data class PolicyPersistData(
@@ -327,5 +361,5 @@ data class PolicyPersistData(
     val examDifficulty: String = "MODERATE",
     val teacherPayPolicy: String = "COMPETITIVE",
     val extracurricularPolicy: String = "STANDARD",
-    val admissionPolicy: String = "BALANCED"
-)
+    val admissionPolicy: String = "BALANCED",
+    val enrollmentPlan: String = "BALANCED")
