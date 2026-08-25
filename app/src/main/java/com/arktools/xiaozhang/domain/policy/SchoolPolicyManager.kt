@@ -63,6 +63,10 @@ class SchoolPolicyManager @Inject constructor() {
         _policies.value = _policies.value.copy(enrollmentPlan = plan)
     }
 
+    fun setUniversityStrategy(strategy: UniversityStrategy) {
+        _policies.value = _policies.value.copy(universityStrategy = strategy)
+    }
+
     /**
      * 获取所有政策的综合效果
      */
@@ -79,7 +83,9 @@ class SchoolPolicyManager @Inject constructor() {
             graduationQualityBonus = calculateGraduationBonus(p),
             enrollmentQualityMultiplier = p.enrollmentPlan.qualityMultiplier,
             specialTalentMultiplier = p.enrollmentPlan.specialTalentMultiplier,
-            welfareReputationBonus = p.enrollmentPlan.welfareReputationBonus
+            welfareReputationBonus = p.enrollmentPlan.welfareReputationBonus,
+            extraResearchDays = p.universityStrategy.extraResearchDays,
+            strategyName = p.universityStrategy.displayName
         )
     }
 
@@ -91,6 +97,7 @@ class SchoolPolicyManager @Inject constructor() {
         // 基础招生政策与年度招生定位叠加
         mult *= p.admissionPolicy.enrollmentMultiplier
         mult *= p.enrollmentPlan.enrollmentMultiplier
+        mult *= p.universityStrategy.enrollmentMultiplier
         return mult
     }
 
@@ -100,6 +107,7 @@ class SchoolPolicyManager @Inject constructor() {
         mult *= p.teacherPayPolicy.qualityBonus
         // 考试难度影响教学严格程度
         mult *= p.examDifficulty.qualityMultiplier
+        mult *= p.universityStrategy.qualityMultiplier
         return mult
     }
 
@@ -126,6 +134,7 @@ class SchoolPolicyManager @Inject constructor() {
         mod += p.admissionPolicy.reputationModifier
         // 丰富课外 = 声誉+
         mod += p.extracurricularPolicy.reputationBonus
+        mod += p.universityStrategy.reputationModifier
         return mod
     }
 
@@ -134,6 +143,7 @@ class SchoolPolicyManager @Inject constructor() {
         // 教师薪资倍率已在 GameEngine.deductMonthlyExpenses 中单独应用于薪资部分
         // 课外活动开销
         mult *= p.extracurricularPolicy.expenseMultiplier
+        mult *= p.universityStrategy.expenseMultiplier
         return mult
     }
 
@@ -149,7 +159,7 @@ class SchoolPolicyManager @Inject constructor() {
     }
 
     private fun calculateGraduationBonus(p: SchoolPolicies): Float {
-        return p.examDifficulty.graduationBonus
+        return p.examDifficulty.graduationBonus + p.universityStrategy.graduationQualityBonus
     }
 
     fun resetToDefaults() {
@@ -165,7 +175,8 @@ class SchoolPolicyManager @Inject constructor() {
                 teacherPayPolicy = p.teacherPayPolicy.name,
                 extracurricularPolicy = p.extracurricularPolicy.name,
                 admissionPolicy = p.admissionPolicy.name,
-                enrollmentPlan = p.enrollmentPlan.name
+                enrollmentPlan = p.enrollmentPlan.name,
+                universityStrategy = p.universityStrategy.name
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -181,7 +192,8 @@ class SchoolPolicyManager @Inject constructor() {
                 teacherPayPolicy = try { TeacherPayPolicy.valueOf(data.teacherPayPolicy) } catch (_: Exception) { TeacherPayPolicy.COMPETITIVE },
                 extracurricularPolicy = try { ExtracurricularPolicy.valueOf(data.extracurricularPolicy) } catch (_: Exception) { ExtracurricularPolicy.STANDARD },
                 admissionPolicy = try { AdmissionPolicy.valueOf(data.admissionPolicy) } catch (_: Exception) { AdmissionPolicy.BALANCED },
-                enrollmentPlan = try { EnrollmentPlan.valueOf(data.enrollmentPlan) } catch (_: Exception) { EnrollmentPlan.BALANCED }
+                enrollmentPlan = try { EnrollmentPlan.valueOf(data.enrollmentPlan) } catch (_: Exception) { EnrollmentPlan.BALANCED },
+                universityStrategy = try { UniversityStrategy.valueOf(data.universityStrategy) } catch (_: Exception) { UniversityStrategy.BALANCED }
             )
             _policies.value = restoredPolicies
         } catch (e: Exception) {
@@ -199,7 +211,9 @@ data class SchoolPolicies(
     val teacherPayPolicy: TeacherPayPolicy = TeacherPayPolicy.COMPETITIVE,
     val extracurricularPolicy: ExtracurricularPolicy = ExtracurricularPolicy.STANDARD,
     val admissionPolicy: AdmissionPolicy = AdmissionPolicy.BALANCED,
-    val enrollmentPlan: EnrollmentPlan = EnrollmentPlan.BALANCED)
+    val enrollmentPlan: EnrollmentPlan = EnrollmentPlan.BALANCED,
+    val universityStrategy: UniversityStrategy = UniversityStrategy.BALANCED
+)
 
 /**
  * 学费等级
@@ -340,6 +354,27 @@ enum class EnrollmentPlan(
 }
 
 /**
+ * 年度办学方针：教学、科研、就业、扩张之间的长期取舍。
+ */
+enum class UniversityStrategy(
+    val displayName: String,
+    val icon: String,
+    val description: String,
+    val qualityMultiplier: Float,
+    val enrollmentMultiplier: Float,
+    val expenseMultiplier: Float,
+    val reputationModifier: Long,
+    val graduationQualityBonus: Float,
+    val extraResearchDays: Int
+) {
+    BALANCED("均衡办学", "⚖️", "教学、科研、就业和扩张同步推进。", 1.00f, 1.00f, 1.00f, 0L, 0f, 0),
+    TEACHING_FIRST("教学优先", "📚", "强化课堂质量，科研推进稍慢。", 1.12f, 0.97f, 1.04f, 4L, 0.04f, 0),
+    RESEARCH_FIRST("科研优先", "🔬", "加快研究进度，日常教学略受挤压。", 0.94f, 0.96f, 1.08f, 6L, 0.02f, 1),
+    EMPLOYMENT_FIRST("就业优先", "💼", "重视毕业出口和社会评价，招生更稳。", 1.02f, 1.04f, 1.03f, 8L, 0.06f, 0),
+    EXPANSION_FIRST("扩张优先", "🏗️", "扩大规模和容量，短期质量承压。", 0.92f, 1.10f, 1.10f, -2L, -0.02f, 0)
+}
+
+/**
  * 政策效果汇总
  */
 data class PolicyEffects(
@@ -353,7 +388,10 @@ data class PolicyEffects(
     val graduationQualityBonus: Float = 0f,
     val enrollmentQualityMultiplier: Float = 1f,
     val specialTalentMultiplier: Float = 1f,
-    val welfareReputationBonus: Long = 0L)
+    val welfareReputationBonus: Long = 0L,
+    val extraResearchDays: Int = 0,
+    val strategyName: String = "均衡办学"
+)
 
 @Serializable
 data class PolicyPersistData(
@@ -362,4 +400,6 @@ data class PolicyPersistData(
     val teacherPayPolicy: String = "COMPETITIVE",
     val extracurricularPolicy: String = "STANDARD",
     val admissionPolicy: String = "BALANCED",
-    val enrollmentPlan: String = "BALANCED")
+    val enrollmentPlan: String = "BALANCED",
+    val universityStrategy: String = "BALANCED"
+)

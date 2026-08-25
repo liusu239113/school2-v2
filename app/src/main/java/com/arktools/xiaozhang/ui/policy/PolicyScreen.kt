@@ -135,6 +135,24 @@ fun PolicyScreen(
             }
         }
 
+        // 年度办学方针：教学、科研、就业、扩张之间的长期取舍
+        item {
+            PolicySection(
+                title = "年度办学方针",
+                description = "决定本学年把资源压到哪条经营线上"
+            ) {
+                UniversityStrategy.entries.forEach { strategy ->
+                    PolicyOption(
+                        icon = strategy.icon,
+                        name = strategy.displayName,
+                        description = strategy.description,
+                        isSelected = policies.universityStrategy == strategy,
+                        onClick = { viewModel.setUniversityStrategy(strategy) }
+                    )
+                }
+            }
+        }
+
         // 年度招生定位：招生数量、生源质量和社会责任的取舍
         item {
             PolicySection(

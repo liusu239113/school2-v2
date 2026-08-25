@@ -552,6 +552,7 @@ private fun PrincipalAgendaCard(
                 Column {
                     Text("校长年度议程", color = Color.White, fontWeight = FontWeight.Bold)
                     Text("${stats.currentYear}年${stats.currentMonth}月 · 找到最薄弱的一环，决定下一步投入", color = Color(0xFFB7C9D6), style = MaterialTheme.typography.bodySmall)
+                    Text("办学方针可在政策页调整，学年评估会在6月给出结果", color = Color(0xFF8FA3B3), style = MaterialTheme.typography.labelSmall)
                 }
                 Text("${stats.currentSeason}", color = Color(0xFFD4B06A), fontWeight = FontWeight.Bold)
             }

@@ -2676,7 +2676,13 @@ class GameEngine @Inject constructor(
 
         schoolRepository.advanceDay()
 
-        val completedResearch = researchRepository.advanceResearchDay()
+        val extraResearchDays = policyManager.getPolicyEffects().extraResearchDays.coerceIn(0, 2)
+        val completedResearch = buildList {
+            addAll(researchRepository.advanceResearchDay())
+            repeat(extraResearchDays) {
+                addAll(researchRepository.advanceResearchDay())
+            }
+        }.distinctBy { it.id }
         completedResearch.forEach { method ->
             deferEvent(GameEvent.PositiveEvent(
                 title = "研究完成",
@@ -4355,6 +4361,22 @@ class GameEngine @Inject constructor(
             } else {
                 org.json.JSONObject(finalTierMap).toString()
             }
+            if (school.currentMonth == 6 && !isRetrySettlement) {
+                val strategyName = policyManager.getPolicyEffects().strategyName
+                val profit = monthlyRevenue - monthlyExpenses
+                val studentCount = studentRepository.getActiveStudentCount()
+                val researchCount = researchRepository.getUnlockedMethods().size
+                emitEvent(
+                    GameEvent.PositiveEvent(
+                        title = "学年办学评估",
+                        message = "本学年方针「${strategyName}」。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。下学期按此方向继续经营。",
+                        bonusCash = 0.0,
+                        bonusReputation = if (profit >= 0) 20L else 0L
+                    ),
+                    school
+                )
+            }
+
             checkNotNull(schoolRepository.mutateSchool { latest ->
                 writeManagerJsonFields(latest)
                 writeClassJsonFields(
