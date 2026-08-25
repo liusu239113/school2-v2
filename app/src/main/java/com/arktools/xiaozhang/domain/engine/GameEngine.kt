@@ -5662,7 +5662,6 @@ class GameEngine @Inject constructor(
                 return
             }
 
-            val plan = policyManager.policies.value.enrollmentPlan
             // 招生通知事件
             val actualClassCount = plannedClasses.count {
                 it.gradeLevel == GradeLevel.GRADE_1
