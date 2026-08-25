@@ -77,6 +77,8 @@ fun OverviewScreen(
     onNavigateToNotification: () -> Unit = {},
     onNavigateToAlumni: () -> Unit = {},
     onNavigateToPolicy: () -> Unit = {},
+    onNavigateToTeacher: () -> Unit = {},
+    onNavigateToResearch: () -> Unit = {},
     onNavigateToClub: () -> Unit = {},
     onNavigateToSeasonal: () -> Unit = {},
     onNavigateToReputation: () -> Unit = {},
@@ -104,6 +106,16 @@ fun OverviewScreen(
     ) {
         item {
             UniversityHeroCard()
+        }
+
+        item {
+            PrincipalAgendaCard(
+                stats = stats,
+                onFinanceClick = onNavigateToPolicy,
+                onTalentClick = onNavigateToTeacher,
+                onResearchClick = onNavigateToResearch,
+                onSocietyClick = onNavigateToReputation
+            )
         }
 
         // 季节指示 + 学校健康度
@@ -507,6 +519,75 @@ fun OverviewScreen(
             Spacer(modifier = Modifier.height(8.dp))
             TipsCard(tips = tips)
         }
+    }
+}
+
+@Composable
+private fun PrincipalAgendaCard(
+    stats: OverviewViewModel.SchoolOverviewStats,
+    onFinanceClick: () -> Unit,
+    onTalentClick: () -> Unit,
+    onResearchClick: () -> Unit,
+    onSocietyClick: () -> Unit
+) {
+    val financeProgress = if (stats.monthlyExpenses <= 0.0) 1f
+    else (stats.monthlyRevenue / stats.monthlyExpenses).toFloat().coerceIn(0f, 1f)
+    val talentProgress = (stats.avgLoyalty / 100f).coerceIn(0f, 1f)
+    val researchProgress = if (stats.totalResearch <= 0) 0f
+    else (stats.researchUnlocked.toFloat() / stats.totalResearch).coerceIn(0f, 1f)
+    val societyProgress = (stats.reputation / 5000f).toFloat().coerceIn(0f, 1f)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF172B3A)),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("校长年度议程", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("找到最薄弱的一环，决定下一步投入", color = Color(0xFFB7C9D6), style = MaterialTheme.typography.bodySmall)
+                }
+                Text("${stats.currentSeason}", color = Color(0xFFD4B06A), fontWeight = FontWeight.Bold)
+            }
+            AgendaLine("财务安全", if (financeProgress >= 1f) "现金流稳定" else "需要控制支出", financeProgress, onFinanceClick, Color(0xFF81C784))
+            AgendaLine("师资状态", if (talentProgress >= 0.7f) "团队稳定" else "关注疲劳与流失", talentProgress, onTalentClick, Color(0xFF64B5F6))
+            AgendaLine("科研积累", "${stats.researchUnlocked}/${stats.totalResearch} 个项目", researchProgress, onResearchClick, Color(0xFFBA68C8))
+            AgendaLine("社会影响", "声誉 ${FormatUtils.formatReputation(stats.reputation)}", societyProgress, onSocietyClick, Color(0xFFFFB74D))
+        }
+    }
+}
+
+@Composable
+private fun AgendaLine(
+    title: String,
+    detail: String,
+    progress: Float,
+    onClick: () -> Unit,
+    color: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.width(76.dp)) {
+            Text(title, color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            Text(detail, color = Color(0xFFB7C9D6), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.weight(1f).height(7.dp).clip(RoundedCornerShape(4.dp)),
+            color = color,
+            trackColor = Color.White.copy(alpha = 0.12f),
+            strokeCap = StrokeCap.Round
+        )
     }
 }
 
