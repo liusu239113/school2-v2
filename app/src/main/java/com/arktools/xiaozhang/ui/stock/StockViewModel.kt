@@ -30,7 +30,7 @@ class StockViewModel @Inject constructor(
 
     companion object {
         /** 股市解锁所需的最低校园等级 */
-        const val STOCK_UNLOCK_LEVEL = 3
+        val STOCK_UNLOCK_LEVEL = com.arktools.xiaozhang.domain.engine.GameModule.STOCK.unlockLevel
         /** 每个校园等级允许的最大单次投资额（万） */
         const val INVEST_LIMIT_PER_LEVEL = 50.0
     }

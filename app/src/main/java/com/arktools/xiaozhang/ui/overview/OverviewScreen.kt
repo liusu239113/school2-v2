@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -56,6 +57,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiaozhang.R
+import com.arktools.xiaozhang.domain.engine.GameBalanceConfig
+import com.arktools.xiaozhang.domain.engine.GameModule
 import com.arktools.xiaozhang.domain.engine.HealthReport
 import com.arktools.xiaozhang.domain.engine.HealthStatus
 import com.arktools.xiaozhang.ui.theme.AccentGreen
@@ -180,7 +183,7 @@ fun OverviewScreen(
 
         // 经营数据
         item {
-            SectionHeader(title = "办学财务", subtitle = "学费、科研经费与产业合作共同支撑现金流")
+            SectionHeader(title = "办学财务", subtitle = "学费进账后会被薪资、校园租金和生均办学成本重新抽走")
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -309,208 +312,76 @@ fun OverviewScreen(
             )
         }
 
+        item {
+            val nextUnlocks = GameBalanceConfig.getNextStageUnlocks(stats.campusLevel)
+            val nextLevel = (stats.campusLevel + 1).coerceAtMost(GameBalanceConfig.MAX_SCHOOL_LEVEL)
+            SectionHeader(
+                title = "办学阶段",
+                subtitle = if (nextUnlocks.isEmpty()) {
+                    "已进入最高办学阶段，继续追求世界一流大学"
+                } else {
+                    "下一阶段 ${GameBalanceConfig.getSchoolLevelName(nextLevel)} 将开放：${nextUnlocks.joinToString("、") { it.displayName }}"
+                }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "前期先把师资、教室和招生做稳；中后期再打开社团、奖学金、校友、学术会议和产业合作。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         // 快捷入口 - 排行 & 股市 & 设施 & 里程碑
         item {
-            SectionHeader(title = "更多功能", subtitle = "点击进入各功能模块")
+            SectionHeader(title = "更多功能", subtitle = "按校园等级逐步开放，锁定条目会标明解锁条件")
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_construction,
-                    title = "校园设施",
-                    description = "建设升级设施",
-                    onClick = onNavigateToFacility
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_trophy,
-                    title = "排行榜",
-                    description = "查看学校排名",
-                    onClick = onNavigateToRanking
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_medal_gold,
-                    title = "荣誉成就",
-                    description = "成就收集与里程碑",
-                    onClick = onNavigateToAchievement
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_chart,
-                    title = if (stats.campusLevel >= 3) "股市投资" else "股市投资 🔒",
-                    description = if (stats.campusLevel >= 3) "用闲钱赚更多" else "校园3级解锁",
-                    onClick = onNavigateToStock
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_clipboard,
-                    title = "数据报表",
-                    description = "经营趋势与财务分析",
-                    onClick = onNavigateToReport
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_megaphone,
-                    title = "营销推广",
-                    description = "招生营销活动",
-                    onClick = onNavigateToMarketing
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_calendar,
-                    title = "事件记录",
-                    description = "查看历史事件",
-                    onClick = onNavigateToEvent
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_graduation,
-                    title = "校友就业",
-                    description = "毕业生去向与校友网络",
-                    onClick = onNavigateToAlumni
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_memo,
-                    title = "学校政策",
-                    description = "调整运营参数",
-                    onClick = onNavigateToPolicy
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_people,
-                    title = "社团活动",
-                    description = "社团管理与竞赛",
-                    onClick = onNavigateToClub
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_celebration,
-                    title = "季节活动",
-                    description = "校园活动日历",
-                    onClick = onNavigateToSeasonal
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_crown,
-                    title = "声誉详情",
-                    description = "多维声誉分析",
-                    onClick = onNavigateToReputation
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_house,
-                    title = "学生生活",
-                    description = "宿舍食堂健康管理",
-                    onClick = onNavigateToStudentLife
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_books,
-                    title = "学术会议",
-                    description = "举办参加学术交流",
-                    onClick = onNavigateToConference
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_heart,
-                    title = "校友与家委会",
-                    description = "维护校友、家庭与社会支持网络",
-                    onClick = onNavigateToParent
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_government,
-                    title = "产业与社会合作",
-                    description = "对接企业、城市与公共项目",
-                    onClick = onNavigateToGovernment
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_gem,
-                    title = "奖助学金",
-                    description = "支持人才培养与公平入学",
-                    onClick = onNavigateToScholarship
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_calendar,
-                    title = "专业课表",
-                    description = "统筹学院、专业与教学资源",
-                    onClick = onNavigateToTimetable
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_clipboard,
-                    title = "教学评估",
-                    description = "跟踪培养质量与毕业成果",
-                    onClick = onNavigateToExam
-                )
-                QuickEntryCard(
-                    modifier = Modifier.weight(1f),
-                    iconRes = R.drawable.ic_office,
-                    title = "校长办公室",
-                    description = "个人事务灰色地带",
-                    onClick = onNavigateToPrincipalOffice
-                )
+            val entries: List<Pair<Triple<GameModule?, Int, () -> Unit>, String>> = listOf(
+                Triple(GameModule.FACILITY, R.drawable.ic_construction, onNavigateToFacility) to "建设升级设施",
+                Triple(GameModule.RANKING, R.drawable.ic_trophy, onNavigateToRanking) to "查看学校排名",
+                Triple(null, R.drawable.ic_medal_gold, onNavigateToAchievement) to "成就收集与里程碑",
+                Triple(GameModule.STOCK, R.drawable.ic_chart, onNavigateToStock) to "用闲钱赚更多",
+                Triple(GameModule.REPORT, R.drawable.ic_clipboard, onNavigateToReport) to "经营趋势与财务分析",
+                Triple(GameModule.MARKETING, R.drawable.ic_megaphone, onNavigateToMarketing) to "招生营销活动",
+                Triple(GameModule.EVENT, R.drawable.ic_calendar, onNavigateToEvent) to "查看历史事件",
+                Triple(GameModule.ALUMNI, R.drawable.ic_graduation, onNavigateToAlumni) to "毕业生去向与校友网络",
+                Triple(GameModule.POLICY, R.drawable.ic_memo, onNavigateToPolicy) to "调整运营参数",
+                Triple(GameModule.CLUB, R.drawable.ic_people, onNavigateToClub) to "社团管理与竞赛",
+                Triple(GameModule.SEASONAL, R.drawable.ic_celebration, onNavigateToSeasonal) to "校园活动日历",
+                Triple(GameModule.REPUTATION, R.drawable.ic_crown, onNavigateToReputation) to "多维声誉分析",
+                Triple(GameModule.STUDENT_LIFE, R.drawable.ic_house, onNavigateToStudentLife) to "宿舍食堂健康管理",
+                Triple(GameModule.CONFERENCE, R.drawable.ic_books, onNavigateToConference) to "举办参加学术交流",
+                Triple(GameModule.PARENT, R.drawable.ic_heart, onNavigateToParent) to "维护校友、家庭与社会支持网络",
+                Triple(GameModule.GOVERNMENT, R.drawable.ic_government, onNavigateToGovernment) to "对接企业、城市与公共项目",
+                Triple(GameModule.SCHOLARSHIP, R.drawable.ic_gem, onNavigateToScholarship) to "支持人才培养与公平入学",
+                Triple(GameModule.TIMETABLE, R.drawable.ic_calendar, onNavigateToTimetable) to "统筹学院、专业与教学资源",
+                Triple(GameModule.EXAM, R.drawable.ic_clipboard, onNavigateToExam) to "跟踪培养质量与毕业成果",
+                Triple(GameModule.PRINCIPAL, R.drawable.ic_office, onNavigateToPrincipalOffice) to "个人事务灰色地带"
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                entries.chunked(2).forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        row.forEach { (entry, fallbackDesc) ->
+                            val (module, iconRes, onClick) = entry
+                            val unlocked = module == null || GameBalanceConfig.isModuleUnlocked(module, stats.campusLevel)
+                            QuickEntryCard(
+                                modifier = Modifier.weight(1f),
+                                iconRes = iconRes,
+                                title = if (unlocked) (module?.displayName ?: "荣誉成就") else "${module?.displayName} 🔒",
+                                description = if (unlocked) {
+                                    fallbackDesc
+                                } else {
+                                    module?.let { GameBalanceConfig.getModuleLockReason(it) } ?: fallbackDesc
+                                },
+                                onClick = onClick,
+                                locked = !unlocked
+                            )
+                        }
+                        if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
 
@@ -865,7 +736,8 @@ private fun QuickEntryCard(
     iconRes: Int,
     title: String,
     description: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    locked: Boolean = false
 ) {
     Box(
         modifier = modifier
@@ -888,14 +760,17 @@ private fun QuickEntryCard(
             Image(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(36.dp)
+                    .then(if (locked) Modifier.alpha(0.35f) else Modifier)
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1
+                maxLines = 1,
+                color = if (locked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = description,

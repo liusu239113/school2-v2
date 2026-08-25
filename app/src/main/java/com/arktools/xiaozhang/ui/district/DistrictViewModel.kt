@@ -118,7 +118,14 @@ class DistrictViewModel @Inject constructor(
             schoolRepository.upgradeCampus()
             _school.value = schoolRepository.getSchool()
             gameEngine.notifyFactionDecision(SchoolDecision.EXPAND_CAMPUS)
-            _upgradeMessage.value = "校园升级成功！当前 Lv.${(_school.value?.campusLevel ?: (school.campusLevel + 1))}（赠送1间教室）"
+            val newLevel = _school.value?.campusLevel ?: (school.campusLevel + 1)
+            val unlocked = GameBalanceConfig.getNewlyUnlockedModules(school.campusLevel, newLevel)
+            val unlockText = if (unlocked.isNotEmpty()) {
+                " 新开放：${unlocked.joinToString("、") { it.displayName }}"
+            } else {
+                ""
+            }
+            _upgradeMessage.value = "校园升级成功！当前 Lv.$newLevel（赠送1间教室）$unlockText"
         }
     }
 

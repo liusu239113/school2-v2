@@ -180,3 +180,18 @@ object EmptyStates {
         )
     }
 }
+
+@Composable
+fun FeatureLockedScreen(
+    module: com.arktools.xiaozhang.domain.engine.GameModule,
+    campusLevel: Int,
+    modifier: Modifier = Modifier
+) {
+    val requiredName = com.arktools.xiaozhang.domain.engine.GameBalanceConfig.getSchoolLevelName(module.unlockLevel)
+    EmptyState(
+        icon = Icons.Default.School,
+        title = "${module.displayName}尚未开放",
+        description = "当前校园 Lv.$campusLevel。升到$requiredName（Lv.${module.unlockLevel}）后解锁。${module.stageHint}。",
+        modifier = modifier.fillMaxSize()
+    )
+}

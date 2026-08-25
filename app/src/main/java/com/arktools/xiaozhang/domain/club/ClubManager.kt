@@ -1,5 +1,6 @@
 package com.arktools.xiaozhang.domain.club
 
+import com.arktools.xiaozhang.domain.engine.GameBalanceConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,15 +40,8 @@ class ClubManager @Inject constructor() {
         const val APPLICATION_TIMEOUT_DAYS = 20
 
         /** 根据学校等级获取社团数量上限 */
-        fun getMaxClubs(campusLevel: Int): Int = when (campusLevel) {
-            1 -> 2    // 乡镇小学，最多2个社团
-            2 -> 4    // 区级学校
-            3 -> 6    // 市重点
-            4 -> 8    // 省示范
-            5 -> 10   // 国家名校
-            6 -> 12   // 世界学府
-            else -> 2
-        }
+        fun getMaxClubs(campusLevel: Int): Int =
+            GameBalanceConfig.getMaxClubsForLevel(campusLevel)
 
         /** 根据学校等级获取待审批申请上限 */
         fun getMaxPendingApplications(campusLevel: Int): Int = when (campusLevel) {

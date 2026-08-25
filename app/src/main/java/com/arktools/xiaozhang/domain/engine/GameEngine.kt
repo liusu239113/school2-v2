@@ -2962,7 +2962,9 @@ class GameEngine @Inject constructor(
             // 季节活动月初触发（只有学校有学生或已开课时才触发，避免空校办活动）
             val hasStudentsOrCourses = studentRepository.getActiveStudents().isNotEmpty() ||
                     courseRepository.getReleasedCourses().isNotEmpty()
-            if (hasStudentsOrCourses) {
+            if (hasStudentsOrCourses &&
+                GameBalanceConfig.isModuleUnlocked(GameModule.SEASONAL, school.campusLevel)
+            ) {
                 val newPendingActivities = seasonalActivityManager.onMonthStart(
                     school.currentYear, school.currentMonth, school.reputation.toLong()
                 )
@@ -3003,7 +3005,13 @@ class GameEngine @Inject constructor(
             }
 
             // 校友网络月度更新：职业发展、捐赠、推荐
-            val alumniResult = alumniNetwork.advanceMonth(school.campusLevel)
+            val alumniResult = if (
+                GameBalanceConfig.isModuleUnlocked(GameModule.ALUMNI, school.campusLevel)
+            ) {
+                alumniNetwork.advanceMonth(school.campusLevel)
+            } else {
+                com.arktools.xiaozhang.domain.alumni.AlumniMonthlyResult()
+            }
             if (alumniResult.totalDonation > 0) {
                 // 捐赠金额单位是元，school.cash单位是万元，需要 /10000 转换
                 val donationWan = alumniResult.totalDonation / 10000.0
@@ -3045,7 +3053,9 @@ class GameEngine @Inject constructor(
 
             // 社团活动月度更新（需要有学生才运作）
             val totalStudents = studentRepository.getActiveStudents().size
-            if (totalStudents > 0) {
+            if (totalStudents > 0 &&
+                GameBalanceConfig.isModuleUnlocked(GameModule.CLUB, school.campusLevel)
+            ) {
                 val clubResult = clubManager.advanceMonth(totalStudents)
                 if (clubResult.monthlyExpense > 0) {
                     // monthlyCost已改为万元单位（0.3-2.0），直接扣除
@@ -3221,6 +3231,7 @@ class GameEngine @Inject constructor(
             // 学生生活系统月度推进：现金与月结后 JSON 同事务提交。
             val studentCount = studentRepository.getActiveStudents().size
             if (studentCount > 0 &&
+                GameBalanceConfig.isModuleUnlocked(GameModule.STUDENT_LIFE, school.campusLevel) &&
                 !studentLifeManager.hasProcessedMonth(
                     school.currentYear,
                     school.currentMonth
@@ -3333,11 +3344,17 @@ class GameEngine @Inject constructor(
             }
 
             // 学术会议月度推进（传入学校等级和教师数量）
-            val confResult = academicConferenceManager.advanceMonth(
-                school.currentYear, school.currentMonth, school.reputation.toInt(),
-                schoolLevel = school.campusLevel,
-                teacherCount = teacherRepository.getTeachers().size
-            )
+            val confResult = if (
+                GameBalanceConfig.isModuleUnlocked(GameModule.CONFERENCE, school.campusLevel)
+            ) {
+                academicConferenceManager.advanceMonth(
+                    school.currentYear, school.currentMonth, school.reputation.toInt(),
+                    schoolLevel = school.campusLevel,
+                    teacherCount = teacherRepository.getTeachers().size
+                )
+            } else {
+                com.arktools.xiaozhang.domain.conference.ConferenceMonthlyResult()
+            }
             if (confResult.expenses > 0) {
                 schoolRepository.deductCash(confResult.expenses)
                 expConference += confResult.expenses
@@ -3615,14 +3632,20 @@ class GameEngine @Inject constructor(
                     (clubs.size * 10f + avgEnthusiasm * 0.5f).coerceAtMost(100f)
                 } else 0f
 
-                val parentResult = parentSatisfactionManager.advanceMonth(
-                    school.currentYear, school.currentMonth,
-                    school.reputation.toLong(), teacherAvgLoyalty, avgSatisfaction, facilityCondition,
-                    intensitySatisfactionPenalty = teachingManager.config.intensity.satisfactionPenalty,
-                    intensityComplaintRate = teachingManager.config.intensity.parentComplaintRate,
-                    academicPerformance = avgAcademicPerformance,
-                    clubActivityLevel = clubActivityLevel
-                )
+                val parentResult = if (
+                    GameBalanceConfig.isModuleUnlocked(GameModule.PARENT, school.campusLevel)
+                ) {
+                    parentSatisfactionManager.advanceMonth(
+                        school.currentYear, school.currentMonth,
+                        school.reputation.toLong(), teacherAvgLoyalty, avgSatisfaction, facilityCondition,
+                        intensitySatisfactionPenalty = teachingManager.config.intensity.satisfactionPenalty,
+                        intensityComplaintRate = teachingManager.config.intensity.parentComplaintRate,
+                        academicPerformance = avgAcademicPerformance,
+                        clubActivityLevel = clubActivityLevel
+                    )
+                } else {
+                    com.arktools.xiaozhang.domain.parent.ParentMonthResult()
+                }
                 if (parentResult.reputationImpact != 0) {
                     if (parentResult.reputationImpact > 0) {
                         schoolRepository.addReputation(parentResult.reputationImpact.toLong())
@@ -3693,19 +3716,25 @@ class GameEngine @Inject constructor(
             val teacherAvgSkill = if (cachedTeachersForMonth.isNotEmpty()) {
                 cachedTeachersForMonth.map { it.averageSkill }.average().toFloat()
             } else 50f
-            val govResult = governmentInspectionManager.advanceMonth(
-                school.currentYear, school.currentMonth,
-                school.reputation.toLong(), cachedTeachersForMonth.size, teacherAvgSkill,
-                cachedActiveStudentsForMonth.size, avgSatisfaction, facilityCondition,
-                school.cash, monthlyRevenue,
-                employmentRate = employmentResult.currentEmploymentRate,
-                schoolLevel = school.campusLevel,
-                teachingQualityScore = (
-                    teachingManager.config.overallQuality(teacherAvgSkill) +
-                        academicConferenceManager.getResearchScore() / 20f
-                    ).coerceAtMost(100f),
-                weeklyPEHours = teachingManager.config.weeklyPEHours
-            )
+            val govResult = if (
+                GameBalanceConfig.isModuleUnlocked(GameModule.GOVERNMENT, school.campusLevel)
+            ) {
+                governmentInspectionManager.advanceMonth(
+                    school.currentYear, school.currentMonth,
+                    school.reputation.toLong(), cachedTeachersForMonth.size, teacherAvgSkill,
+                    cachedActiveStudentsForMonth.size, avgSatisfaction, facilityCondition,
+                    school.cash, monthlyRevenue,
+                    employmentRate = employmentResult.currentEmploymentRate,
+                    schoolLevel = school.campusLevel,
+                    teachingQualityScore = (
+                        teachingManager.config.overallQuality(teacherAvgSkill) +
+                            academicConferenceManager.getResearchScore() / 20f
+                        ).coerceAtMost(100f),
+                    weeklyPEHours = teachingManager.config.weeklyPEHours
+                )
+            } else {
+                com.arktools.xiaozhang.domain.government.GovernmentMonthResult()
+            }
             if (govResult.subsidy > 0) {
                 schoolRepository.addCash(govResult.subsidy)
                 incGovSubsidy += govResult.subsidy
@@ -3750,7 +3779,9 @@ class GameEngine @Inject constructor(
             }
 
             // 奖学金制度月度推进（需要有学生才运作）
-            if (studentCount > 0) {
+            if (studentCount > 0 &&
+                GameBalanceConfig.isModuleUnlocked(GameModule.SCHOLARSHIP, school.campusLevel)
+            ) {
                 val avgGpa = if (cachedActiveStudentsForMonth.isNotEmpty()) {
                     (cachedActiveStudentsForMonth.map { it.satisfaction.toFloat() / 25f }.average().toFloat()).coerceIn(1.0f, 4.0f)
                 } else 2.5f
@@ -4976,7 +5007,11 @@ class GameEngine @Inject constructor(
         val salaryExpenses = totalSalary * salaryInflation * breakMultiplier *
                 teacherPayPolicy.expenseMultiplier * costReductionMultiplier
         // 其他开销使用不含教师薪资政策的基础倍率
-        val otherExpenses = (baseRent * rentInflation + facilityMaintenance) * costReductionMultiplier
+        val studentCount = studentRepository.getActiveStudentCount()
+        val studentOperatingCost = studentCount *
+            GameBalanceConfig.getMonthlyStudentOperatingCost(school.campusLevel)
+        val otherExpenses = (baseRent * rentInflation + facilityMaintenance + studentOperatingCost) *
+            costReductionMultiplier
 
         // 教学系统运营成本（班级开支 + 排课政策成本 + 特色项目维护）
         val teachingExpenses = teachingManager.config.monthlyOperatingCost() * costReductionMultiplier

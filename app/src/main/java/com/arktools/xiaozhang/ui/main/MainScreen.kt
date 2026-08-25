@@ -139,7 +139,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.arktools.xiaozhang.ui.components.AdLoadingOverlay
+import com.arktools.xiaozhang.ui.components.FeatureLockedScreen
 import com.arktools.xiaozhang.ui.components.PixelGameBackground
+import com.arktools.xiaozhang.domain.engine.GameBalanceConfig
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -740,30 +742,46 @@ fun MainScreen(
                     2 -> TeacherListScreen()
                     3 -> ResearchScreen()
                     4 -> DistrictScreen()
-                    5 -> RankingScreen()
-                    6 -> StockScreen()
-                    7 -> FacilityScreen()
-                    8 -> StudentScreen()
-                    10 -> AchievementScreen()
-                    11 -> ReportScreen()
-                    12 -> MarketingScreen()
-                    13 -> EventScreen()
-                    14 -> NotificationScreen(
-                        onNavigateToTab = { tabIndex -> selectedTab = tabIndex }
-                    )
-                    15 -> AlumniScreen()
-                    16 -> PolicyScreen()
-                    17 -> ClubScreen()
-                    18 -> SeasonalScreen()
-                    20 -> ReputationScreen()
-                    21 -> StudentLifeScreen()
-                    23 -> ConferenceScreen()
-                    27 -> ParentScreen()
-                    28 -> GovernmentScreen()
-                    29 -> ScholarshipScreen()
-                    31 -> TimetableScreen()
-                    32 -> ExamScreen()
-                    33 -> PrincipalOfficeScreen()
+                    else -> {
+                        val lockedModule = GameBalanceConfig.moduleForTab(tab)
+                        val campusLevel = school?.campusLevel ?: 1
+                        if (lockedModule != null &&
+                            !GameBalanceConfig.isModuleUnlocked(lockedModule, campusLevel)
+                        ) {
+                            FeatureLockedScreen(
+                                module = lockedModule,
+                                campusLevel = campusLevel
+                            )
+                        } else {
+                            when (tab) {
+                                5 -> RankingScreen()
+                                6 -> StockScreen()
+                                7 -> FacilityScreen()
+                                8 -> StudentScreen()
+                                10 -> AchievementScreen()
+                                11 -> ReportScreen()
+                                12 -> MarketingScreen()
+                                13 -> EventScreen()
+                                14 -> NotificationScreen(
+                                    onNavigateToTab = { tabIndex -> selectedTab = tabIndex }
+                                )
+                                15 -> AlumniScreen()
+                                16 -> PolicyScreen()
+                                17 -> ClubScreen()
+                                18 -> SeasonalScreen()
+                                20 -> ReputationScreen()
+                                21 -> StudentLifeScreen()
+                                23 -> ConferenceScreen()
+                                27 -> ParentScreen()
+                                28 -> GovernmentScreen()
+                                29 -> ScholarshipScreen()
+                                31 -> TimetableScreen()
+                                32 -> ExamScreen()
+                                33 -> PrincipalOfficeScreen()
+                                else -> OverviewScreen(listState = overviewListState)
+                            }
+                        }
+                    }
                 }
             }
         }

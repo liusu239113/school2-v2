@@ -218,7 +218,15 @@ class OverviewViewModel @Inject constructor(
             tips.add("「科研」可以解锁研究方法，提升教学质量和招生效率")
         }
         if (stats.monthlyRevenue > stats.monthlyExpenses * 2) {
-            tips.add("资金充裕！考虑「股市」投资或升级校园扩大规模")
+            if (stats.campusLevel >= 3) {
+                tips.add("资金充裕！可以试探股市，或把结余投入校园升级")
+            } else {
+                tips.add("资金充裕！先把教室、师资和9月招生做稳，再考虑升级校园")
+            }
+        }
+        val nextUnlocks = com.arktools.xiaozhang.domain.engine.GameBalanceConfig.getNextStageUnlocks(stats.campusLevel)
+        if (nextUnlocks.isNotEmpty()) {
+            tips.add("升到校园${stats.campusLevel + 1}级将开放：${nextUnlocks.take(3).joinToString("、") { it.displayName }}")
         }
 
         if (tips.isEmpty()) {

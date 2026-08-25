@@ -196,6 +196,22 @@ object GameBalanceConfig {
         }
     }
 
+    /**
+     * 生均月度办学成本（万元/人）。招生越多，水电、实验耗材、宿舍和教务开支越高，
+     * 避免只靠学费堆现金、规模扩张没有流通代价。
+     */
+    fun getMonthlyStudentOperatingCost(campusLevel: Int): Double {
+        return when (campusLevel) {
+            1 -> 0.08
+            2 -> 0.12
+            3 -> 0.18
+            4 -> 0.28
+            5 -> 0.40
+            6 -> 0.55
+            else -> 0.08
+        }
+    }
+
     fun getMarketTrend(subject: com.arktools.xiaozhang.domain.model.Subject, theme: com.arktools.xiaozhang.domain.model.CourseTheme, year: Int): Float {
         var trend = 1.0f
 
@@ -328,6 +344,47 @@ object GameBalanceConfig {
         }
     }
 
+    fun isModuleUnlocked(module: GameModule, campusLevel: Int): Boolean {
+        return campusLevel >= module.unlockLevel
+    }
+
+    fun getModuleLockReason(module: GameModule): String {
+        return "${getSchoolLevelName(module.unlockLevel)}（校园${module.unlockLevel}级）解锁"
+    }
+
+    fun getNewlyUnlockedModules(previousLevel: Int, newLevel: Int): List<GameModule> {
+        if (newLevel <= previousLevel) return emptyList()
+        return GameModule.entries.filter { module ->
+            module.unlockLevel > previousLevel && module.unlockLevel <= newLevel
+        }
+    }
+
+    fun getNextStageUnlocks(campusLevel: Int): List<GameModule> {
+        val nextLevel = (campusLevel + 1).coerceAtMost(MAX_SCHOOL_LEVEL)
+        if (nextLevel <= campusLevel) return emptyList()
+        return GameModule.entries.filter { it.unlockLevel == nextLevel }
+    }
+
+    fun moduleForTab(tab: Int): GameModule? {
+        return when (tab) {
+            5 -> GameModule.RANKING
+            6 -> GameModule.STOCK
+            12 -> GameModule.MARKETING
+            15 -> GameModule.ALUMNI
+            17 -> GameModule.CLUB
+            18 -> GameModule.SEASONAL
+            20 -> GameModule.REPUTATION
+            21 -> GameModule.STUDENT_LIFE
+            23 -> GameModule.CONFERENCE
+            27 -> GameModule.PARENT
+            28 -> GameModule.GOVERNMENT
+            29 -> GameModule.SCHOLARSHIP
+            31 -> GameModule.TIMETABLE
+            33 -> GameModule.PRINCIPAL
+            else -> null
+        }
+    }
+
     // ═══════════════════════════════════════════
     // 学区等级加成系统
     // ═══════════════════════════════════════════
@@ -452,3 +509,33 @@ data class SchoolUpgradeRequirement(
     val requiresInternational: Boolean = false,
     val description: String = ""
 )
+
+/**
+ * 大学功能模块按校园等级徐徐开放。
+ * 前期只做招生、师资、教学和校园建设；中后期再打开社会、科研交流和资本玩法。
+ */
+enum class GameModule(
+    val displayName: String,
+    val unlockLevel: Int,
+    val stageHint: String
+) {
+    FACILITY("校园设施", 1, "先把教室和基础校园建起来"),
+    REPORT("数据报表", 1, "盯紧学费和开支"),
+    EVENT("事件记录", 1, "处理日常校务"),
+    POLICY("学校政策", 1, "定下本学年办学方针"),
+    EXAM("教学评估", 1, "跟踪培养质量"),
+    CLUB("社团活动", 2, "学生社团开始申请"),
+    SEASONAL("季节活动", 2, "校园活动日历开放"),
+    STUDENT_LIFE("学生生活", 2, "宿舍食堂开始占用预算"),
+    TIMETABLE("专业课表", 2, "学院课表需要统筹"),
+    MARKETING("营销推广", 2, "招生传播可以花钱换生源"),
+    REPUTATION("声誉详情", 3, "社会口碑开始影响生源质量"),
+    SCHOLARSHIP("奖助学金", 3, "奖学金会分流学费、提升留存"),
+    PARENT("校友与家委会", 3, "家庭与社会支持网络成型"),
+    RANKING("排行榜", 3, "开始进入大学竞争榜"),
+    STOCK("股市投资", 3, "闲钱可以进入资本市场"),
+    ALUMNI("校友就业", 4, "毕业生开始反哺母校"),
+    CONFERENCE("学术会议", 4, "学术交流带来声誉和就业"),
+    GOVERNMENT("产业与社会合作", 4, "政府评估与产业补贴开放"),
+    PRINCIPAL("校长办公室", 5, "个人事务与灰色地带出现");
+}
