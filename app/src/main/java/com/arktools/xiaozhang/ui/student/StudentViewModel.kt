@@ -128,7 +128,7 @@ class StudentViewModel @Inject constructor(
                 nameMap[student.id] = "$gradeName · $className"  // 学生维度显示详细
             }
             // 确保 "GENERAL" courseId 有默认名
-            nameMap["GENERAL"] = "高中通识"
+            nameMap["GENERAL"] = "大学通识"
             _uiState.value = _uiState.value.copy(courseNames = nameMap)
         }
     }

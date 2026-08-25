@@ -53,7 +53,7 @@ fun DistrictScreen(
     viewModel: DistrictViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("学区管理", "校区扩建")
+    val tabs = listOf("社会合作", "校园扩建")
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(
@@ -76,7 +76,7 @@ fun DistrictScreen(
     }
 }
 
-// ===== 学区管理 Tab =====
+// ===== 社会合作 Tab =====
 @Composable
 private fun DistrictManageContent(viewModel: DistrictViewModel) {
     val districtStats by viewModel.districtStats.collectAsState()
@@ -110,7 +110,7 @@ private fun DistrictManageContent(viewModel: DistrictViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "学区管理",
+                    text = "社会合作",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Card(
@@ -158,13 +158,13 @@ private fun DistrictManageContent(viewModel: DistrictViewModel) {
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "学区与学校等级",
+                            text = "社会合作与校园等级",
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "学区决定了生源范围和学费水平。解锁高级学区需要同时达到对应的学校等级和声誉门槛。\n学校等级越高，学区曝光加成越大，平台抽成折扣越优惠。",
+                            text = "社会合作决定生源触达和合作收益。解锁更高层级的合作网络需要达到对应的校园等级和声誉门槛。\n校园等级越高，社会曝光加成越大，合作抽成越优惠。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
                         )
@@ -245,7 +245,7 @@ private fun DistrictManageContent(viewModel: DistrictViewModel) {
         }
         PixelAlertDialog(
             onDismissRequest = { showUpgradeDialog = false },
-            title = "升级校舍",
+            title = "升级校园",
             text = conditionsText,
             confirmText = if (allMet) "升级" else "条件不足",
             dismissText = "关闭",
@@ -835,7 +835,7 @@ private fun CampusOverviewCard(state: CampusExpansionState) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    ExpansionStatColumn("校舍容量", "${state.totalCapacity}", Color.White)
+                    ExpansionStatColumn("校园容量", "${state.totalCapacity}", Color.White)
                     ExpansionStatColumn("在建", "${state.constructingZones}", Color(0xFFFFE082))
                     ExpansionStatColumn("已建成", "${state.completedZones}", Color(0xFFA5D6A7))
                     ExpansionStatColumn("月维护", "${"%.1f".format(state.monthlyMaintenanceCost)}万", Color(0xFFEF9A9A))
@@ -865,7 +865,7 @@ private fun CapacityCard(state: CampusExpansionState) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("校舍容量使用率", fontWeight = FontWeight.Medium)
+                Text("校园容量使用率", fontWeight = FontWeight.Medium)
                 Text(
                     "${state.usedCapacity}/${state.totalCapacity} (${(usagePercent * 100).toInt()}%)",
                     color = if (usagePercent > 1f) MaterialTheme.colorScheme.error else Color.Unspecified,
@@ -896,7 +896,7 @@ private fun CapacityCard(state: CampusExpansionState) {
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "校舍容量为物理空间上限，招生上限取决于「教学」页面的班型配置",
+                "校园容量是实体空间上限，招生上限取决于「学院」页面的班型配置",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )

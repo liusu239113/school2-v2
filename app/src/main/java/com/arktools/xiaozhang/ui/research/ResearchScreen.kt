@@ -86,7 +86,7 @@ fun ResearchScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "教研系统",
+                    text = "科研系统",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 val unlockedCount = methods.count { it.isUnlocked }
@@ -153,7 +153,7 @@ fun ResearchScreen(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(
-                                    text = "如何使用教研？",
+                                    text = "如何使用科研？",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -163,7 +163,7 @@ fun ResearchScreen(
                                     text = "① 选择下方教学方法卡片，点击查看详情\n" +
                                            "② 确认资金充足后点击「投入研究」按钮\n" +
                                            "③ 研究将在倒计时结束后生效，永久提升对应属性\n\n" +
-                                           "效果说明：已解锁的教研方法会永久加成你的学校——" +
+                                           "效果说明：已解锁的研究项目会永久加成你的大学——" +
                                            "提升教学质量、加快招生速度、增加收入或降低运营成本。\n\n" +
                                            "提示：低费用方法无前置条件，高级方法需先解锁一定数量的基础方法。",
                                     style = MaterialTheme.typography.bodySmall,
@@ -193,7 +193,7 @@ fun ResearchScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "该分类暂无教研项目",
+                                    text = "该分类暂无科研项目",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -408,7 +408,7 @@ private fun EmptyResearchState() {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "暂无教研项目",
+                text = "暂无科研项目",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -625,7 +625,7 @@ private fun BonusSummaryPanel(bonusSummary: BonusSummary) {
 
             if (bonusSummary.totalBonusCount == 0) {
                 Text(
-                    text = "尚未解锁任何教研方法，解锁后这里会显示加成效果",
+                    text = "尚未解锁任何科研项目，解锁后这里会显示加成效果",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                     modifier = Modifier.padding(vertical = 4.dp)

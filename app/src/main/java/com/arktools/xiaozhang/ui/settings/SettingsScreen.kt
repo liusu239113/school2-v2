@@ -191,7 +191,7 @@ fun SettingsScreen(
                     InfoRow("资金", "${String.format("%.1f", it.cash)}万元")
                     InfoRow("声誉", "${it.reputation}")
                     InfoRow("日期", "${it.currentYear}年${it.currentMonth}月${it.currentDay}日")
-                    InfoRow("校舍等级", "Lv.${it.campusLevel}")
+                    InfoRow("校园等级", "Lv.${it.campusLevel}")
                 }
             }
             Text(

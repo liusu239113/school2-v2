@@ -74,6 +74,7 @@ fun OverviewScreen(
     onNavigateToReport: () -> Unit = {},
     onNavigateToMarketing: () -> Unit = {},
     onNavigateToEvent: () -> Unit = {},
+    onNavigateToNotification: () -> Unit = {},
     onNavigateToAlumni: () -> Unit = {},
     onNavigateToPolicy: () -> Unit = {},
     onNavigateToClub: () -> Unit = {},
@@ -145,7 +146,7 @@ fun OverviewScreen(
                 PendingReminderCard(
                     unreadNotifications = unreadNotifications,
                     pendingSuggestions = pendingSuggestions,
-                    onNotificationClick = onNavigateToEvent,
+                    onNotificationClick = onNavigateToNotification,
                     onSuggestionClick = onNavigateToPrincipalOffice
                 )
             }
@@ -153,7 +154,7 @@ fun OverviewScreen(
 
         // 学生概况
         item {
-            SectionHeader(title = "在校生概况", subtitle = "本科生、研究生与校园生活状态")
+            SectionHeader(title = "本校学生概况", subtitle = "本科生、研究生与校园生活状态")
             Spacer(modifier = Modifier.height(8.dp))
             StudentOverviewCard(
                 totalStudents = stats.totalStudents,
@@ -608,7 +609,7 @@ private fun StudentOverviewCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "正在你的学校学习",
+                        text = "正在本校就读",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         maxLines = 1
@@ -737,8 +738,8 @@ private fun GrowthCard(
             ) {
                 GrowthStat(Icons.Default.Star, "声誉", FormatUtils.formatReputation(reputation), AccentOrange)
                 GrowthStat(Icons.Default.Star, "星级", "${String.format("%.1f", starRating)}星", AccentOrange)
-                GrowthStat(Icons.Default.School, "校舍", "Lv.$campusLevel", MaterialTheme.colorScheme.primary)
-                GrowthStat(Icons.Default.AutoGraph, "教研", "$researchUnlocked/$totalResearch", AccentGreen)
+                GrowthStat(Icons.Default.School, "校园", "Lv.$campusLevel", MaterialTheme.colorScheme.primary)
+                GrowthStat(Icons.Default.AutoGraph, "科研", "$researchUnlocked/$totalResearch", AccentGreen)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1182,7 +1183,7 @@ private fun HealthDetailCard(report: HealthReport) {
                 .padding(16.dp)
         ) {
             Text(
-                text = "学校健康状态",
+                text = "大学运营健康度",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )

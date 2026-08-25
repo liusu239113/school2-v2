@@ -208,13 +208,13 @@ class OverviewViewModel @Inject constructor(
             tips.add("招聘了老师但还没有学生，通过营销提升声誉吸引生源")
         }
         if (stats.reputation > 500 && stats.campusLevel < 3) {
-            tips.add("声誉不错了！升级校舍可招更多教师、开更多班")
+            tips.add("声誉不错了！升级校园可招更多教师、开更多班")
         }
         if (stats.researchUnlocked == 0) {
-            tips.add("「教研」可以解锁教学方法，提升教学质量和招生效率")
+            tips.add("「科研」可以解锁研究方法，提升教学质量和招生效率")
         }
         if (stats.monthlyRevenue > stats.monthlyExpenses * 2) {
-            tips.add("资金充裕！考虑「股市」投资或升级校舍扩大规模")
+            tips.add("资金充裕！考虑「股市」投资或升级校园扩大规模")
         }
 
         if (tips.isEmpty()) {

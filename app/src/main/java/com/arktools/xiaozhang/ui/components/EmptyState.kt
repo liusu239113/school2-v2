@@ -166,8 +166,8 @@ object EmptyStates {
     fun NoResearch() {
         EmptyState(
             icon = Icons.Default.Science,
-            title = "教研方法待解锁",
-            description = "积累教研点数来解锁新的教学方法，提升教学质量和招生效率。"
+            title = "科研项目待解锁",
+            description = "积累科研点数来解锁新的研究项目，提升教学质量和招生效率。"
         )
     }
 

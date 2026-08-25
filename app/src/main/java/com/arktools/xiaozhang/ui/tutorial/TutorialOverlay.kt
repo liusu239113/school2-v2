@@ -509,8 +509,8 @@ private fun getSpeakerColor(speaker: String): Color {
 
 private fun getActionHint(condition: CompletionCondition): String {
     return when (condition) {
-        CompletionCondition.TAP_TAB_TEACHER -> "请点击「教师」标签 ↓"
-        CompletionCondition.TAP_TAB_TEACHING -> "请点击「教学」标签 ↓"
+        CompletionCondition.TAP_TAB_TEACHER -> "请点击「师资」标签 ↓"
+        CompletionCondition.TAP_TAB_TEACHING -> "请点击「学院」标签 ↓"
         CompletionCondition.TAP_TAB_RESEARCH -> "请点击「科研」标签 ↓"
         CompletionCondition.TAP_TAB_OVERVIEW -> "请点击「总览」标签 ↓"
         CompletionCondition.TAP_TAB_DISTRICT -> "请点击「社会」标签 ↓"

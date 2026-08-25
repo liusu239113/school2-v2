@@ -554,7 +554,7 @@ private fun CompetitorDetailSheet(detail: RankingViewModel.CompetitorDetail) {
         ) {
             CompetitorStatItem(
                 icon = Icons.Default.School,
-                label = "校舍",
+                label = "校园",
                 value = "Lv.${detail.campusLevel}",
                 color = Color(0xFF607D8B)
             )
@@ -687,7 +687,7 @@ private fun CompetitiveEdgeCard(edge: RankingViewModel.CompetitiveEdge) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "教研竞争力",
+                    text = "科研竞争力",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -729,7 +729,7 @@ private fun CompetitiveEdgeCard(edge: RankingViewModel.CompetitiveEdge) {
             if (edge.unlockedCount == 0) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "解锁教研项目可永久提升竞争力，助你超越对手！",
+                    text = "解锁科研项目可永久提升竞争力，助你超越对手！",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                 )

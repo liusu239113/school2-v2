@@ -33,7 +33,7 @@ class DistrictViewModel @Inject constructor(
     private val gameEngine: GameEngine
 ) : ViewModel() {
 
-    // ===== 学区管理 =====
+    // ===== 社会合作 =====
     private val _districtStats = MutableStateFlow<Map<DistrictType, DistrictStats>>(emptyMap())
     val districtStats: StateFlow<Map<DistrictType, DistrictStats>> = _districtStats.asStateFlow()
 
@@ -82,7 +82,7 @@ class DistrictViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val school = schoolRepository.getSchool() ?: return@safeLaunch
             if (school.campusLevel >= GameBalanceConfig.MAX_SCHOOL_LEVEL) {
-                _upgradeMessage.value = "校舍已达最高等级！"
+                _upgradeMessage.value = "校园已达最高等级！"
                 return@safeLaunch
             }
             val req = GameBalanceConfig.getUpgradeRequirements(school.campusLevel + 1)
@@ -118,7 +118,7 @@ class DistrictViewModel @Inject constructor(
             schoolRepository.upgradeCampus()
             _school.value = schoolRepository.getSchool()
             gameEngine.notifyFactionDecision(SchoolDecision.EXPAND_CAMPUS)
-            _upgradeMessage.value = "校舍升级成功！当前 Lv.${(_school.value?.campusLevel ?: (school.campusLevel + 1))}（赠送1间教室）"
+            _upgradeMessage.value = "校园升级成功！当前 Lv.${(_school.value?.campusLevel ?: (school.campusLevel + 1))}（赠送1间教室）"
         }
     }
 

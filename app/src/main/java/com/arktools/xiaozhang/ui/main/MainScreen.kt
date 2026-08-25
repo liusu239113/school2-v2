@@ -662,7 +662,7 @@ fun MainScreen(
                     onClick = { selectedTab = 0; tutorialManager.notifyTabChanged(0) }
                 )
                 NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "师资", modifier = Modifier.size(28.dp)) },
+                    icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "学院", modifier = Modifier.size(28.dp)) },
                     label = { Text("学院") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1; tutorialManager.notifyTabChanged(1) }
@@ -719,6 +719,7 @@ fun MainScreen(
                         onNavigateToReport = { selectedTab = 11 },
                         onNavigateToMarketing = { selectedTab = 12 },
                         onNavigateToEvent = { selectedTab = 13 },
+                        onNavigateToNotification = { selectedTab = 14 },
                         onNavigateToAlumni = { selectedTab = 15 },
                         onNavigateToPolicy = { selectedTab = 16 },
                         onNavigateToClub = { selectedTab = 17 },
@@ -945,7 +946,7 @@ private fun SchoolStatusBar(school: com.arktools.xiaozhang.domain.model.School, 
                 color = Color(0xFF4E342E)
             )
             StatusItem(
-                label = "校舍",
+                label = "校园",
                 value = "Lv.${school.campusLevel}",
                 color = Color(0xFF4E342E),
                 onClick = onCampusClick
