@@ -550,7 +550,7 @@ private fun PrincipalAgendaCard(
             ) {
                 Column {
                     Text("校长年度议程", color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("找到最薄弱的一环，决定下一步投入", color = Color(0xFFB7C9D6), style = MaterialTheme.typography.bodySmall)
+                    Text("${stats.currentYear}年${stats.currentMonth}月 · 找到最薄弱的一环，决定下一步投入", color = Color(0xFFB7C9D6), style = MaterialTheme.typography.bodySmall)
                 }
                 Text("${stats.currentSeason}", color = Color(0xFFD4B06A), fontWeight = FontWeight.Bold)
             }
