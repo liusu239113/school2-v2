@@ -67,6 +67,10 @@ class SchoolPolicyManager @Inject constructor() {
         _policies.value = _policies.value.copy(universityStrategy = strategy)
     }
 
+    fun setBudgetAllocation(allocation: BudgetAllocation) {
+        _policies.value = _policies.value.copy(budgetAllocation = allocation.normalized())
+    }
+
     /**
      * 获取所有政策的综合效果
      */
@@ -84,8 +88,14 @@ class SchoolPolicyManager @Inject constructor() {
             enrollmentQualityMultiplier = p.enrollmentPlan.qualityMultiplier,
             specialTalentMultiplier = p.enrollmentPlan.specialTalentMultiplier,
             welfareReputationBonus = p.enrollmentPlan.welfareReputationBonus,
-            extraResearchDays = p.universityStrategy.extraResearchDays,
-            strategyName = p.universityStrategy.displayName
+            extraResearchDays = p.universityStrategy.extraResearchDays +
+                p.budgetAllocation.extraResearchDays(),
+            strategyName = p.universityStrategy.displayName,
+            teachingFocus = p.budgetAllocation.teachingWeight,
+            researchFocus = p.budgetAllocation.researchWeight,
+            campusLifeFocus = p.budgetAllocation.campusLifeWeight,
+            societyFocus = p.budgetAllocation.societyWeight,
+            monthlySpecialBudgetCost = p.budgetAllocation.monthlyCostWan()
         )
     }
 
@@ -108,6 +118,7 @@ class SchoolPolicyManager @Inject constructor() {
         // 考试难度影响教学严格程度
         mult *= p.examDifficulty.qualityMultiplier
         mult *= p.universityStrategy.qualityMultiplier
+        mult *= p.budgetAllocation.qualityMultiplier()
         return mult
     }
 
@@ -121,6 +132,7 @@ class SchoolPolicyManager @Inject constructor() {
         mod += p.examDifficulty.satisfactionModifier
         // 教师薪资间接提高满意度（更好的教师）
         mod += p.teacherPayPolicy.satisfactionBonus
+        mod += p.budgetAllocation.satisfactionModifier()
         return mod
     }
 
@@ -135,6 +147,7 @@ class SchoolPolicyManager @Inject constructor() {
         // 丰富课外 = 声誉+
         mod += p.extracurricularPolicy.reputationBonus
         mod += p.universityStrategy.reputationModifier
+        mod += p.budgetAllocation.reputationModifier()
         return mod
     }
 
@@ -176,7 +189,11 @@ class SchoolPolicyManager @Inject constructor() {
                 extracurricularPolicy = p.extracurricularPolicy.name,
                 admissionPolicy = p.admissionPolicy.name,
                 enrollmentPlan = p.enrollmentPlan.name,
-                universityStrategy = p.universityStrategy.name
+                universityStrategy = p.universityStrategy.name,
+                teachingWeight = p.budgetAllocation.teachingWeight,
+                researchWeight = p.budgetAllocation.researchWeight,
+                campusLifeWeight = p.budgetAllocation.campusLifeWeight,
+                societyWeight = p.budgetAllocation.societyWeight
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -193,7 +210,13 @@ class SchoolPolicyManager @Inject constructor() {
                 extracurricularPolicy = try { ExtracurricularPolicy.valueOf(data.extracurricularPolicy) } catch (_: Exception) { ExtracurricularPolicy.STANDARD },
                 admissionPolicy = try { AdmissionPolicy.valueOf(data.admissionPolicy) } catch (_: Exception) { AdmissionPolicy.BALANCED },
                 enrollmentPlan = try { EnrollmentPlan.valueOf(data.enrollmentPlan) } catch (_: Exception) { EnrollmentPlan.BALANCED },
-                universityStrategy = try { UniversityStrategy.valueOf(data.universityStrategy) } catch (_: Exception) { UniversityStrategy.BALANCED }
+                universityStrategy = try { UniversityStrategy.valueOf(data.universityStrategy) } catch (_: Exception) { UniversityStrategy.BALANCED },
+                budgetAllocation = BudgetAllocation(
+                    teachingWeight = data.teachingWeight,
+                    researchWeight = data.researchWeight,
+                    campusLifeWeight = data.campusLifeWeight,
+                    societyWeight = data.societyWeight
+                ).normalized()
             )
             _policies.value = restoredPolicies
         } catch (e: Exception) {
@@ -212,7 +235,8 @@ data class SchoolPolicies(
     val extracurricularPolicy: ExtracurricularPolicy = ExtracurricularPolicy.STANDARD,
     val admissionPolicy: AdmissionPolicy = AdmissionPolicy.BALANCED,
     val enrollmentPlan: EnrollmentPlan = EnrollmentPlan.BALANCED,
-    val universityStrategy: UniversityStrategy = UniversityStrategy.BALANCED
+    val universityStrategy: UniversityStrategy = UniversityStrategy.BALANCED,
+    val budgetAllocation: BudgetAllocation = BudgetAllocation()
 )
 
 /**
@@ -375,6 +399,77 @@ enum class UniversityStrategy(
 }
 
 /**
+ * 年度专项预算：把有限点数分到教学、科研、校园生活和社会合作。
+ * 总点数固定为 10，投入越高，对应线越强，月度专项开支也越高。
+ */
+data class BudgetAllocation(
+    val teachingWeight: Int = 3,
+    val researchWeight: Int = 2,
+    val campusLifeWeight: Int = 3,
+    val societyWeight: Int = 2
+) {
+    fun totalPoints(): Int = teachingWeight + researchWeight + campusLifeWeight + societyWeight
+
+    fun normalized(): BudgetAllocation {
+        val total = totalPoints().coerceAtLeast(1)
+        if (total == TOTAL_POINTS) {
+            return copy(
+                teachingWeight = teachingWeight.coerceIn(0, TOTAL_POINTS),
+                researchWeight = researchWeight.coerceIn(0, TOTAL_POINTS),
+                campusLifeWeight = campusLifeWeight.coerceIn(0, TOTAL_POINTS),
+                societyWeight = societyWeight.coerceIn(0, TOTAL_POINTS)
+            )
+        }
+        val teaching = ((teachingWeight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, TOTAL_POINTS)
+        val research = ((researchWeight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, TOTAL_POINTS - teaching)
+        val campusLife = ((campusLifeWeight.toFloat() / total) * TOTAL_POINTS).toInt()
+            .coerceIn(0, TOTAL_POINTS - teaching - research)
+        val society = (TOTAL_POINTS - teaching - research - campusLife).coerceIn(0, TOTAL_POINTS)
+        return BudgetAllocation(teaching, research, campusLife, society)
+    }
+
+    fun adjust(line: BudgetLine, delta: Int): BudgetAllocation {
+        val current = when (line) {
+            BudgetLine.TEACHING -> teachingWeight
+            BudgetLine.RESEARCH -> researchWeight
+            BudgetLine.CAMPUS_LIFE -> campusLifeWeight
+            BudgetLine.SOCIETY -> societyWeight
+        }
+        val next = (current + delta).coerceIn(0, TOTAL_POINTS)
+        val spentWithout = totalPoints() - current
+        if (spentWithout + next > TOTAL_POINTS) return this
+        return when (line) {
+            BudgetLine.TEACHING -> copy(teachingWeight = next)
+            BudgetLine.RESEARCH -> copy(researchWeight = next)
+            BudgetLine.CAMPUS_LIFE -> copy(campusLifeWeight = next)
+            BudgetLine.SOCIETY -> copy(societyWeight = next)
+        }
+    }
+
+    fun monthlyCostWan(): Double = (totalPoints() * COST_PER_POINT).coerceAtLeast(0.0)
+
+    fun extraResearchDays(): Int = if (researchWeight >= 4) 1 else 0
+
+    fun qualityMultiplier(): Float = 0.94f + teachingWeight * 0.02f
+
+    fun satisfactionModifier(): Float = (campusLifeWeight - 2) * 2.5f
+
+    fun reputationModifier(): Long = ((societyWeight - 2) * 2).toLong()
+
+    companion object {
+        const val TOTAL_POINTS = 10
+        const val COST_PER_POINT = 0.8
+    }
+}
+
+enum class BudgetLine(val displayName: String, val description: String) {
+    TEACHING("教学投入", "提高课堂质量和毕业成果"),
+    RESEARCH("科研投入", "加快研究进度"),
+    CAMPUS_LIFE("校园生活", "改善宿舍食堂和学生满意度"),
+    SOCIETY("社会合作", "换取声誉和外部支持")
+}
+
+/**
  * 政策效果汇总
  */
 data class PolicyEffects(
@@ -390,7 +485,12 @@ data class PolicyEffects(
     val specialTalentMultiplier: Float = 1f,
     val welfareReputationBonus: Long = 0L,
     val extraResearchDays: Int = 0,
-    val strategyName: String = "均衡办学"
+    val strategyName: String = "均衡办学",
+    val teachingFocus: Int = 3,
+    val researchFocus: Int = 2,
+    val campusLifeFocus: Int = 3,
+    val societyFocus: Int = 2,
+    val monthlySpecialBudgetCost: Double = 8.0
 )
 
 @Serializable
@@ -401,5 +501,9 @@ data class PolicyPersistData(
     val extracurricularPolicy: String = "STANDARD",
     val admissionPolicy: String = "BALANCED",
     val enrollmentPlan: String = "BALANCED",
-    val universityStrategy: String = "BALANCED"
+    val universityStrategy: String = "BALANCED",
+    val teachingWeight: Int = 3,
+    val researchWeight: Int = 2,
+    val campusLifeWeight: Int = 3,
+    val societyWeight: Int = 2
 )

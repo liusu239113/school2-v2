@@ -230,7 +230,7 @@ class OverviewViewModel @Inject constructor(
         }
 
         if (tips.isEmpty()) {
-            tips.add("办学顺利！继续提升科研、就业质量和社会影响力，向世界一流大学进军")
+            tips.add("把有限预算分到教学、科研、校园生活或社会合作，6月学年评估会按投入方向给结果")
             tips.add("支出明细可在「数据报表」→「财务管理」中查看")
         }
 

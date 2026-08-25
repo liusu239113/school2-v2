@@ -4393,16 +4393,27 @@ class GameEngine @Inject constructor(
                 org.json.JSONObject(finalTierMap).toString()
             }
             if (school.currentMonth == 6 && !isRetrySettlement) {
-                val strategyName = policyManager.getPolicyEffects().strategyName
+                val effects = policyManager.getPolicyEffects()
                 val profit = monthlyRevenue - monthlyExpenses
                 val studentCount = studentRepository.getActiveStudentCount()
                 val researchCount = researchRepository.getUnlockedMethods().size
+                val strongestLine = listOf(
+                    "教学" to effects.teachingFocus,
+                    "科研" to effects.researchFocus,
+                    "校园生活" to effects.campusLifeFocus,
+                    "社会合作" to effects.societyFocus
+                ).maxBy { it.second }
+                val reviewBonus = when {
+                    profit >= 0 && strongestLine.second >= 4 -> 28L
+                    profit >= 0 -> 20L
+                    else -> 0L
+                }
                 emitEvent(
                     GameEvent.PositiveEvent(
                         title = "学年办学评估",
-                        message = "本学年方针「${strategyName}」。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。下学期按此方向继续经营。",
+                        message = "本学年方针「${effects.strategyName}」，专项预算偏向「${strongestLine.first}」。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
                         bonusCash = 0.0,
-                        bonusReputation = if (profit >= 0) 20L else 0L
+                        bonusReputation = reviewBonus
                     ),
                     school
                 )
@@ -5015,10 +5026,13 @@ class GameEngine @Inject constructor(
 
         // 教学系统运营成本（班级开支 + 排课政策成本 + 特色项目维护）
         val teachingExpenses = teachingManager.config.monthlyOperatingCost() * costReductionMultiplier
+        val specialBudgetCost = policyManager.getPolicyEffects().monthlySpecialBudgetCost *
+            costReductionMultiplier
 
         // 政策综合开支乘数（课外活动、奖学金等政策对非薪资开支的影响）
         val policyExpenseMultiplier = policyManager.getPolicyEffects().expenseMultiplier
-        val totalExpenses = salaryExpenses + (otherExpenses + teachingExpenses) * policyExpenseMultiplier
+        val totalExpenses = salaryExpenses +
+            (otherExpenses + teachingExpenses + specialBudgetCost) * policyExpenseMultiplier
 
         schoolRepository.mutateSchool { latest ->
             latest.cash = (latest.cash - totalExpenses).coerceAtLeast(-100.0)
@@ -5032,8 +5046,8 @@ class GameEngine @Inject constructor(
         return MonthlyExpenseBreakdown(
             total = totalExpenses,
             salary = salaryExpenses,
-            facilities = otherExpenses,
-            teaching = teachingExpenses
+            facilities = otherExpenses * policyExpenseMultiplier,
+            teaching = (teachingExpenses + specialBudgetCost) * policyExpenseMultiplier
         )
     }
 

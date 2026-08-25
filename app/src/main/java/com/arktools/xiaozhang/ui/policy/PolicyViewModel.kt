@@ -43,6 +43,10 @@ class PolicyViewModel @Inject constructor(
     fun setAdmissionPolicy(policy: AdmissionPolicy) = policyManager.setAdmissionPolicy(policy)
     fun setEnrollmentPlan(plan: EnrollmentPlan) = policyManager.setEnrollmentPlan(plan)
     fun setUniversityStrategy(strategy: UniversityStrategy) = policyManager.setUniversityStrategy(strategy)
+    fun adjustBudget(line: BudgetLine, delta: Int) {
+        val next = policyManager.policies.value.budgetAllocation.adjust(line, delta)
+        policyManager.setBudgetAllocation(next)
+    }
 
     fun getPolicyEffects(): PolicyEffects = policyManager.getPolicyEffects()
     fun resetToDefaults() = policyManager.resetToDefaults()

@@ -135,6 +135,37 @@ fun PolicyScreen(
             }
         }
 
+        item {
+            PolicySection(
+                title = "年度专项预算",
+                description = "共10点，分到教学、科研、校园生活和社会合作。投入越高，对应线越强，每月专项开支也越高。"
+            ) {
+                val allocation = policies.budgetAllocation
+                Text(
+                    text = "已分配 ${allocation.totalPoints()}/${BudgetAllocation.TOTAL_POINTS} 点 · 每月约 ${"%.1f".format(allocation.monthlyCostWan())} 万",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                BudgetLine.entries.forEach { line ->
+                    val value = when (line) {
+                        BudgetLine.TEACHING -> allocation.teachingWeight
+                        BudgetLine.RESEARCH -> allocation.researchWeight
+                        BudgetLine.CAMPUS_LIFE -> allocation.campusLifeWeight
+                        BudgetLine.SOCIETY -> allocation.societyWeight
+                    }
+                    BudgetLineRow(
+                        line = line,
+                        value = value,
+                        canIncrease = allocation.totalPoints() < BudgetAllocation.TOTAL_POINTS && value < BudgetAllocation.TOTAL_POINTS,
+                        canDecrease = value > 0,
+                        onDecrease = { viewModel.adjustBudget(line, -1) },
+                        onIncrease = { viewModel.adjustBudget(line, 1) }
+                    )
+                }
+            }
+        }
+
         // 年度办学方针：教学、科研、就业、扩张之间的长期取舍
         item {
             PolicySection(
@@ -317,6 +348,40 @@ private fun PolicyOption(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun BudgetLineRow(
+    line: BudgetLine,
+    value: Int,
+    canIncrease: Boolean,
+    canDecrease: Boolean,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(line.displayName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(line.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = onDecrease, enabled = canDecrease) {
+            Text("-", fontWeight = FontWeight.Bold)
+        }
+        Text(
+            "$value",
+            modifier = Modifier.width(24.dp),
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall
+        )
+        IconButton(onClick = onIncrease, enabled = canIncrease) {
+            Text("+", fontWeight = FontWeight.Bold)
         }
     }
 }
