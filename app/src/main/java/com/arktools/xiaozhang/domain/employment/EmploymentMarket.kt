@@ -67,7 +67,8 @@ data class GraduateRecord(
     var industry: Industry? = null,
     var salaryTier: SalaryTier? = null,
     var monthsInUniversity: Int = 0, // 大学已读月数
-    var feedbackScore: Int = 0       // 对母校的评价(-5到+5)
+    var feedbackScore: Int = 0,      // 对母校的评价(-5到+5)
+    val courseId: String = ""
 ) {
     /** 大学学制月数（专科36，本科48，985/211可能读研72） */
     val universityDuration: Int
@@ -220,7 +221,8 @@ class EmploymentMarket @Inject constructor() {
                         industry = g.industry?.name,
                         salaryTier = g.salaryTier?.name,
                         monthsInUniversity = g.monthsInUniversity,
-                        feedbackScore = g.feedbackScore
+                        feedbackScore = g.feedbackScore,
+                        courseId = g.courseId
                     )
                 },
                 activePrograms = _state.value.activePrograms.map { it.name },
@@ -258,7 +260,8 @@ class EmploymentMarket @Inject constructor() {
                     industry = industry,
                     salaryTier = salary,
                     monthsInUniversity = gp.monthsInUniversity,
-                    feedbackScore = gp.feedbackScore
+                    feedbackScore = gp.feedbackScore,
+                    courseId = gp.courseId
                 )
             })
             val programs = data.activePrograms.mapNotNull { name ->
@@ -362,7 +365,8 @@ class EmploymentMarket @Inject constructor() {
         gaoKaoScore: Float,
         universityTier: UniversityTier,
         universityName: String?,
-        satisfaction: Float
+        satisfaction: Float,
+        courseId: String = ""
     ): Boolean {
         val status = if (universityTier == UniversityTier.NONE) {
             GraduateStatus.NOT_ADMITTED
@@ -381,7 +385,8 @@ class EmploymentMarket @Inject constructor() {
             satisfaction = satisfaction,
             status = status,
             // 未升学者直接给反馈
-            feedbackScore = if (universityTier == UniversityTier.NONE) -2 else 0
+            feedbackScore = if (universityTier == UniversityTier.NONE) -2 else 0,
+            courseId = courseId
         )
         while (true) {
             val state = _state.value
@@ -481,14 +486,16 @@ class EmploymentMarket @Inject constructor() {
         } else {
             existing
         }
-        return if (preferred.studentId.isNullOrBlank()) {
-            preferred.copy(
-                studentId = existing.studentId?.takeIf { it.isNotBlank() }
-                    ?: candidate.studentId?.takeIf { it.isNotBlank() }
-            )
-        } else {
-            preferred
+        val mergedId = preferred.studentId?.takeIf { it.isNotBlank() }
+            ?: existing.studentId?.takeIf { it.isNotBlank() }
+            ?: candidate.studentId?.takeIf { it.isNotBlank() }
+        val mergedCourseId = preferred.courseId.ifBlank {
+            existing.courseId.ifBlank { candidate.courseId }
         }
+        return preferred.copy(
+            studentId = mergedId,
+            courseId = mergedCourseId
+        )
     }
 
     private fun deduplicateGraduates(
@@ -569,7 +576,10 @@ class EmploymentMarket @Inject constructor() {
         if (deterministicUnit(graduate, 2) < startupChance) {
             return graduate.copy(
                 status = GraduateStatus.SELF_EMPLOYED,
-                industry = Industry.entries[deterministicIndex(graduate, 3, Industry.entries.size)],
+                industry = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickIndustryDeterministic(
+                    graduate.courseId,
+                    deterministicIndex(graduate, 3, 32)
+                ),
                 salaryTier = SalaryTier.MID,
                 feedbackScore = deterministicIndex(graduate, 4, 3) + 2
             )
@@ -590,7 +600,10 @@ class EmploymentMarket @Inject constructor() {
         }
         return graduate.copy(
             status = GraduateStatus.EMPLOYED,
-            industry = Industry.entries[deterministicIndex(graduate, 6, Industry.entries.size)],
+            industry = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickIndustryDeterministic(
+                graduate.courseId,
+                deterministicIndex(graduate, 6, 32)
+            ),
             salaryTier = salary,
             feedbackScore = feedback
         )
@@ -728,14 +741,17 @@ class EmploymentMarket @Inject constructor() {
         if (random.nextFloat() < startupChance) {
             return graduate.copy(
                 status = GraduateStatus.SELF_EMPLOYED,
-                industry = Industry.entries[random.nextInt(Industry.entries.size)],
+                industry = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickIndustry(
+                    graduate.courseId,
+                    random
+                ),
                 salaryTier = SalaryTier.MID,
                 feedbackScore = random.nextInt(3) + 2
             )
         }
 
         // 正常就业：大学层次决定薪资和行业
-        val (industry, salary) = assignIndustryAndSalary(graduate.universityTier)
+        val (industry, salary) = assignIndustryAndSalary(graduate.universityTier, graduate.courseId)
         val feedback = when (graduate.universityTier) {
             UniversityTier.QINGBEI, UniversityTier.TOP_985 -> random.nextInt(3) + 3  // 3~5
             UniversityTier.NORMAL_985, UniversityTier.TOP_211 -> random.nextInt(3) + 1  // 1~3
@@ -752,7 +768,10 @@ class EmploymentMarket @Inject constructor() {
         )
     }
 
-    private fun assignIndustryAndSalary(tier: UniversityTier): Pair<Industry, SalaryTier> {
+    private fun assignIndustryAndSalary(
+        tier: UniversityTier,
+        courseId: String = ""
+    ): Pair<Industry, SalaryTier> {
         val salary = when (tier) {
             UniversityTier.QINGBEI -> SalaryTier.SENIOR
             UniversityTier.TOP_985 -> SalaryTier.MID
@@ -761,7 +780,10 @@ class EmploymentMarket @Inject constructor() {
             UniversityTier.SECOND_TIER, UniversityTier.JUNIOR_COLLEGE -> SalaryTier.ENTRY
             UniversityTier.NONE -> SalaryTier.ENTRY
         }
-        val industry = Industry.entries[random.nextInt(Industry.entries.size)]
+        val industry = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickIndustry(
+            courseId,
+            random
+        )
         return industry to salary
     }
 
@@ -971,5 +993,6 @@ data class GraduateRecordPersist(
     val industry: String? = null,
     val salaryTier: String? = null,
     val monthsInUniversity: Int = 0,
-    val feedbackScore: Int = 0
+    val feedbackScore: Int = 0,
+    val courseId: String = ""
 )

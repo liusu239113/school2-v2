@@ -279,7 +279,9 @@ fun OverviewScreen(
                     bCount = stats.teacherBCount,
                     cCount = stats.teacherCCount,
                     avgFatigue = stats.avgFatigue,
-                    avgLoyalty = stats.avgLoyalty
+                    avgLoyalty = stats.avgLoyalty,
+                    facultyCoverageRatio = stats.facultyCoverageRatio,
+                    facultyCoverageSummary = stats.facultyCoverageSummary
                 )
             }
         }
@@ -428,12 +430,24 @@ private fun PrincipalAgendaCard(
                     } else {
                         stats.foundedCollegeNames.joinToString("、")
                     }
-                    Text("目标「${stats.annualGoalName}」· $collegeText · 专项每月约 ${"%.1f".format(stats.collegeMonthlyCost)}万", color = Color(0xFF8FA3B3), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "目标「${stats.annualGoalName}」· $collegeText · 师资覆盖 ${(stats.facultyCoverageRatio * 100).toInt()}% · 专项每月约 ${"%.1f".format(stats.collegeMonthlyCost)}万",
+                        color = Color(0xFF8FA3B3),
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
                 Text("${stats.currentSeason}", color = Color(0xFFD4B06A), fontWeight = FontWeight.Bold)
             }
             AgendaLine("财务安全", if (financeProgress >= 1f) "现金流稳定" else "需要控制支出", financeProgress, onFinanceClick, Color(0xFF81C784))
-            AgendaLine("师资状态", if (talentProgress >= 0.7f) "团队稳定" else "关注疲劳与流失", talentProgress, onTalentClick, Color(0xFF64B5F6))
+            AgendaLine(
+                "师资状态",
+                if (stats.facultyCoverageRatio < 1f) stats.facultyCoverageSummary
+                else if (talentProgress >= 0.7f) "核心师资已配齐"
+                else "关注疲劳与流失",
+                stats.facultyCoverageRatio.coerceIn(0f, 1f),
+                onTalentClick,
+                Color(0xFF64B5F6)
+            )
             AgendaLine("科研积累", "${stats.researchUnlocked}/${stats.totalResearch} 个项目", researchProgress, onResearchClick, Color(0xFFBA68C8))
             AgendaLine("社会影响", "声誉 ${FormatUtils.formatReputation(stats.reputation)}", societyProgress, onSocietyClick, Color(0xFFFFB74D))
         }
@@ -824,7 +838,9 @@ private fun TeacherTeamCard(
     bCount: Int,
     cCount: Int,
     avgFatigue: Float,
-    avgLoyalty: Float
+    avgLoyalty: Float,
+    facultyCoverageRatio: Float = 1f,
+    facultyCoverageSummary: String = "各学院核心师资已配齐"
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
         Image(
@@ -848,6 +864,13 @@ private fun TeacherTeamCard(
                 LevelBadge(label = "B", count = bCount, color = Color(0xFF2196F3))
                 LevelBadge(label = "C", count = cCount, color = Color(0xFF9E9E9E))
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "学院师资覆盖 ${(facultyCoverageRatio * 100).toInt()}% · $facultyCoverageSummary",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (facultyCoverageRatio < 1f) AccentOrange else MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 

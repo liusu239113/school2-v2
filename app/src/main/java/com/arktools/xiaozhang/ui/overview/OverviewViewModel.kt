@@ -75,7 +75,9 @@ class OverviewViewModel @Inject constructor(
         val coursePreparingCount: Int = 0,
         val annualGoalName: String = "均衡发展",
         val foundedCollegeNames: List<String> = emptyList(),
-        val collegeMonthlyCost: Double = 0.0
+        val collegeMonthlyCost: Double = 0.0,
+        val facultyCoverageRatio: Float = 1f,
+        val facultyCoverageSummary: String = "各学院核心师资已配齐"
     )
 
     private val _schoolStats = MutableStateFlow(SchoolOverviewStats())
@@ -158,6 +160,10 @@ class OverviewViewModel @Inject constructor(
                     .count { roleName -> Subject.entries.any { it.name == roleName } }
 
                 val policyEffects = policyManager.getPolicyEffects()
+                val facultyCoverage = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.facultyCoverage(
+                    founded = policyManager.policies.value.collegeDevelopment.founded,
+                    teachers = teachers
+                )
                 SchoolOverviewStats(
                     totalStudents = totalStudents,
                     monthlyNewStudents = monthlyNew,
@@ -190,7 +196,9 @@ class OverviewViewModel @Inject constructor(
                     coursePreparingCount = coursePreparingCount,
                     annualGoalName = policyEffects.annualGoalName,
                     foundedCollegeNames = policyEffects.foundedCollegeNames,
-                    collegeMonthlyCost = policyEffects.monthlySpecialBudgetCost
+                    collegeMonthlyCost = policyEffects.monthlySpecialBudgetCost,
+                    facultyCoverageRatio = facultyCoverage.coverageRatio,
+                    facultyCoverageSummary = facultyCoverage.missingSummary
                 )
             }.collect { stats ->
                 _schoolStats.value = stats
@@ -248,6 +256,9 @@ class OverviewViewModel @Inject constructor(
         }
         if (stats.currentMonth in 4..6) {
             tips.add("6月会按「${stats.annualGoalName}」考核。达标有拨款，未达标扣声誉")
+        }
+        if (stats.facultyCoverageRatio < 1f) {
+            tips.add(stats.facultyCoverageSummary + "。缺编会直接拉低该学院学生的掌握度和毕业出口")
         }
 
         if (tips.isEmpty()) {

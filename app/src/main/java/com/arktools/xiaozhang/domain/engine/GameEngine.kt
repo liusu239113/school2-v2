@@ -2037,7 +2037,8 @@ class GameEngine @Inject constructor(
                     gaoKaoScore = student.gaoKaoScore,
                     universityTier = tier,
                     universityName = student.admittedUniversity ?: "",
-                    satisfaction = student.satisfaction
+                    satisfaction = student.satisfaction,
+                    courseId = student.courseId
                 )
                 if (added) registered++
             }
@@ -4452,10 +4453,14 @@ class GameEngine @Inject constructor(
                 } else {
                     "已建学院：${effects.foundedCollegeNames.joinToString("、")}"
                 }
+                val facultyCoverage = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.facultyCoverage(
+                    founded = policyManager.policies.value.collegeDevelopment.founded,
+                    teachers = cachedTeachersForMonth
+                )
                 emitEvent(
                     GameEvent.PositiveEvent(
                         title = "学年办学评估",
-                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
+                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。师资覆盖${(facultyCoverage.coverageRatio * 100).toInt()}%。${facultyCoverage.missingSummary}。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
                         bonusCash = 0.0,
                         bonusReputation = reviewBonus
                     ),
@@ -5503,8 +5508,9 @@ class GameEngine @Inject constructor(
             student.exerciseLevel = afterFacility.exerciseLevel
             student.consecutiveSickDays = afterFacility.consecutiveSickDays
 
-            // 获取该学生班级对应的教师平均技能
-            val classTeachers = allTeachers.filter { it.isWorking }
+            // 按报考大类/专业匹配核心师资，缺编时教学质量会掉
+            val classTeachers = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .matchingTeachers(student.courseId, allTeachers)
             val teacherAvgSkill = if (classTeachers.isNotEmpty()) {
                 classTeachers.map { it.averageSkill }.average().toFloat()
             } else 30f
@@ -6096,9 +6102,6 @@ class GameEngine @Inject constructor(
         if (grade3Students.isEmpty()) return
 
         val allTeachers = teacherRepository.getTeachers()
-        val teacherAvgSkill = if (allTeachers.isNotEmpty()) {
-            allTeachers.map { it.averageSkill }.average().toFloat()
-        } else 30f
 
         val updatedStudents = mutableListOf<Student>()
 
@@ -6106,14 +6109,16 @@ class GameEngine @Inject constructor(
         val scoreLines = GaoKaoCalculator.generateAnnualScoreLines(school.currentYear)
 
         // 教学配置对高考的综合加成（教学质量→升学率）
-        val teachingQualityBonus = teachingManager.config.overallQuality(teacherAvgSkill)
-        // 将 0~100 的质量分映射为 0.9~1.1 的分数系数
-        val teachingScoreMultiplier = 0.9f + (teachingQualityBonus / 100f) * 0.2f
-        // 政策毕业质量加成（严格考试可提升高考表现）
         val policyGradBonus = policyManager.getPolicyEffects().graduationQualityBonus
 
         grade3Students.forEach { student ->
-            // 1. 计算高考分数
+            val matchedTeachers = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .matchingTeachers(student.courseId, allTeachers)
+            val teacherAvgSkill = if (matchedTeachers.isNotEmpty()) {
+                matchedTeachers.map { it.averageSkill }.average().toFloat()
+            } else 30f
+            val teachingQualityBonus = teachingManager.config.overallQuality(teacherAvgSkill)
+            val teachingScoreMultiplier = 0.9f + (teachingQualityBonus / 100f) * 0.2f
             val examHistory = examManager.getStudentScores(student.id)
             val baseScore = GaoKaoCalculator.calculateScore(
                 student = student,
@@ -6213,7 +6218,8 @@ class GameEngine @Inject constructor(
                             universityTier = student.universityTier
                                 ?: UniversityTier.NONE,
                             universityName = student.admittedUniversity,
-                            satisfaction = student.satisfaction
+                            satisfaction = student.satisfaction,
+                            courseId = student.courseId
                         )
                     }
 

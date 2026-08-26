@@ -106,6 +106,139 @@ object UniversityAcademicCatalog {
         return UniversityMajor.entries.filter { it.track == track }
     }
 
+    fun requiredRoles(college: CollegeType): List<TeacherRole> = when (college) {
+        CollegeType.LIBERAL_ARTS -> listOf(TeacherRole.CHINESE, TeacherRole.HISTORY, TeacherRole.POLITICS)
+        CollegeType.SCIENCE -> listOf(TeacherRole.MATH, TeacherRole.PHYSICS, TeacherRole.CHEMISTRY)
+        CollegeType.ENGINEERING -> listOf(TeacherRole.MATH, TeacherRole.PHYSICS, TeacherRole.GEOGRAPHY)
+        CollegeType.BUSINESS -> listOf(TeacherRole.ENGLISH, TeacherRole.POLITICS, TeacherRole.MATH)
+    }
+
+    fun requiredRoles(courseId: String): List<TeacherRole> {
+        parseMajor(courseId)?.let { return requiredRoles(it.college) }
+        parseTrack(courseId)?.let { return requiredRoles(it.college) }
+        return listOf(TeacherRole.CHINESE, TeacherRole.MATH, TeacherRole.ENGLISH)
+    }
+
+    fun matchingTeachers(courseId: String, teachers: List<Teacher>): List<Teacher> {
+        val roles = requiredRoles(courseId)
+        val matched = teachers.filter { it.isWorking && it.role in roles }
+        return matched.ifEmpty { teachers.filter { it.isWorking } }
+    }
+
+    fun facultyCoverage(
+        founded: List<CollegeType>,
+        teachers: List<Teacher>
+    ): FacultyCoverage {
+        val working = teachers.filter { it.isWorking }
+        val colleges = founded.ifEmpty { listOf(CollegeType.LIBERAL_ARTS) }
+        val lines = colleges.map { college ->
+            val roles = requiredRoles(college)
+            val covered = roles.count { role -> working.any { it.role == role } }
+            FacultyCoverageLine(
+                college = college,
+                required = roles.size,
+                covered = covered,
+                missingRoles = roles.filter { role -> working.none { it.role == role } }
+            )
+        }
+        val totalRequired = lines.sumOf { it.required }
+        val totalCovered = lines.sumOf { it.covered }
+        return FacultyCoverage(
+            lines = lines,
+            coverageRatio = if (totalRequired <= 0) 1f else totalCovered.toFloat() / totalRequired.toFloat()
+        )
+    }
+
+    fun preferredIndustries(courseId: String): List<IndustryPreference> {
+        val major = parseMajor(courseId)
+        val track = parseTrack(courseId)
+        return when (major ?: return defaultIndustries(track)) {
+            UniversityMajor.CHINESE_LIT, UniversityMajor.HISTORY, UniversityMajor.PHILOSOPHY ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 4),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 3),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.GOVERNMENT, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.LAW, 1)
+                )
+            UniversityMajor.MATHEMATICS, UniversityMajor.PHYSICS, UniversityMajor.CHEMISTRY ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.RESEARCH, 4),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 3),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.TECHNOLOGY, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.HEALTHCARE, 1)
+                )
+            UniversityMajor.COMPUTER ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.TECHNOLOGY, 5),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.FINANCE, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.RESEARCH, 1)
+                )
+            UniversityMajor.MECHANICAL, UniversityMajor.CIVIL ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.ENGINEERING, 5),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.GOVERNMENT, 1)
+                )
+            UniversityMajor.FINANCE ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.FINANCE, 5),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.GOVERNMENT, 1)
+                )
+            UniversityMajor.MANAGEMENT, UniversityMajor.MARKETING ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 4),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.FINANCE, 2)
+                )
+        }
+    }
+
+    private fun defaultIndustries(track: AdmissionTrack?): List<IndustryPreference> {
+        return when (track) {
+            AdmissionTrack.LIBERAL -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 3),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 2),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.GOVERNMENT, 2)
+            )
+            AdmissionTrack.SCIENCE -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.RESEARCH, 3),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 2),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.TECHNOLOGY, 2)
+            )
+            AdmissionTrack.ENGINEERING -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.ENGINEERING, 4),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.TECHNOLOGY, 3)
+            )
+            AdmissionTrack.BUSINESS -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.FINANCE, 3),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 3)
+            )
+            null -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 2),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 2)
+            )
+        }
+    }
+
+    fun pickIndustry(courseId: String, random: Random): com.arktools.xiaozhang.domain.employment.Industry {
+        val prefs = preferredIndustries(courseId)
+        val total = prefs.sumOf { it.weight }
+        var roll = random.nextInt(total.coerceAtLeast(1))
+        prefs.forEach { pref ->
+            if (roll < pref.weight) return pref.industry
+            roll -= pref.weight
+        }
+        return prefs.first().industry
+    }
+
+    fun pickIndustryDeterministic(courseId: String, index: Int): com.arktools.xiaozhang.domain.employment.Industry {
+        val prefs = preferredIndustries(courseId)
+        val weighted = prefs.flatMap { pref -> List(pref.weight) { pref.industry } }
+        if (weighted.isEmpty()) return com.arktools.xiaozhang.domain.employment.Industry.COMMERCE
+        return weighted[kotlin.math.abs(index) % weighted.size]
+    }
+
     fun pickFreshmanTrack(
         weights: AdmissionTrackPlan,
         founded: List<CollegeType>,
@@ -210,3 +343,29 @@ data class AdmissionTrackPlan(
         const val TOTAL_POINTS = 10
     }
 }
+
+data class FacultyCoverage(
+    val lines: List<FacultyCoverageLine>,
+    val coverageRatio: Float
+) {
+    val missingSummary: String
+        get() {
+            val missing = lines.filter { it.missingRoles.isNotEmpty() }
+            if (missing.isEmpty()) return "各学院核心师资已配齐"
+            return missing.joinToString("；") { line ->
+                "${line.college.displayName}缺${line.missingRoles.joinToString("、") { it.displayName }}"
+            }
+        }
+}
+
+data class FacultyCoverageLine(
+    val college: CollegeType,
+    val required: Int,
+    val covered: Int,
+    val missingRoles: List<TeacherRole>
+)
+
+data class IndustryPreference(
+    val industry: com.arktools.xiaozhang.domain.employment.Industry,
+    val weight: Int
+)
