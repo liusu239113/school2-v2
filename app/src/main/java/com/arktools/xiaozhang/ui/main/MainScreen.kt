@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import com.arktools.xiaozhang.ui.campus.CampusView
 import com.arktools.xiaozhang.BuildConfig
 import com.arktools.xiaozhang.R
 import androidx.compose.material.icons.Icons
@@ -663,8 +664,8 @@ fun MainScreen(
         bottomBar = {
             NavigationBar(containerColor = Color(0xE60B2038)) {
                 NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_campus_v2), contentDescription = "总览", modifier = Modifier.size(28.dp)) },
-                    label = { Text("总览") },
+                    icon = { Image(painter = painterResource(id = R.drawable.nav_campus_v2), contentDescription = "校园", modifier = Modifier.size(28.dp)) },
+                    label = { Text("校园") },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0; tutorialManager.notifyTabChanged(0) }
                 )
@@ -716,33 +717,7 @@ fun MainScreen(
                 label = "tabContent"
             ) { tab ->
                 when (tab) {
-                    0 -> OverviewScreen(
-                        listState = overviewListState,
-                        onNavigateToRanking = { selectedTab = 5 },
-                        onNavigateToStock = { selectedTab = 6 },
-                        onNavigateToFacility = { selectedTab = 7 },
-                        onNavigateToStudent = { selectedTab = 8 },
-                        onNavigateToAchievement = { selectedTab = 10 },
-                        onNavigateToReport = { selectedTab = 11 },
-                        onNavigateToMarketing = { selectedTab = 12 },
-                        onNavigateToEvent = { selectedTab = 13 },
-                        onNavigateToNotification = { selectedTab = 14 },
-                        onNavigateToAlumni = { selectedTab = 15 },
-                        onNavigateToPolicy = { selectedTab = 16 },
-                        onNavigateToTeacher = { selectedTab = 2 },
-                        onNavigateToResearch = { selectedTab = 3 },
-                        onNavigateToReputation = { selectedTab = 20 },
-                        onNavigateToClub = { selectedTab = 17 },
-                        onNavigateToSeasonal = { selectedTab = 18 },
-                        onNavigateToStudentLife = { selectedTab = 21 },
-                        onNavigateToConference = { selectedTab = 23 },
-                        onNavigateToParent = { selectedTab = 27 },
-                        onNavigateToGovernment = { selectedTab = 28 },
-                        onNavigateToScholarship = { selectedTab = 29 },
-                        onNavigateToTimetable = { selectedTab = 31 },
-                        onNavigateToExam = { selectedTab = 32 },
-                        onNavigateToPrincipalOffice = { selectedTab = 33 }
-                    )
+                    0 -> CampusView()
                     1 -> TeachingScreen()
                     2 -> TeacherListScreen()
                     3 -> ResearchScreen()
