@@ -122,6 +122,15 @@ fun OverviewScreen(
             )
         }
 
+        // 校际学科竞赛：报名费进、奖金与声誉出，胜率看学院师资覆盖
+        item {
+            CompetitionCard(
+                uiState = viewModel.competitionUi.collectAsState().value,
+                onRegister = { track, tier -> viewModel.registerCompetition(track, tier) },
+                onConsumeMessage = { viewModel.consumeCompetitionMessage() }
+            )
+        }
+
         // 季节指示 + 学校健康度
         item {
             Row(
@@ -1374,6 +1383,114 @@ private fun PendingReminderCard(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ===== 校际学科竞赛卡片 =====
+
+@Composable
+private fun CompetitionCard(
+    uiState: OverviewViewModel.CompetitionUiState,
+    onRegister: (com.arktools.xiaozhang.domain.model.AdmissionTrack,
+        com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager.CompetitionTier) -> Unit,
+    onConsumeMessage: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Image(
+            painter = painterResource(id = R.drawable.card_bg),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.FillBounds
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.banner_competition_v2),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Text(
+                text = "校际学科竞赛",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            if (uiState.message \!= null) {
+                Text(
+                    text = uiState.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AccentOrange,
+                    modifier = Modifier.clickable { onConsumeMessage() }
+                )
+            }
+            if (uiState.catalog.isEmpty()) {
+                Text(
+                    text = "成立学院后，对应大类的学生才能代表学校参赛",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                uiState.active.forEach { comp ->
+                    Text(
+                        text = "已报名：${comp.name}（${comp.resolveMonth}月结算）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AccentGreen
+                    )
+                }
+                uiState.catalog.forEach { entry ->
+                    val already = uiState.active.any {
+                        it.trackName == entry.track.displayName && it.tier == entry.tier.name
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${entry.tier.displayName}·${entry.track.displayName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "报名 ${entry.entryFee.toInt()}万 · 奖金 ${entry.prize.toInt()}万 + ${entry.reputationReward}声誉",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (already) {
+                            Text(
+                                text = "已报名",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AccentGreen
+                            )
+                        } else {
+                            Text(
+                                text = "报名",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { onRegister(entry.track, entry.tier) }
+                            )
+                        }
+                    }
+                }
+            }
+            if (uiState.lastSummary.isNotEmpty()) {
+                Text(
+                    text = uiState.lastSummary,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

@@ -36,8 +36,60 @@ class OverviewViewModel @Inject constructor(
     private val gameOverDetector: GameOverDetector,
     private val notificationManager: NotificationManager,
     private val suggestionBoxManager: SuggestionBoxManager,
-    private val policyManager: SchoolPolicyManager
+    private val policyManager: SchoolPolicyManager,
+    private val gameEngine: com.arktools.xiaozhang.domain.engine.GameEngine,
+    private val audioManager: com.arktools.xiaozhang.audio.AudioManager
 ) : ViewModel() {
+
+    // ===== 校际学科竞赛 =====
+
+    data class CompetitionUiState(
+        val catalog: List<com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager.CatalogEntry> =
+            emptyList(),
+        val active: List<com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager.CompetitionState> =
+            emptyList(),
+        val lastSummary: String = "",
+        val message: String? = null
+    )
+
+    private val _competitionUi = MutableStateFlow(CompetitionUiState())
+    val competitionUi: StateFlow<CompetitionUiState> = _competitionUi.asStateFlow()
+
+    init {
+        viewModelScope.safeLaunch {
+            combine(
+                policyManager.policies,
+                schoolRepository.getSchoolFlow()
+            ) { policies, school ->
+                policies to (school?.campusLevel ?: 1)
+            }.collect { (policies, campusLevel) ->
+                val manager = policyManager.competitionManager
+                _competitionUi.value = _competitionUi.value.copy(
+                    catalog = manager.getCatalog(campusLevel, policies.collegeDevelopment.founded),
+                    active = manager.snapshotState().active,
+                    lastSummary = manager.snapshotState().lastResultSummary
+                )
+            }
+        }
+    }
+
+    fun registerCompetition(
+        track: com.arktools.xiaozhang.domain.model.AdmissionTrack,
+        tier: com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager.CompetitionTier
+    ) {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.registerUniversityCompetition(track, tier)
+            _competitionUi.value = _competitionUi.value.copy(
+                message = result.message,
+                active = policyManager.competitionManager.snapshotState().active
+            )
+            if (result.success) audioManager.playCashLose()
+        }
+    }
+
+    fun consumeCompetitionMessage() {
+        _competitionUi.value = _competitionUi.value.copy(message = null)
+    }
 
     data class SchoolOverviewStats(
         val totalStudents: Int = 0,

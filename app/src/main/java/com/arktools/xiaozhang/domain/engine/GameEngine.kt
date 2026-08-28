@@ -488,6 +488,62 @@ class GameEngine @Inject constructor(
             )
         }
 
+    /**
+     * 报名校际学科竞赛：立刻扣报名费，2个月后按该学院师资覆盖与声誉结算。
+     */
+    suspend fun registerUniversityCompetition(
+        track: com.arktools.xiaozhang.domain.model.AdmissionTrack,
+        tier: com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager.CompetitionTier
+    ): ManagedOperationResult = engineOperationMutex.withLock {
+        if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+            return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+        }
+        val founded = policyManager.policies.value.collegeDevelopment.founded
+        if (!founded.contains(track.college)) {
+            return@withLock ManagedOperationResult(
+                false,
+                "${track.displayName}需要先成立${track.college.displayName}才能参赛"
+            )
+        }
+        if ((schoolRepository.getSchool()?.campusLevel ?: 1) < tier.unlockLevel) {
+            return@withLock ManagedOperationResult(
+                false,
+                "${tier.displayName}需要校园${tier.unlockLevel}级"
+            )
+        }
+        val catalog = policyManager.competitionManager.getCatalog(
+            schoolRepository.getSchool()?.campusLevel ?: 1,
+            founded
+        ).firstOrNull { it.track == track && it.tier == tier }
+            ?: return@withLock ManagedOperationResult(false, "当前没有可报名的该类竞赛")
+        val snapshot = policyManager.toJson()
+        val schoolNow = schoolRepository.getSchool()
+        if ((schoolNow?.cash ?: 0.0) < catalog.entryFee) {
+            return@withLock ManagedOperationResult(
+                false,
+                "报名费 ${catalog.entryFee.toInt()}万不足（当前 ${schoolNow?.cash?.toInt() ?: 0}万）"
+            )
+        }
+        val committed = schoolRepository.mutateSchool { school ->
+            if (school.cash < catalog.entryFee) return@mutateSchool false
+            val comp = policyManager.competitionManager.register(
+                catalog, school.currentYear, school.currentMonth
+            ) ?: return@mutateSchool false
+            school.cash -= catalog.entryFee
+            school.policyJson = policyManager.toJson()
+            true
+        }
+        if (committed == null) {
+            policyManager.competitionManager.restoreFromJson(snapshot)
+            return@withLock ManagedOperationResult(false, "报名失败：资金不足或已报满同类竞赛")
+        }
+        ManagedOperationResult(
+            true,
+            "已报名${tier.displayName}·${track.displayName}，报名费 ${catalog.entryFee.toInt()}万，2个月后结算",
+            catalog.entryFee
+        )
+    }
+
     suspend fun startAcademicConference(
         type: com.arktools.xiaozhang.domain.conference.ConferenceType,
         role: com.arktools.xiaozhang.domain.conference.ConferenceRole,
@@ -2828,6 +2884,7 @@ class GameEngine @Inject constructor(
             var expCareerProgram = 0.0   // 就业辅导费
             var incAlumniDonation = 0.0  // 校友捐赠收入
             var incGovSubsidy = 0.0      // 政府补贴收入
+            var incCompetitionPrize = 0.0 // 校际竞赛奖金收入
             var expGovFine = 0.0         // 政府罚款支出
             var expMarketing = 0.0       // 招生宣传费（每日累计近似）
 
@@ -3861,7 +3918,53 @@ class GameEngine @Inject constructor(
                     expMarketing + expScholarship + expGovFine + seasonalExpenses
 
             // 校友捐赠计入收入
-            val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy
+            val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy + incCompetitionPrize
+
+            // 校际竞赛月度结算：到期竞赛按师资覆盖与声誉判定胜负
+            runCatching {
+                val founded = policyManager.policies.value.collegeDevelopment.founded
+                if (founded.isNotEmpty()) {
+                    val coverage = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                        .facultyCoverage(founded, cachedTeachersForMonth)
+                    val coverageByCollege = coverage.lines.associate {
+                        it.college to (it.covered.toFloat() / it.required.coerceAtLeast(1))
+                    }
+                    if (school.currentMonth == 9 && !isRetrySettlement) {
+                        policyManager.competitionManager.newYearReset(school.currentYear)
+                    }
+                    val results = policyManager.competitionManager.resolveDue(
+                        school.currentYear, school.currentMonth, school.reputation, coverageByCollege
+                    )
+                    if (results.isNotEmpty() && !isRetrySettlement) {
+                        results.forEach { (comp, win) ->
+                            if (win) {
+                                schoolRepository.addCash(comp.prize)
+                                schoolRepository.addReputation(comp.reputationReward)
+                                incCompetitionPrize += comp.prize
+                                emitEvent(GameEvent.PositiveEvent(
+                                    title = "校际竞赛夺冠",
+                                    message = "${comp.name}夺得冠军！奖金${comp.prize.toInt()}万入账，声誉+${comp.reputationReward}。师资覆盖越全，竞赛胜率越高。",
+                                    bonusCash = 0.0,
+                                    bonusReputation = 0L
+                                ), school)
+                            } else {
+                                emitEvent(GameEvent.NegativeEvent(
+                                    title = "校际竞赛止步",
+                                    message = "${comp.name}未能获奖。对应学院的师资覆盖和学校声誉会影响下一届成绩。",
+                                    penaltyCash = 0.0,
+                                    penaltyReputation = 0L
+                                ), school)
+                            }
+                        }
+                        schoolRepository.mutateSchool { latest ->
+                            latest.policyJson = policyManager.toJson()
+                            true
+                        }
+                    }
+                }
+            }.onFailure {
+                android.util.Log.w("GameEngine", "Competition monthly resolve failed", it)
+            }
 
             financialReportManager.closeMonth(school.currentYear, school.currentMonth, school.cash)
 
@@ -6052,6 +6155,14 @@ class GameEngine @Inject constructor(
             }
         }
 
+        // 6月专业调整：大二升大三的学生里，人职匹配明显更好的可以转专业（每年最多3人）
+        if (emitNotifications) {
+            runCatching { processMajorTransfers(promotedStudents, school) }
+                .onFailure {
+                    android.util.Log.w("GameEngine", "Major transfer processing failed", it)
+                }
+        }
+
         if (emitNotifications && heldBackStudents.isNotEmpty()) {
             val heldBackNames = heldBackStudents.map { it.name }.take(5)
             val suffix = if (heldBackStudents.size > 5) {
@@ -6092,6 +6203,52 @@ class GameEngine @Inject constructor(
         _classes.value = cleanedClasses
         saveHeadTeacherMapLocked()
         return cleanedClasses
+    }
+
+    /**
+     * 6月学年专业匹配评估：大二升大三学生中，若存在明显更适合的专业
+     * （匹配度高出0.25以上且对应学院已成立），允许转专业，每年最多3人。
+     */
+    private suspend fun processMajorTransfers(promotedStudents: List<Student>, school: School) {
+        val founded = policyManager.policies.value.collegeDevelopment.founded
+        if (founded.isEmpty()) return
+        val candidates = promotedStudents.filter { it.gradeLevel == GradeLevel.GRADE_2 }
+        if (candidates.isEmpty()) return
+        val updates = linkedMapOf<String, String>()
+        val transferNotes = mutableListOf<String>()
+        candidates.forEach { student ->
+            if (updates.size >= 3) return@forEach
+            val currentMajor = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .parseMajor(student.courseId) ?: return@forEach
+            val track = currentMajor.track
+            if (!founded.contains(track.college)) return@forEach
+            val currentAffinity = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .affinityScore(currentMajor, student.attributes)
+            val best = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .majorsFor(track)
+                .filter { it != currentMajor }
+                .map { it to com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                    .affinityScore(it, student.attributes) }
+                .maxByOrNull { it.second } ?: return@forEach
+            if (best.second - currentAffinity >= 0.25f) {
+                updates[student.id] = best.first.courseId
+                transferNotes.add("${student.name}：${currentMajor.displayName}→${best.first.displayName}")
+            }
+        }
+        if (updates.isEmpty()) return
+        studentRepository.updateStudentMajors(updates)
+        updates.keys.forEach { id ->
+            studentRepository.adjustStudentSatisfaction(id, 2f)
+        }
+        emitEvent(
+            GameEvent.PositiveEvent(
+                title = "学生转专业",
+                message = "学年专业匹配评估后，${transferNotes.size}名学生转入更适合自己的专业：${transferNotes.joinToString("；")}。转专业学生满意度+2。",
+                bonusCash = 0.0,
+                bonusReputation = (transferNotes.size * 2).toLong()
+            ),
+            school
+        )
     }
 
     /**

@@ -14,7 +14,9 @@ import javax.inject.Singleton
  * 管理可调节的学校运营参数，影响招生、教学质量、收入和声誉
  */
 @Singleton
-class SchoolPolicyManager @Inject constructor() {
+class SchoolPolicyManager @Inject constructor(
+    val competitionManager: com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager
+) {
 
     private val _policies = MutableStateFlow(SchoolPolicies())
     val policies: StateFlow<SchoolPolicies> = _policies.asStateFlow()
@@ -273,6 +275,7 @@ class SchoolPolicyManager @Inject constructor() {
 
     fun resetToDefaults() {
         _policies.value = SchoolPolicies()
+        competitionManager.reset()
     }
 
     fun toJson(): String {
@@ -300,7 +303,8 @@ class SchoolPolicyManager @Inject constructor() {
                 liberalTrackWeight = p.admissionTrackPlan.liberalWeight,
                 scienceTrackWeight = p.admissionTrackPlan.scienceWeight,
                 engineeringTrackWeight = p.admissionTrackPlan.engineeringWeight,
-                businessTrackWeight = p.admissionTrackPlan.businessWeight
+                businessTrackWeight = p.admissionTrackPlan.businessWeight,
+                competitionStateJson = competitionManager.toJson()
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -347,6 +351,7 @@ class SchoolPolicyManager @Inject constructor() {
                 ).normalized()
             )
             _policies.value = restoredPolicies
+            competitionManager.restoreFromJson(data.competitionStateJson)
         } catch (e: Exception) {
             throw IllegalArgumentException("SchoolPolicyManager.restoreFromJson failed", e)
         }
@@ -654,7 +659,8 @@ data class PolicyPersistData(
     val liberalTrackWeight: Int = 3,
     val scienceTrackWeight: Int = 3,
     val engineeringTrackWeight: Int = 2,
-    val businessTrackWeight: Int = 2
+    val businessTrackWeight: Int = 2,
+    val competitionStateJson: String = ""
 )
 
 data class ManagedCollegeResult(

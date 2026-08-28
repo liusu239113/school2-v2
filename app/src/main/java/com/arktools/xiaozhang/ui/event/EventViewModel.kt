@@ -111,6 +111,9 @@ class EventViewModel @Inject constructor(
             event.title.contains("大二分专业") -> audioManager.playMajorAssign()
             event.title.contains("师资缺口") -> audioManager.playFacultyGap()
             event.title.contains("学年目标未完成") -> audioManager.playGoalFail()
+            event.title.contains("校际竞赛夺冠") -> audioManager.playCompetitionWin()
+            event.title.contains("校际竞赛止步") -> audioManager.playCompetitionLose()
+            event.title.contains("学生转专业") -> audioManager.playMajorTransfer()
         }
     }
 
@@ -393,7 +396,9 @@ class EventViewModel @Inject constructor(
                         event.title.contains("毕业生喜讯") ||
                         event.title.contains("毕业就业放榜") ||
                         event.title.contains("师资缺口") ||
-                        event.title.contains("学年目标未完成") -> Unit
+                        event.title.contains("学年目标未完成") ||
+                        event.title.contains("校际竞赛夺冠") ||
+                        event.title.contains("学生转专业") -> Unit
                     else -> audioManager.playEventPositive()
                 }
                 if (event.bonusCash > 0.0 || event.bonusReputation > 0L) {
@@ -417,7 +422,13 @@ class EventViewModel @Inject constructor(
                 }
             }
             is GameEvent.NegativeEvent -> {
-                audioManager.playEventNegative()
+                // 到达音已覆盖：师资缺口/目标未完成/竞赛止步
+                if (!event.title.contains("师资缺口") &&
+                    !event.title.contains("学年目标未完成") &&
+                    !event.title.contains("校际竞赛止步")
+                ) {
+                    audioManager.playEventNegative()
+                }
                 if (event.penaltyCash > 0.0 || event.penaltyReputation > 0L) {
                     // 原子操作：现金和声望扣除在同一事务中完成
                     schoolRepository.mutateSchool { school ->

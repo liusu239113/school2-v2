@@ -279,6 +279,10 @@ object UniversityAcademicCatalog {
         return majors.first()
     }
 
+    fun affinityScore(major: UniversityMajor, attributes: StudentAttributes): Float {
+        return majorAffinity(major, attributes)
+    }
+
     private fun majorAffinity(major: UniversityMajor, attributes: StudentAttributes): Float {
         return when (major) {
             UniversityMajor.CHINESE_LIT, UniversityMajor.HISTORY, UniversityMajor.PHILOSOPHY ->

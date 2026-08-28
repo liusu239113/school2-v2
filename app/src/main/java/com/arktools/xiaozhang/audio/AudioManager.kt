@@ -67,7 +67,10 @@ class AudioManager @Inject constructor(
         GOAL_FAIL,
         FACULTY_GAP,
         ADMISSION_SEASON,
-        BUDGET_SLIDE
+        BUDGET_SLIDE,
+        COMPETITION_WIN,
+        COMPETITION_LOSE,
+        MAJOR_TRANSFER
     }
 
     enum class BgmType(val resName: String) {
@@ -107,7 +110,10 @@ class AudioManager @Inject constructor(
         SoundType.GOAL_FAIL to "v2_goal_fail",
         SoundType.FACULTY_GAP to "v2_faculty_gap",
         SoundType.ADMISSION_SEASON to "v2_admission_season",
-        SoundType.BUDGET_SLIDE to "v2_budget_slide"
+        SoundType.BUDGET_SLIDE to "v2_budget_slide",
+        SoundType.COMPETITION_WIN to "v2_competition_win",
+        SoundType.COMPETITION_LOSE to "v2_competition_lose",
+        SoundType.MAJOR_TRANSFER to "v2_major_transfer"
     )
 
     private fun getResId(name: String): Int {
@@ -271,6 +277,9 @@ class AudioManager @Inject constructor(
     fun playFacultyGap() = playSound(SoundType.FACULTY_GAP)
     fun playAdmissionSeason() = playSound(SoundType.ADMISSION_SEASON)
     fun playBudgetSlide() = playSound(SoundType.BUDGET_SLIDE)
+    fun playCompetitionWin() = playSound(SoundType.COMPETITION_WIN)
+    fun playCompetitionLose() = playSound(SoundType.COMPETITION_LOSE)
+    fun playMajorTransfer() = playSound(SoundType.MAJOR_TRANSFER)
 
     /**
      * 释放资源。作为 @Singleton，正常情况下不应该被调用。
