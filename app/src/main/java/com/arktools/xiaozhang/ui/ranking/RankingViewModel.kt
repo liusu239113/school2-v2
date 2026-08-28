@@ -45,7 +45,7 @@ class RankingViewModel @Inject constructor(
     private val _priceChange = MutableStateFlow(0.0)
     val priceChange: StateFlow<Double> = _priceChange.asStateFlow()
 
-    // 竞争力分析：展示教研加成对排名的贡献
+    // 竞争力分析：展示科研加成对排名的贡献
     private val _competitiveEdge = MutableStateFlow(CompetitiveEdge())
     val competitiveEdge: StateFlow<CompetitiveEdge> = _competitiveEdge.asStateFlow()
 

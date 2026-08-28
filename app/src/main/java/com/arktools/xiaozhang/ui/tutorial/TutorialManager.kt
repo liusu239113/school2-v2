@@ -30,8 +30,8 @@ enum class HighlightTarget {
     TAB_OVERVIEW,       // 底部-总览
     TAB_TEACHING,       // 底部-教学
     TAB_TEACHER,        // 底部-教师
-    TAB_RESEARCH,       // 底部-教研
-    TAB_DISTRICT,       // 底部-学区
+    TAB_RESEARCH,       // 底部-科研
+    TAB_DISTRICT,       // 底部-合作区
     PAUSE_BUTTON,       // 暂停按钮
     SPEED_BUTTON,       // 速度按钮
     FULL_SCREEN         // 全屏（不需要具体高亮区域）
@@ -44,9 +44,9 @@ enum class CompletionCondition {
     TAP_CONTINUE,       // 点击任意继续
     TAP_TAB_TEACHER,    // 点击教师tab
     TAP_TAB_TEACHING,   // 点击教学tab
-    TAP_TAB_RESEARCH,   // 点击教研tab
+    TAP_TAB_RESEARCH,   // 点击科研tab
     TAP_TAB_OVERVIEW,   // 点击总览tab
-    TAP_TAB_DISTRICT,   // 点击学区tab
+    TAP_TAB_DISTRICT,   // 点击合作区tab
     HIRE_TEACHER,       // 完成招聘教师
     CONFIGURE_TEACHING, // 完成教学配置（班型确认）
     NAVIGATE_STUDENT,   // 进入学生管理页

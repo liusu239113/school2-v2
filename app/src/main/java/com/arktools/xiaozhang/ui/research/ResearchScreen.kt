@@ -144,7 +144,7 @@ fun ResearchScreen(
                         }
                     }
 
-                    // Info card - 教研引导
+                    // Info card - 科研引导
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),

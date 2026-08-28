@@ -43,7 +43,8 @@ class MainViewModel @Inject constructor(
     private val saveManager: SaveManager,
     private val persistenceCoordinator: PersistenceCoordinator,
     val achievementManager: com.arktools.xiaozhang.domain.achievement.AchievementManager,
-    val speedBoostManager: SpeedBoostManager
+    val speedBoostManager: SpeedBoostManager,
+    private val policyManager: com.arktools.xiaozhang.domain.policy.SchoolPolicyManager
 ) : ViewModel() {
 
     val disciplinaryPause: StateFlow<GameEngine.DisciplinaryPause?> = gameEngine.disciplinaryPause
@@ -383,7 +384,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun newGame(schoolName: String, principalName: String) {
+    fun newGame(schoolName: String, principalName: String, foundingStyle: String? = null) {
         viewModelScope.safeLaunch {
             try {
                 val school = persistenceCoordinator.runExclusiveDestructiveOperation(
@@ -398,8 +399,18 @@ class MainViewModel @Inject constructor(
                     created
                 }
 
-                // 默认教研数据在新学校事务提交后初始化；失败不会影响已创建学校或旧档保护快照。
+                // 默认科研数据在新学校事务提交后初始化；失败不会影响已创建学校或旧档保护快照。
                 researchRepository.initializeDefaultMethods(school.id)
+                if (foundingStyle != null) {
+                    val bonus = policyManager.applyFoundingStyle(foundingStyle)
+                    if (bonus > 0) {
+                        schoolRepository.mutateSchool { s ->
+                            s.cash += bonus
+                            s.policyJson = policyManager.toJson()
+                            true
+                        }
+                    }
+                }
                 _isGameRunning.value = false
                 startGame()
             } catch (e: Exception) {

@@ -57,6 +57,7 @@ import com.arktools.xiaozhang.ui.theme.PrimaryDark
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CampusView(
+    onNavigateTo: (Int) -> Unit = {},
     viewModel: CampusViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -267,7 +268,8 @@ fun CampusView(
                     building = building,
                     state = state,
                     onUpgradeFacility = { viewModel.upgradeFacility(building.facility?.id ?: "") },
-                    onUpgradeCampus = { viewModel.upgradeCampus() }
+                    onUpgradeCampus = { viewModel.upgradeCampus() },
+                    onOpenTeaching = { onNavigateTo(40) }
                 )
             }
         }
@@ -342,7 +344,8 @@ private fun BuildingPanelContent(
     building: CampusViewModel.CampusBuilding,
     state: CampusViewModel.CampusUiState,
     onUpgradeFacility: () -> Unit,
-    onUpgradeCampus: () -> Unit
+    onUpgradeCampus: () -> Unit,
+    onOpenTeaching: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -387,6 +390,7 @@ private fun BuildingPanelContent(
                         fontSize = 12.sp,
                         color = Color(0xFF617386)
                     )
+                    PanelButton("教学与招生管理") { onOpenTeaching() }
                 }
             }
             CampusViewModel.CampusBuilding.Kind.FACILITY -> {

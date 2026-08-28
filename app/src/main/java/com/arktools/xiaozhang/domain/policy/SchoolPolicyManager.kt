@@ -101,6 +101,26 @@ class SchoolPolicyManager @Inject constructor(
         )
     }
 
+    /**
+     * 应用办学风格：理工/人文免费赠送对应学院；综合返回 50 万启动经费加成。
+     * 在新学校创建完成后调用一次。
+     */
+    fun applyFoundingStyle(key: String): Double {
+        val dev = _policies.value.collegeDevelopment
+        val gift: CollegeType? = when (key) {
+            "TECH" -> CollegeType.SCIENCE
+            "HUMAN" -> CollegeType.LIBERAL_ARTS
+            else -> null
+        }
+        val newFounded = if (gift != null && dev.founded.contains(gift).not()) {
+            dev.founded + gift
+        } else dev.founded
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = dev.copy(foundingStyle = key, founded = newFounded)
+        )
+        return if (key == "BALANCED") 50.0 else 0.0
+    }
+
     fun setAffiliatedHospital(built: Boolean) {
         _policies.value = _policies.value.copy(
             collegeDevelopment = _policies.value.collegeDevelopment.copy(affiliatedHospital = built)
@@ -348,7 +368,8 @@ class SchoolPolicyManager @Inject constructor(
                 storyStateJson = teacherStoryManager.toJson(),
                 affiliatedHospital = p.collegeDevelopment.affiliatedHospital,
                 coreCourses = p.collegeDevelopment.coreCourses,
-                graduateProgram = p.collegeDevelopment.graduateProgram
+                graduateProgram = p.collegeDevelopment.graduateProgram,
+                foundingStyle = p.collegeDevelopment.foundingStyle
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -388,7 +409,8 @@ class SchoolPolicyManager @Inject constructor(
                     lastReviewSatisfaction = data.lastReviewSatisfaction,
                     affiliatedHospital = data.affiliatedHospital,
                     coreCourses = data.coreCourses,
-                    graduateProgram = data.graduateProgram
+                    graduateProgram = data.graduateProgram,
+                    foundingStyle = data.foundingStyle
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -718,7 +740,8 @@ data class PolicyPersistData(
     val storyStateJson: String = "",
     val affiliatedHospital: Boolean = false,
     val coreCourses: Map<String, Int> = emptyMap(),
-    val graduateProgram: Boolean = false
+    val graduateProgram: Boolean = false,
+    val foundingStyle: String = "BALANCED"
 )
 
 data class ManagedCollegeResult(
@@ -736,6 +759,7 @@ data class AnnualGoalResult(
 
 data class CollegeDevelopment(
     val founded: List<CollegeType> = emptyList(),
+    val foundingStyle: String = "BALANCED",
     val affiliatedHospital: Boolean = false,
     val coreCourses: Map<String, Int> = emptyMap(),
     val graduateProgram: Boolean = false,

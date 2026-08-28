@@ -104,7 +104,7 @@ object GameTips {
     const val COURSE_LIST = "管理班级和教学安排，提升教学质量来吸引更多学生。"
     const val TEACHER_LIST = "招聘不同等级的教师来组建团队。教师特质会影响教学效果。"
     const val RESEARCH = "解锁教学方法可以提升教学质量评分和招生效率。"
-    const val DISTRICT = "不同学区有不同的曝光率和佣金。声誉越高，可进入的学区越好。"
+    const val DISTRICT = "不同合作区有不同的曝光率和佣金。声誉越高，可进入的合作区越好。"
     const val RANKING = "排行榜显示你与NPC学校的对比。提升声誉和市值来登顶！"
     const val STOCK = "投资股票可以获得额外收入，但也有风险。"
 }

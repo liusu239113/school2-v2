@@ -482,10 +482,10 @@ fun MainScreen(
         // Show main menu when game is not actively running
         MainMenuScreen(
             hasSaveData = hasSaveData,
-            onNewGame = { name, principalName ->
+            onNewGame = { name, principalName, style ->
                 menuViewModel.playClickSound()
                 menuViewModel.stopMenuBgm()
-                viewModel.newGame(name, principalName)
+                viewModel.newGame(name, principalName, style.key)
                 showTutorial = true
             },
             onContinueGame = {
@@ -715,7 +715,7 @@ fun MainScreen(
                 label = "tabContent"
             ) { tab ->
                 when (tab) {
-                    0 -> CampusView()
+                    0 -> CampusView(onNavigateTo = { selectedTab = it })
                     1 -> GovernanceScreen(onNavigateTo = { selectedTab = it })
                     2 -> HiringScreen()
                     3 -> ExternalScreen()
@@ -756,6 +756,11 @@ fun MainScreen(
                                 31 -> TimetableScreen()
                                 32 -> ExamScreen()
                                 33 -> PrincipalOfficeScreen()
+                    40 -> TeachingScreen()
+                    41 -> ResearchScreen()
+                    42 -> DistrictScreen()
+                    43 -> PolicyScreen()
+                    44 -> ReportScreen()
                                 else -> OverviewScreen(listState = overviewListState)
                             }
                         }
@@ -1055,6 +1060,11 @@ private fun getSubPageTitle(tab: Int): String {
         31 -> "专业课表"
         32 -> "教学评估"
         33 -> "校长办公室"
+        40 -> "教学配置"
+        41 -> "科研研究"
+        42 -> "社会合作"
+        43 -> "学校政策"
+        44 -> "办学报表"
         else -> "校长我来当 2：大学时代"
     }
 }

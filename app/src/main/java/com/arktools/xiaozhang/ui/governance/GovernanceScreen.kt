@@ -155,11 +155,11 @@ fun GovernanceScreen(
         // ===== 一级管理入口 =====
         Panel(title = "管理入口") {
             val entries = listOf(
-                "教学配置（班型/强度）" to 1,
-                "科研研究" to 3,
-                "社会合作与校园升级" to 4,
-                "数据报表" to 11,
-                "学校政策（学费/考试等）" to 16
+                "教学配置（班型/强度）" to 40,
+                "科研研究" to 41,
+                "社会合作与校园升级" to 42,
+                "数据报表" to 44,
+                "学校政策（学费/考试等）" to 43
             )
             entries.forEach { (label, target) ->
                 Row(

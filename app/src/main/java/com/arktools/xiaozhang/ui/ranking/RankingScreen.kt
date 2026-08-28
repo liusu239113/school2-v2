@@ -125,7 +125,7 @@ fun RankingScreen(
                 )
             }
 
-            // 竞争力分析面板 - 展示教研加成对排名的推动力
+            // 竞争力分析面板 - 展示科研加成对排名的推动力
             item {
                 CompetitiveEdgeCard(edge = competitiveEdge)
             }

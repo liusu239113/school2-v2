@@ -1,5 +1,7 @@
 package com.arktools.xiaozhang.ui.components
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,8 +29,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -53,13 +61,30 @@ fun PixelGameBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val context = LocalContext.current
+    val grassTile = remember(R.drawable.tile_grass) {
+        BitmapFactory.decodeResource(context.resources, R.drawable.tile_grass).asImageBitmap()
+    }
     Box(modifier = modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.bg_game_page_v2),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val ts = 64
+            var cx = 0
+            while (cx < size.width.toInt()) {
+                var cy = 0
+                while (cy < size.height.toInt()) {
+                    drawImage(
+                        image = grassTile,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(grassTile.width, grassTile.height),
+                        dstOffset = IntOffset(cx, cy),
+                        dstSize = IntSize(ts, ts),
+                        filterQuality = FilterQuality.None
+                    )
+                    cy += ts
+                }
+                cx += ts
+            }
+        }
         Box(
             modifier = Modifier.fillMaxSize(),
             content = content

@@ -550,7 +550,7 @@ private fun GraduationSummaryContent(viewModel: AlumniViewModel) {
                 Text("暂无毕业数据", style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("每年高考放榜后将自动生成毕业总结",
+                Text("每年毕业放榜放榜后将自动生成毕业总结",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
             }
@@ -595,7 +595,7 @@ private fun GraduationTrendCard(summaries: List<com.arktools.xiaozhang.domain.al
                 .padding(20.dp)
         ) {
             Column {
-                Text("历届高考数据", color = Color.White,
+                Text("历届毕业放榜数据", color = Color.White,
                     style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("共 ${summaries.size} 届毕业生", color = Color.White.copy(alpha = 0.8f),

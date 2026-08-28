@@ -511,7 +511,7 @@ class MiniGameViewModel @Inject constructor(
     private val debateTopics = listOf(
         DebateTopic("网络对青少年的影响", "网络利大于弊", "网络弊大于利"),
         DebateTopic("学生是否应该穿校服", "应该统一穿校服", "不应该统一穿校服"),
-        DebateTopic("高考是否公平", "高考制度是公平的", "高考制度不够公平"),
+        DebateTopic("毕业放榜是否公平", "毕业放榜制度是公平的", "毕业放榜制度不够公平"),
         DebateTopic("课外辅导班的存废", "应该保留辅导班", "应该禁止辅导班"),
         DebateTopic("手机是否应该进校园", "允许带手机进校园", "禁止带手机进校园"),
         DebateTopic("AI能否取代教师", "AI将取代传统教师", "AI无法取代教师"),

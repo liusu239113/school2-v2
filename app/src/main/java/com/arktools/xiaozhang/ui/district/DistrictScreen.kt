@@ -562,7 +562,7 @@ private fun DistrictUnlockProgress(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "学区解锁进度",
+                    text = "合作区解锁进度",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
