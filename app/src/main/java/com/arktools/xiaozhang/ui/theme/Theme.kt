@@ -1,9 +1,20 @@
 package com.arktools.xiaozhang.ui.theme
 
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+
+/** 像素风全局形状：所有 Material 组件零圆角（PixelForge 规则 #1） */
+private val PixelShapes = Shapes(
+    extraSmall = RectangleShape,
+    small = RectangleShape,
+    medium = RectangleShape,
+    large = RectangleShape,
+    extraLarge = RectangleShape
+)
 
 private val FixedColorScheme = lightColorScheme(
     primary = Primary,
@@ -12,7 +23,7 @@ private val FixedColorScheme = lightColorScheme(
     background = BackgroundLight,
     surface = Color.White,
     surfaceVariant = Color(0xFFF1F1F1),
-    primaryContainer = Color(0xFFDCEAF7),
+    primaryContainer = PrimaryCyanLight,
     secondaryContainer = Color(0xFFDDF2EA),
     errorContainer = Color(0xFFFFE0DE),
     outline = TextSecondaryLight,
@@ -35,6 +46,7 @@ fun SchoolTycoonTheme(
     MaterialTheme(
         colorScheme = FixedColorScheme,
         typography = Typography,
+        shapes = PixelShapes,
         content = content
     )
 }

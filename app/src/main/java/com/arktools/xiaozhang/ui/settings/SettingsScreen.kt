@@ -44,6 +44,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.arktools.xiaozhang.ui.components.PixelNineSlice
 import com.arktools.xiaozhang.R
 import com.arktools.xiaozhang.ui.main.MainViewModel
 import com.arktools.xiaozhang.ui.theme.Primary
@@ -208,12 +209,11 @@ fun SettingsScreen(
 @Composable
 private fun SettingsCard(title: String, content: @Composable () -> Unit) {
     androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             Spacer(modifier = Modifier.height(12.dp))

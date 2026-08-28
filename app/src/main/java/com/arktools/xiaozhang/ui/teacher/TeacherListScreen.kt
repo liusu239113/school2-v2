@@ -1,5 +1,6 @@
 package com.arktools.xiaozhang.ui.teacher
 
+import com.arktools.xiaozhang.ui.components.PixelNineSlice
 import com.arktools.xiaozhang.domain.engine.GameBalanceConfig
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -1438,12 +1439,11 @@ private fun FacultyCoverageCard(
     coverage: com.arktools.xiaozhang.domain.model.FacultyCoverage
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.arktools.xiaozhang.ui.components.PixelNineSlice
 import com.arktools.xiaozhang.R
 import com.arktools.xiaozhang.domain.club.*
 import com.arktools.xiaozhang.domain.clubactivity.*
@@ -201,7 +202,11 @@ private fun ClubActivityContent(viewModel: ClubViewModel) {
 @Composable
 private fun ClubStatsHeader(clubCount: Int, totalMembers: Int, satisfactionBonus: Float, trophies: Int, pendingCount: Int) {
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(16.dp)) {
-        Image(painter = painterResource(id = R.drawable.card_bg), contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("社团管理", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -276,7 +281,11 @@ private fun PendingApplicationCard(application: ClubApplication) {
 private fun ClubCard(club: Club, onDisband: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight().animateContentSize().clickable { expanded = !expanded }) {
-        Image(painter = painterResource(id = R.drawable.card_bg), contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(modifier = Modifier.padding(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(getLevelColor(club.level).copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
@@ -365,7 +374,11 @@ private fun EmptyClubState() {
 @Composable
 private fun ActivityOverviewCard(state: ClubActivityState) {
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
-        Image(painter = painterResource(id = R.drawable.card_bg), contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Box(modifier = Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF7B1FA2), Color(0xFF4A148C)))).padding(20.dp)) {
             Column {
                 Text("社团活动中心", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -394,7 +407,11 @@ private fun ActStatItem(label: String, value: String, color: Color) {
 @Composable
 private fun PlannedActivityCard(activity: PlannedActivity, onCancel: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
-        Image(painter = painterResource(id = R.drawable.card_bg), contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(modifier = Modifier.padding(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -423,7 +440,11 @@ private fun PlannedActivityCard(activity: PlannedActivity, onCancel: () -> Unit)
 @Composable
 private fun CompetitionEntryCard(entry: CompetitionEntry) {
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
-        Image(painter = painterResource(id = R.drawable.card_bg), contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(modifier = Modifier.padding(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -444,7 +465,11 @@ private fun CompetitionEntryCard(entry: CompetitionEntry) {
 @Composable
 private fun AwardCard(award: Award) {
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
-        Image(painter = painterResource(id = R.drawable.card_bg), contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             PixelIcon(emoji = award.type.icon, size = 24.dp)
             Spacer(modifier = Modifier.width(12.dp))

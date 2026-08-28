@@ -21,7 +21,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,11 +102,10 @@ fun PixelButton(
             .widthIn(min = 72.dp)
             .heightIn(min = height)
     ) {
-        Image(
-            painter = painterResource(id = btnRes),
-            contentDescription = null,
+        PixelNineSlice(
+            res = btnRes,
+            slice = 32,
             modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds,
             alpha = if (enabled) 1f else 0.5f
         )
 
@@ -120,7 +119,7 @@ fun PixelButton(
                 disabledContainerColor = Color.Transparent,
                 disabledContentColor = Color.White.copy(alpha = 0.5f)
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = RectangleShape,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
         ) {
@@ -155,12 +154,11 @@ fun PixelCard(
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = modifier) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                res = R.drawable.card_bg,
+                slice = 48,
+                modifier = Modifier.matchParentSize()
+            )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,12 +179,11 @@ fun PixelDialogBackground(
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = modifier) {
-        Image(
-            painter = painterResource(id = R.drawable.dialog_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                res = R.drawable.dialog_bg,
+                slice = 48,
+                modifier = Modifier.matchParentSize()
+            )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -210,11 +207,10 @@ fun PixelInfoBar(
             .fillMaxWidth()
             .height(76.dp)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.bar_bg),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
+        PixelNineSlice(
+            res = R.drawable.bar_bg,
+            slice = 24,
+            modifier = Modifier.fillMaxSize()
         )
         Box(
             modifier = Modifier
@@ -253,11 +249,10 @@ fun PixelAlertDialog(
                 .padding(16.dp)
         ) {
             // Single background image with border included, fill the container
-            Image(
-                painter = painterResource(id = R.drawable.dialog_bg),
-                contentDescription = null,
-                modifier = Modifier.matchParentSize(),
-                contentScale = ContentScale.FillBounds
+            PixelNineSlice(
+                res = R.drawable.dialog_bg,
+                slice = 48,
+                modifier = Modifier.matchParentSize()
             )
             // Content on top of background
             Column(

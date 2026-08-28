@@ -56,6 +56,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.arktools.xiaozhang.ui.components.PixelNineSlice
 import com.arktools.xiaozhang.R
 import com.arktools.xiaozhang.domain.engine.GameBalanceConfig
 import com.arktools.xiaozhang.domain.engine.GameModule
@@ -564,12 +565,11 @@ private fun StudentOverviewCard(
     Box(
         modifier = Modifier.fillMaxWidth().clickable { onClick() }
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -660,12 +660,11 @@ private fun MetricCard(
     color: Color
 ) {
     Box(modifier = modifier.height(72.dp)) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -708,12 +707,11 @@ private fun GrowthCard(
     totalResearch: Int
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -777,12 +775,11 @@ private fun QuickEntryCard(
             .height(110.dp)
             .clickable { onClick() }
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -818,12 +815,11 @@ private fun QuickEntryCard(
 @Composable
 private fun TipsCard(tips: List<String>) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -857,12 +853,11 @@ private fun TeacherTeamCard(
     facultyCoverageSummary: String = "各学院核心师资已配齐"
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -997,12 +992,11 @@ private fun CourseQualityCard(
     totalRevenue: Double
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1171,12 +1165,11 @@ private fun HealthBadge(report: HealthReport) {
 @Composable
 private fun HealthDetailCard(report: HealthReport) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1403,12 +1396,11 @@ private fun CompetitionCard(
     onConsumeMessage: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        Image(
-            painter = painterResource(id = R.drawable.card_bg),
-            contentDescription = null,
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.FillBounds
-        )
+        PixelNineSlice(
+                    res = R.drawable.card_bg,
+                    slice = 48,
+                    modifier = Modifier.matchParentSize()
+                )
         Column(
             modifier = Modifier
                 .fillMaxWidth()

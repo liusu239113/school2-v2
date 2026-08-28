@@ -2,12 +2,23 @@ package com.arktools.xiaozhang.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.arktools.xiaozhang.R
 
-// 使用系统无衬线字体，避免部分设备在 Compose 异步加载打包字体时抛出 Resources.NotFoundException。
-val GameFontFamily = FontFamily.SansSerif
+/**
+ * 全局像素字体：Fusion Pixel 12px（中文像素字体，已按游戏文本子集化）。
+ * Bold 变体渲染更粗，供标题/按钮强调使用。
+ */
+val GameFontFamily = FontFamily(
+    Font(com.arktools.xiaozhang.R.font.fusion_pixel_zh_regular, FontWeight.Normal),
+    Font(com.arktools.xiaozhang.R.font.fusion_pixel_zh_regular, FontWeight.Medium),
+    Font(com.arktools.xiaozhang.R.font.fusion_pixel_zh_bold, FontWeight.SemiBold),
+    Font(com.arktools.xiaozhang.R.font.fusion_pixel_zh_bold, FontWeight.Bold),
+    Font(com.arktools.xiaozhang.R.font.fusion_pixel_zh_mono, FontWeight.Black)
+)
 
 val Typography = Typography(
     headlineLarge = TextStyle(
@@ -24,7 +35,7 @@ val Typography = Typography(
     ),
     headlineSmall = TextStyle(
         fontFamily = GameFontFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 18.sp,
         lineHeight = 24.sp
     ),
@@ -48,19 +59,19 @@ val Typography = Typography(
     ),
     labelLarge = TextStyle(
         fontFamily = GameFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
         lineHeight = 20.sp
     ),
     labelMedium = TextStyle(
         fontFamily = GameFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         fontSize = 12.sp,
         lineHeight = 16.sp
     ),
     labelSmall = TextStyle(
         fontFamily = GameFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         fontSize = 10.sp,
         lineHeight = 14.sp
     )
