@@ -716,7 +716,7 @@ fun MainScreen(
             ) { tab ->
                 when (tab) {
                     0 -> CampusView()
-                    1 -> GovernanceScreen()
+                    1 -> GovernanceScreen(onNavigateTo = { selectedTab = it })
                     2 -> HiringScreen()
                     3 -> ExternalScreen()
                     4 -> DistrictScreen()
