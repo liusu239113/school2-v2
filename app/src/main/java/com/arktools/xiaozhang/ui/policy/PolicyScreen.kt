@@ -301,6 +301,12 @@ fun PolicyScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_hospital_building),
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("附属医院", fontWeight = FontWeight.SemiBold)
                             Text(
@@ -320,7 +326,15 @@ fun PolicyScreen(
                 }
                 if (policies.collegeDevelopment.founded.isNotEmpty()) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-                    Text("专业核心课", fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_core_course),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("专业核心课", fontWeight = FontWeight.SemiBold)
+                    }
                     Text(
                         "每门25万，每学院最多3门；核心课越齐，该学院学生掌握度与毕业表现越好",
                         style = MaterialTheme.typography.labelSmall,
@@ -364,6 +378,12 @@ fun PolicyScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_graduate_program),
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("硕博点", fontWeight = FontWeight.SemiBold)
                             Text(
