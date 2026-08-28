@@ -5,15 +5,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.res.imageResource
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 
@@ -33,7 +31,12 @@ fun PixelNineSlice(
     alpha: Float = 1f,
     content: (@Composable BoxScope.() -> Unit)? = null
 ) {
-    val bitmap = imageResource(res)
+    val context = LocalContext.current
+    val bitmap = remember(res) {
+        android.graphics.BitmapFactory
+            .decodeResource(context.resources, res)
+            .asImageBitmap()
+    }
     Box(modifier = modifier) {
         Canvas(modifier = Modifier.matchParentSize()) {
             drawPixelNineSlice(bitmap, slice, alpha)
