@@ -98,7 +98,7 @@ class UniversityCompetitionManager @Inject constructor() {
             CompetitionTier.PROVINCE -> 30.0
             CompetitionTier.NATIONAL -> 80.0
         }
-        entries.add(
+        this.add(
             CatalogEntry(
                 tier = tier,
                 track = track,

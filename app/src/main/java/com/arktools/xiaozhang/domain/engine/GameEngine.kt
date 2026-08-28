@@ -4132,7 +4132,7 @@ class GameEngine @Inject constructor(
                             message = story.message,
                             bonusCash = 0.0,
                             bonusReputation = 5L,
-                            bonusTeacherSkill = 1f
+                            bonusTeacherSkill = 1
                         ), school)
                     } else {
                         emitEvent(GameEvent.ChoiceEvent(
