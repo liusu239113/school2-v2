@@ -51,6 +51,7 @@ class CampusViewModel @Inject constructor(
         val reputation: Long = 0,
         val campusLevel: Int = 1,
         val foundedColleges: List<CollegeType> = emptyList(),
+        val affiliatedHospital: Boolean = false,
         val facilities: List<Facility> = emptyList(),
         val maxFacilities: Int = 5,
         val selected: CampusBuilding? = null,
@@ -73,6 +74,7 @@ class CampusViewModel @Inject constructor(
                     reputation = school.reputation,
                     campusLevel = school.campusLevel,
                     foundedColleges = policyManager.policies.value.collegeDevelopment.founded,
+                    affiliatedHospital = policyManager.policies.value.collegeDevelopment.affiliatedHospital,
                     facilities = school.facilities,
                     maxFacilities = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel)
                 )
@@ -81,7 +83,8 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             policyManager.policies.collect { p ->
                 _state.value = _state.value.copy(
-                    foundedColleges = p.collegeDevelopment.founded
+                    foundedColleges = p.collegeDevelopment.founded,
+                    affiliatedHospital = p.collegeDevelopment.affiliatedHospital
                 )
             }
         }
@@ -236,6 +239,8 @@ class CampusViewModel @Inject constructor(
     companion object {
         fun collegeDrawable(type: CollegeType): Int = when (type) {
             CollegeType.LIBERAL_ARTS -> com.arktools.xiaozhang.R.drawable.bld_liberal
+            CollegeType.ART -> com.arktools.xiaozhang.R.drawable.bld_art
+            CollegeType.MEDICINE -> com.arktools.xiaozhang.R.drawable.bld_medicine
             else -> com.arktools.xiaozhang.R.drawable.bld_generic
         }
 

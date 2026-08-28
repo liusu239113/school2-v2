@@ -162,7 +162,9 @@ fun CampusView(
             CollegeType.LIBERAL_ARTS,
             CollegeType.SCIENCE,
             CollegeType.ENGINEERING,
-            CollegeType.BUSINESS
+            CollegeType.BUSINESS,
+            CollegeType.ART,
+            CollegeType.MEDICINE
         )
         val foundedRow = collegeRow.filter { state.foundedColleges.contains(it) }
         foundedRow.forEachIndexed { index, college ->
@@ -170,9 +172,11 @@ fun CampusView(
                 1 -> 0.5f
                 2 -> 0.30f + index * 0.40f
                 3 -> 0.22f + index * 0.28f
-                else -> 0.13f + index * 0.245f
+                4 -> 0.14f + index * 0.245f
+                5 -> 0.10f + index * 0.20f
+                else -> 0.09f + index * 0.165f
             }
-            val spriteW = w * 0.19f
+            val spriteW = if (foundedRow.size > 4) w * 0.155f else w * 0.19f
             BuildingSprite(
                 resId = CampusViewModel.collegeDrawable(college),
                 label = college.displayName,
@@ -239,6 +243,28 @@ fun CampusView(
                             drawableRes = R.drawable.bld_dorm,
                             kind = CampusViewModel.CampusBuilding.Kind.FACILITY,
                             facility = dormFac
+                        )
+                    )
+                }
+            )
+        }
+
+        if (state.affiliatedHospital) {
+            val spriteW = w * 0.17f
+            BuildingSprite(
+                resId = R.drawable.bld_hospital,
+                label = "附属医院",
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = w * 0.60f - spriteW / 2, y = h * 0.82f)
+                    .width(spriteW),
+                onClick = {
+                    viewModel.selectBuilding(
+                        CampusViewModel.CampusBuilding(
+                            id = "hospital",
+                            displayName = "附属医院",
+                            drawableRes = R.drawable.bld_hospital,
+                            kind = CampusViewModel.CampusBuilding.Kind.FACILITY
                         )
                     )
                 }
@@ -391,6 +417,13 @@ private fun BuildingPanelContent(
                         color = Color(0xFF617386)
                     )
                     PanelButton("教学与招生管理") { onOpenTeaching() }
+                    if (college == CollegeType.MEDICINE) {
+                        Text(
+                            "附属医院可在「治院 → 学校政策」页建设，建成后此校园将出现医院大楼",
+                            fontSize = 11.sp,
+                            color = Color(0xFF617386)
+                        )
+                    }
                 }
             }
             CampusViewModel.CampusBuilding.Kind.FACILITY -> {

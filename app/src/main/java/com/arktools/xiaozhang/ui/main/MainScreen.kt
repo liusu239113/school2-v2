@@ -671,25 +671,25 @@ fun MainScreen(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_campus_v2), contentDescription = "校园", modifier = Modifier.size(28.dp)) },
                     label = { Text("校园") },
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0; tutorialManager.notifyTabChanged(0) }
+                    onClick = { audioManager.playButtonClick(); selectedTab = 0; tutorialManager.notifyTabChanged(0) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "治院", modifier = Modifier.size(28.dp)) },
                     label = { Text("治院") },
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1; tutorialManager.notifyTabChanged(1) }
+                    onClick = { audioManager.playButtonClick(); selectedTab = 1; tutorialManager.notifyTabChanged(1) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_teacher_v2), contentDescription = "人事", modifier = Modifier.size(28.dp)) },
                     label = { Text("人事") },
                     selected = selectedTab == 2,
-                    onClick = { selectedTab = 2; tutorialManager.notifyTabChanged(2) }
+                    onClick = { audioManager.playButtonClick(); selectedTab = 2; tutorialManager.notifyTabChanged(2) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_research_v2), contentDescription = "外联", modifier = Modifier.size(28.dp)) },
                     label = { Text("外联") },
                     selected = selectedTab == 3,
-                    onClick = { selectedTab = 3; tutorialManager.notifyTabChanged(3) }
+                    onClick = { audioManager.playButtonClick(); selectedTab = 3; tutorialManager.notifyTabChanged(3) }
                 )
                 }
         }
