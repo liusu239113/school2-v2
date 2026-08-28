@@ -16,12 +16,49 @@ import javax.inject.Inject
 @HiltViewModel
 class TeachingViewModel @Inject constructor(
     private val teachingManager: TeachingManager,
-    private val schoolRepository: SchoolRepository
+    private val schoolRepository: SchoolRepository,
+    private val studentRepository: com.arktools.xiaozhang.domain.repository.StudentRepository,
+    private val policyManager: com.arktools.xiaozhang.domain.policy.SchoolPolicyManager
 ) : ViewModel() {
 
     val state: StateFlow<TeachingState> = teachingManager.state
 
     val config: TeachingConfig get() = teachingManager.config
+
+    /** 各学院/专业的真实培养质量：来自在读学生的满意度与学业分 */
+    data class CollegeTrainingQuality(
+        val collegeName: String,
+        val studentCount: Int,
+        val avgSatisfaction: Float,
+        val avgAcademicScore: Float,
+        val majorSummary: String
+    )
+
+    val collegeQuality: StateFlow<List<CollegeTrainingQuality>> =
+        kotlinx.coroutines.flow.combine(
+            studentRepository.observeActiveStudentCount(),
+            policyManager.policies
+        ) { _, _ -> true }
+            .map {
+                val students = studentRepository.getActiveStudents()
+                students.groupBy { student ->
+                    com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.collegeName(student.courseId)
+                }.map { (college, list) ->
+                    CollegeTrainingQuality(
+                        collegeName = college,
+                        studentCount = list.size,
+                        avgSatisfaction = if (list.isEmpty()) 0f
+                        else list.map { it.satisfaction }.average().toFloat(),
+                        avgAcademicScore = if (list.isEmpty()) 0f
+                        else list.map { it.academicScore }.average().toFloat(),
+                        majorSummary = list.groupingBy { student ->
+                            com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.displayName(student.courseId)
+                        }.eachCount().entries.sortedByDescending { it.value }
+                            .take(2).joinToString("、") { "${it.key}${it.value}人" }
+                    )
+                }.sortedByDescending { it.studentCount }
+            }
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** 教室数量 Flow（用于 UI 提示）—— 返回实际间数 */
     val classroomCountFlow = schoolRepository.getSchoolFlow().map { school ->

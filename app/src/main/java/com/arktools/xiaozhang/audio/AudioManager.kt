@@ -59,7 +59,8 @@ class AudioManager @Inject constructor(
         MINIGAME_WIN,
         MINIGAME_FAIL,
         MONEY_EARNED,
-        REPUTATION_UP
+        REPUTATION_UP,
+        GRADUATION
     }
 
     enum class BgmType(val resName: String) {
@@ -91,7 +92,8 @@ class AudioManager @Inject constructor(
         SoundType.MINIGAME_WIN to "v2_event_positive",
         SoundType.MINIGAME_FAIL to "v2_event_negative",
         SoundType.MONEY_EARNED to "v2_money_earn",
-        SoundType.REPUTATION_UP to "v2_reputation_up"
+        SoundType.REPUTATION_UP to "v2_reputation_up",
+        SoundType.GRADUATION to "v2_graduation"
     )
 
     private fun getResId(name: String): Int {
@@ -246,6 +248,8 @@ class AudioManager @Inject constructor(
     fun playStudentEnrolled() = playSound(SoundType.STUDENT_ENROLLED)
     fun playBuildFacility() = playSound(SoundType.BUILD_FACILITY)
     fun playReputationUp() = playSound(SoundType.REPUTATION_UP)
+    fun playGraduation() = playSound(SoundType.GRADUATION)
+    fun playCrisisAlert() = playSound(SoundType.CRISIS_ALERT)
 
     /**
      * 释放资源。作为 @Singleton，正常情况下不应该被调用。

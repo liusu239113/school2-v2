@@ -51,7 +51,8 @@ class TeacherViewModel @Inject constructor(
     private val schoolRepository: SchoolRepository,
     private val audioManager: AudioManager,
     private val teacherDevManager: TeacherDevelopmentManager,
-    private val gameEngine: GameEngine
+    private val gameEngine: GameEngine,
+    private val policyManager: com.arktools.xiaozhang.domain.policy.SchoolPolicyManager
 ) : ViewModel() {
 
     private val _teachers = MutableStateFlow<List<Teacher>>(emptyList())
@@ -73,6 +74,22 @@ class TeacherViewModel @Inject constructor(
 
     private val _candidates = MutableStateFlow<List<Teacher>>(emptyList())
     val candidates: StateFlow<List<Teacher>> = _candidates.asStateFlow()
+
+    /** 各学院核心师资覆盖：缺编会拉低对应专业学生的掌握度和毕业分数 */
+    val collegeFacultyCoverage: StateFlow<com.arktools.xiaozhang.domain.model.FacultyCoverage> =
+        combine(
+            _teachers,
+            policyManager.policies
+        ) { teachers, policies ->
+            com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.facultyCoverage(
+                policies.collegeDevelopment.founded,
+                teachers
+            )
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            com.arktools.xiaozhang.domain.model.FacultyCoverage(emptyList(), 1f)
+        )
 
     private val _showHireDialog = MutableStateFlow(false)
     val showHireDialog: StateFlow<Boolean> = _showHireDialog.asStateFlow()

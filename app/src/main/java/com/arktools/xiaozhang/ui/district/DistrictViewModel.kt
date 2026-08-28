@@ -30,7 +30,8 @@ class DistrictViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
     private val expansionManager: CampusExpansionManager,
     private val teachingManager: TeachingManager,
-    private val gameEngine: GameEngine
+    private val gameEngine: GameEngine,
+    private val audioManager: com.arktools.xiaozhang.audio.AudioManager
 ) : ViewModel() {
 
     // ===== 社会合作 =====
@@ -125,6 +126,7 @@ class DistrictViewModel @Inject constructor(
             } else {
                 ""
             }
+            audioManager.playLevelUp()
             _upgradeMessage.value = "校园升级成功！当前 Lv.$newLevel（赠送1间教室）$unlockText"
         }
     }
@@ -190,8 +192,9 @@ class DistrictViewModel @Inject constructor(
      */
     fun upgradeCampusExpansionLevel() {
         viewModelScope.safeLaunch {
-            _upgradeMessage.value =
-                gameEngine.upgradeCampusExpansionLevel().message
+            val result = gameEngine.upgradeCampusExpansionLevel()
+            if (result.success) audioManager.playLevelUp()
+            _upgradeMessage.value = result.message
         }
     }
 
@@ -203,34 +206,40 @@ class DistrictViewModel @Inject constructor(
         quality: Int = 1
     ) {
         viewModelScope.safeLaunch {
-            _upgradeMessage.value = gameEngine.startCampusConstruction(
+            val result = gameEngine.startCampusConstruction(
                 type,
                 name,
                 quality
-            ).message
+            )
+            if (result.success) audioManager.playBuildFacility()
+            _upgradeMessage.value = result.message
         }
     }
 
     fun investInZone(zoneId: String, requestedAmountWan: Double) {
         viewModelScope.safeLaunch {
-            _upgradeMessage.value = gameEngine.investInCampusZone(
+            val result = gameEngine.investInCampusZone(
                 zoneId,
                 requestedAmountWan
-            ).message
+            )
+            if (result.success) audioManager.playBuildFacility()
+            _upgradeMessage.value = result.message
         }
     }
 
     fun repairZone(zoneId: String) {
         viewModelScope.safeLaunch {
-            _upgradeMessage.value =
-                gameEngine.repairCampusZone(zoneId).message
+            val result = gameEngine.repairCampusZone(zoneId)
+            if (result.success) audioManager.playBuildFacility()
+            _upgradeMessage.value = result.message
         }
     }
 
     fun upgradeZoneQuality(zoneId: String) {
         viewModelScope.safeLaunch {
-            _upgradeMessage.value =
-                gameEngine.upgradeCampusZoneQuality(zoneId).message
+            val result = gameEngine.upgradeCampusZoneQuality(zoneId)
+            if (result.success) audioManager.playBuildFacility()
+            _upgradeMessage.value = result.message
         }
     }
 

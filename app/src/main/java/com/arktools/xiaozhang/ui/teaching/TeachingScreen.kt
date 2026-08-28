@@ -91,9 +91,9 @@ fun TeachingScreen(
         item { SectionTitle("教学强度") }
         item { IntensitySection(viewModel, state) }
 
-        // === 文理方向 ===
-        item { SectionTitle("培养方向（大二起进入专业）") }
-        item { SubjectTrackSection(viewModel, state) }
+        // === 学院培养质量 ===
+        item { SectionTitle("学院培养质量（按报考大类与专业）") }
+        item { CollegeQualitySection(viewModel) }
 
         // === 作息政策 ===
         item { SectionTitle("作息政策") }
@@ -276,32 +276,69 @@ private fun IntensitySection(viewModel: TeachingViewModel, state: TeachingState)
     }
 }
 
-// ========= 文理方向 =========
+// ========= 学院培养质量 =========
 
 @Composable
-private fun SubjectTrackSection(viewModel: TeachingViewModel, state: TeachingState) {
+private fun CollegeQualitySection(viewModel: TeachingViewModel) {
+    val qualityList by viewModel.collegeQuality.collectAsState()
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SubjectTrack.entries.forEach { track ->
-                val isSelected = state.config.subjectTrack == track
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                        .clickable { viewModel.setSubjectTrack(track) }
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = isSelected, onClick = { viewModel.setSubjectTrack(track) })
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(track.displayName, fontWeight = FontWeight.Medium)
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (qualityList.isEmpty()) {
+                Text(
+                    "还没有在读学生。9月招生后，这里会按学院显示培养质量。",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                qualityList.forEach { quality ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .padding(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(quality.collegeName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                "${quality.studentCount}人",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                         Text(
-                            "主攻: ${track.subjects.joinToString("、") { it.displayName }}",
+                            quality.majorSummary.ifEmpty { "尚无具体专业（大二分专业后显示）" },
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "满意度 ${quality.avgSatisfaction.toInt()}%",
+                                fontSize = 11.sp,
+                                color = when {
+                                    quality.avgSatisfaction >= 70f -> Color(0xFF4CAF50)
+                                    quality.avgSatisfaction >= 50f -> Color(0xFFFF9800)
+                                    else -> Color(0xFFF44336)
+                                }
+                            )
+                            Text(
+                                "学业分 ${quality.avgAcademicScore.toInt()}",
+                                fontSize = 11.sp,
+                                color = when {
+                                    quality.avgAcademicScore >= 70f -> Color(0xFF4CAF50)
+                                    quality.avgAcademicScore >= 50f -> Color(0xFFFF9800)
+                                    else -> Color(0xFFF44336)
+                                }
+                            )
+                        }
                     }
                 }
             }

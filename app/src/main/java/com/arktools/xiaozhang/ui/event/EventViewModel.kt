@@ -68,6 +68,9 @@ class EventViewModel @Inject constructor(
                     // 所有事件都进历史记录
                     _eventHistory.value = _eventHistory.value + event
 
+                    // 事件到达音效：危机、毕业、达标各有专属反馈
+                    playArrivalSound(event)
+
                     // 检查自动处理
                     val autoResult = autoHandleManager.shouldAutoHandle(event)
 
@@ -90,6 +93,20 @@ class EventViewModel @Inject constructor(
                     android.util.Log.e("EventViewModel", "collectEvents processing failed: ${event::class.simpleName}", e)
                 }
             }
+        }
+    }
+
+    /**
+     * 事件到达时的即时反馈音效（与效果结算音效解耦，避免叠加）
+     */
+    private fun playArrivalSound(event: GameEvent) {
+        when {
+            event.title.startsWith("[突发危机]") ||
+                event.title.startsWith("[危机进展]") ||
+                event.title.contains("紧急危机") -> audioManager.playCrisisAlert()
+            event.title.contains("毕业生喜讯") ||
+                event.title.contains("毕业就业放榜") ||
+                event.title.contains("危机解除") -> audioManager.playGraduation()
         }
     }
 
@@ -366,8 +383,10 @@ class EventViewModel @Inject constructor(
                 when {
                     event.title.contains("新学年开学") || event.title.contains("大二分专业") ->
                         audioManager.playStudentEnrolled()
-                    event.title.contains("学年目标达成") || event.title.contains("毕业就业放榜") ->
+                    event.title.contains("学年目标达成") ->
                         audioManager.playReputationUp()
+                    // 毕业喜讯/放榜的毕业音效已在事件到达时播放，这里不再叠加
+                    event.title.contains("毕业生喜讯") || event.title.contains("毕业就业放榜") -> Unit
                     else -> audioManager.playEventPositive()
                 }
                 if (event.bonusCash > 0.0 || event.bonusReputation > 0L) {

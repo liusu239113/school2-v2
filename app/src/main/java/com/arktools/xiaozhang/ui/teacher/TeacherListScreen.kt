@@ -137,6 +137,7 @@ private fun TeacherTeamContent(
     val selectedTeacher by viewModel.selectedTeacher.collectAsState()
     val currentGameDay by viewModel.currentGameDay.collectAsState()
     val batchTrainResult by viewModel.batchTrainResult.collectAsState()
+    val facultyCoverage by viewModel.collegeFacultyCoverage.collectAsState()
     var showBatchTrainConfirm by remember { mutableStateOf(false) }
 
     // 一键培训确认弹窗（先显示预算预估）
@@ -251,6 +252,9 @@ private fun TeacherTeamContent(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                    item {
+                        FacultyCoverageCard(facultyCoverage)
+                    }
                     if (sortMode == TeacherSortMode.BY_SUBJECT) {
                         teachersBySubject.forEach { (subject, group) ->
                             item {
@@ -1424,5 +1428,80 @@ private fun SkillBar(label: String, value: Int, color: Color) {
             fontWeight = FontWeight.Bold,
             color = color
         )
+    }
+}
+
+// ========== 学院师资覆盖卡片 ==========
+
+@Composable
+private fun FacultyCoverageCard(
+    coverage: com.arktools.xiaozhang.domain.model.FacultyCoverage
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Image(
+            painter = painterResource(id = R.drawable.card_bg),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.FillBounds
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "学院师资覆盖",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${(coverage.coverageRatio * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (coverage.coverageRatio >= 1f) AccentGreen else AccentOrange
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "缺编会拉低该学院学生的掌握度和毕业分数",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            coverage.lines.forEach { line ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = line.college.displayName,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (line.missingRoles.isEmpty()) {
+                        Text(
+                            text = "已配齐",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AccentGreen,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Text(
+                            text = "${line.covered}/${line.required} 缺${line.missingRoles.joinToString("、") { it.displayName }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AccentOrange,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
     }
 }
