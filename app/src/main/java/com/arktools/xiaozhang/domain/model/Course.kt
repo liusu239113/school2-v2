@@ -15,7 +15,7 @@ enum class ClassTier(
     val setupCost: Double,         // 开设一个班的初始费用（万元）
     val monthlyCost: Double        // 每月维护费用（万元）
 ) {
-    ROCKET("火箭班", 30, 0.5f, 1.4f, 5.0, 0.5),
+    ROCKET("精英班", 30, 0.5f, 1.4f, 5.0, 0.5),
     KEY("重点班", 40, 0.35f, 1.2f, 3.0, 0.3),
     NORMAL("普通班", 50, 0.25f, 1.0f, 1.0, 0.15),
     ART("美术特长班", 35, 0.3f, 0.8f, 4.0, 0.4),

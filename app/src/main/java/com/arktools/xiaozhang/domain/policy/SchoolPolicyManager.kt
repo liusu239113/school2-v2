@@ -121,6 +121,16 @@ class SchoolPolicyManager @Inject constructor(
         return if (key == "BALANCED") 50.0 else 0.0
     }
 
+    fun replaceCollegeDevelopment(dev: CollegeDevelopment) {
+        _policies.value = _policies.value.copy(collegeDevelopment = dev)
+    }
+
+    fun markCampusTutorialDone() {
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = _policies.value.collegeDevelopment.copy(tutorialDone = true)
+        )
+    }
+
     fun setAffiliatedHospital(built: Boolean) {
         _policies.value = _policies.value.copy(
             collegeDevelopment = _policies.value.collegeDevelopment.copy(affiliatedHospital = built)
@@ -369,7 +379,10 @@ class SchoolPolicyManager @Inject constructor(
                 affiliatedHospital = p.collegeDevelopment.affiliatedHospital,
                 coreCourses = p.collegeDevelopment.coreCourses,
                 graduateProgram = p.collegeDevelopment.graduateProgram,
-                foundingStyle = p.collegeDevelopment.foundingStyle
+                foundingStyle = p.collegeDevelopment.foundingStyle,
+                placedBuildings = p.collegeDevelopment.placedBuildings,
+                terrainMap = p.collegeDevelopment.terrainMap,
+                tutorialDone = p.collegeDevelopment.tutorialDone
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -410,7 +423,10 @@ class SchoolPolicyManager @Inject constructor(
                     affiliatedHospital = data.affiliatedHospital,
                     coreCourses = data.coreCourses,
                     graduateProgram = data.graduateProgram,
-                    foundingStyle = data.foundingStyle
+                    foundingStyle = data.foundingStyle,
+                    placedBuildings = data.placedBuildings,
+                    terrainMap = data.terrainMap,
+                    tutorialDone = data.tutorialDone
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -741,7 +757,10 @@ data class PolicyPersistData(
     val affiliatedHospital: Boolean = false,
     val coreCourses: Map<String, Int> = emptyMap(),
     val graduateProgram: Boolean = false,
-    val foundingStyle: String = "BALANCED"
+    val foundingStyle: String = "BALANCED",
+    val placedBuildings: String = "",
+    val terrainMap: String = "",
+    val tutorialDone: Boolean = false
 )
 
 data class ManagedCollegeResult(
@@ -764,6 +783,9 @@ data class CollegeDevelopment(
     val coreCourses: Map<String, Int> = emptyMap(),
     val graduateProgram: Boolean = false,
     val annualGoal: AnnualGoal = AnnualGoal.BALANCED_GROWTH,
+    val placedBuildings: String = "",
+    val terrainMap: String = "",
+    val tutorialDone: Boolean = false,
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,

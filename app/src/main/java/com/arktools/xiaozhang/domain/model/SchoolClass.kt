@@ -42,7 +42,7 @@ data class SchoolClass(
     val createdYear: Int = 0,
     val createdMonth: Int = 0
 ) {
-    /** 班级名称，如 "大一(1)班·火箭班" */
+    /** 班级名称，如 "大一(1)班·精英班" */
     val displayName: String
         get() = "${gradeLevel.displayName}(${classNumber})班·${classTier.displayName}"
 

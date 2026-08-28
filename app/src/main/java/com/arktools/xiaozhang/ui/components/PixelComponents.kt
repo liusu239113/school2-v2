@@ -140,7 +140,11 @@ fun PixelButton(
             enabled = enabled,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
-                contentColor = Color.White,
+                // 浅色按钮图（白冰/灰蓝）配深字，深色按钮图配白字
+                contentColor = when (style) {
+                    PixelButtonStyle.SECONDARY, PixelButtonStyle.CANCEL -> Color(0xFF0B2038)
+                    else -> Color.White
+                },
                 disabledContainerColor = Color.Transparent,
                 disabledContentColor = Color.White.copy(alpha = 0.5f)
             ),
@@ -218,34 +222,6 @@ fun PixelDialogBackground(
     }
 }
 
-/**
- * Pixel art style top info bar.
- * Use for showing cash/reputation/campus status.
- */
-@Composable
-fun PixelInfoBar(
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(76.dp)
-    ) {
-        PixelNineSlice(
-            res = R.drawable.bar_bg,
-            slice = 24,
-            modifier = Modifier.fillMaxSize()
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-            content = content
-        )
-    }
-}
 
 /**
  * Pixel art style alert dialog.

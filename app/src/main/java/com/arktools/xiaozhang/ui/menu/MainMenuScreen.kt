@@ -221,7 +221,7 @@ private fun PixelMenuButton(
             modifier = Modifier.fillMaxSize(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
-                contentColor = Color.White
+                contentColor = if (isPrimary) Color.White else Color(0xFF0B2038)
             ),
             shape = androidx.compose.ui.graphics.RectangleShape,
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)

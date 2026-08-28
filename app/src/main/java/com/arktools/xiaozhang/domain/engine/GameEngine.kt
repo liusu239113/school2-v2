@@ -2079,7 +2079,7 @@ class GameEngine @Inject constructor(
 
         val rebuiltClasses = mutableListOf<SchoolClass>()
 
-        // 解析持久化的班级类型映射（优先使用，解决火箭班读档变普通班的bug）
+        // 解析持久化的班级类型映射（优先使用，解决精英班读档变普通班的bug）
         val savedTierMap = mutableMapOf<String, ClassTier>()
         try {
             if (school.classTierMapJson.isNotBlank()) {
@@ -6698,7 +6698,7 @@ class GameEngine @Inject constructor(
             // 教学配置质量加成：好的教学管理能让分数提升最多10%
             val classTier = getStudentClassTier(student)
             val tierBonus = when (classTier) {
-                com.arktools.xiaozhang.domain.model.ClassTier.ROCKET -> 1.05f   // 火箭班额外+5%
+                com.arktools.xiaozhang.domain.model.ClassTier.ROCKET -> 1.05f   // 精英班额外+5%
                 com.arktools.xiaozhang.domain.model.ClassTier.KEY -> 1.03f      // 重点班额外+3%
                 else -> 1.0f
             }

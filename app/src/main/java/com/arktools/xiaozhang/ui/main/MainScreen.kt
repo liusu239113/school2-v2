@@ -486,7 +486,7 @@ fun MainScreen(
                 menuViewModel.playClickSound()
                 menuViewModel.stopMenuBgm()
                 viewModel.newGame(name, principalName, style.key)
-                showTutorial = true
+
             },
             onContinueGame = {
                 menuViewModel.playClickSound()
@@ -814,16 +814,6 @@ fun MainScreen(
         )
     }
 
-    if (showTutorial && tutorialManager.isActive) {
-        TutorialOverlay(
-            tutorialManager = tutorialManager,
-            onDismiss = {
-                showTutorial = false
-                // 教程被跳过/关闭时：赠送初始教师 + 触发招生 + 恢复游戏
-                viewModel.grantSkipTutorialRewards()
-                viewModel.setEventsSuppressed(false)
-                viewModel.resumeGame()
-            }
         )
     }
 
@@ -898,68 +888,27 @@ fun MainScreen(
 
 @Composable
 private fun SchoolStatusBar(school: com.arktools.xiaozhang.domain.model.School, onCampusClick: () -> Unit = {}) {
-    val animatedCash by animateFloatAsState(
-        targetValue = school.cash.toFloat(),
-        animationSpec = tween(AnimationConstants.slowDuration),
-        label = "cashAnim"
-    )
-    val animatedReputation by animateFloatAsState(
-        targetValue = school.reputation.toFloat(),
-        animationSpec = tween(AnimationConstants.slowDuration),
-        label = "repAnim"
-    )
-    val animatedRevenue by animateFloatAsState(
-        targetValue = school.totalRevenue.toFloat(),
-        animationSpec = tween(AnimationConstants.slowDuration),
-        label = "revAnim"
-    )
-
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-            .height(64.dp)
+            .background(com.arktools.xiaozhang.ui.theme.PrimaryDark)
+            .clickable(onClick = onCampusClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.bar_bg),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
+        Text(
+            "经费 ${FormatUtils.formatCash(school.cash)}",
+            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold
         )
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StatusItem(
-                label = "资金",
-                value = FormatUtils.formatCash(animatedCash.toDouble()),
-                color = if (animatedCash > 0) AccentGreen else AccentRed
-            )
-            StatusItem(
-                label = "声誉",
-                value = FormatUtils.formatReputation(animatedReputation.toLong()),
-                color = AccentOrange
-            )
-            StatusItem(
-                label = "总收入",
-                value = FormatUtils.formatCash(animatedRevenue.toDouble()),
-                color = Color(0xFF4E342E)
-            )
-            StatusItem(
-                label = "校园",
-                value = "Lv.${school.campusLevel}",
-                color = Color(0xFF4E342E),
-                onClick = onCampusClick
-            )
-            StatusItem(
-                label = "星级",
-                value = String.format("%.1f", school.starRating),
-                color = AccentOrange
-            )
-        }
+        Text(
+            "声誉 ${school.reputation}",
+            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold
+        )
+        Text(
+            "校园 Lv.${school.campusLevel}",
+            color = Color(0xFFFFD54F), fontSize = 14.sp, fontWeight = FontWeight.Bold
+        )
     }
 }
 
