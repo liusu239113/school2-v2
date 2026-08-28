@@ -15,7 +15,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class SchoolPolicyManager @Inject constructor(
-    val competitionManager: com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager
+    val competitionManager: com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager,
+    val researchChainManager: com.arktools.xiaozhang.domain.research.ResearchChainManager,
+    val teacherStoryManager: com.arktools.xiaozhang.domain.teacherdev.TeacherStoryManager
 ) {
 
     private val _policies = MutableStateFlow(SchoolPolicies())
@@ -161,10 +163,11 @@ class SchoolPolicyManager @Inject constructor(
      */
     fun getPolicyEffects(): PolicyEffects {
         val p = _policies.value
+        val chainQualityBonus = researchChainManager.qualityBonus()
         return PolicyEffects(
             tuitionMultiplier = p.tuitionLevel.revenueMultiplier,
             enrollmentMultiplier = calculateEnrollmentMultiplier(p),
-            qualityMultiplier = calculateQualityMultiplier(p),
+            qualityMultiplier = calculateQualityMultiplier(p) * (1f + chainQualityBonus),
             satisfactionModifier = calculateSatisfactionModifier(p),
             reputationModifier = calculateReputationModifier(p),
             expenseMultiplier = calculateExpenseMultiplier(p),
@@ -276,6 +279,8 @@ class SchoolPolicyManager @Inject constructor(
     fun resetToDefaults() {
         _policies.value = SchoolPolicies()
         competitionManager.reset()
+        researchChainManager.reset()
+        teacherStoryManager.reset()
     }
 
     fun toJson(): String {
@@ -304,7 +309,9 @@ class SchoolPolicyManager @Inject constructor(
                 scienceTrackWeight = p.admissionTrackPlan.scienceWeight,
                 engineeringTrackWeight = p.admissionTrackPlan.engineeringWeight,
                 businessTrackWeight = p.admissionTrackPlan.businessWeight,
-                competitionStateJson = competitionManager.toJson()
+                competitionStateJson = competitionManager.toJson(),
+                researchChainStateJson = researchChainManager.toJson(),
+                storyStateJson = teacherStoryManager.toJson()
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -352,6 +359,8 @@ class SchoolPolicyManager @Inject constructor(
             )
             _policies.value = restoredPolicies
             competitionManager.restoreFromJson(data.competitionStateJson)
+            researchChainManager.restoreFromJson(data.researchChainStateJson)
+            teacherStoryManager.restoreFromJson(data.storyStateJson)
         } catch (e: Exception) {
             throw IllegalArgumentException("SchoolPolicyManager.restoreFromJson failed", e)
         }
@@ -660,7 +669,9 @@ data class PolicyPersistData(
     val scienceTrackWeight: Int = 3,
     val engineeringTrackWeight: Int = 2,
     val businessTrackWeight: Int = 2,
-    val competitionStateJson: String = ""
+    val competitionStateJson: String = "",
+    val researchChainStateJson: String = "",
+    val storyStateJson: String = ""
 )
 
 data class ManagedCollegeResult(

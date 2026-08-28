@@ -36,8 +36,57 @@ data class BonusSummary(
 @HiltViewModel
 class ResearchViewModel @Inject constructor(
     private val researchRepository: ResearchRepository,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    private val policyManager: com.arktools.xiaozhang.domain.policy.SchoolPolicyManager,
+    private val schoolRepository: com.arktools.xiaozhang.domain.repository.SchoolRepository,
+    private val gameEngine: com.arktools.xiaozhang.domain.engine.GameEngine
 ) : ViewModel() {
+
+    // ===== 科研课题链 =====
+
+    data class ChainUiState(
+        val definitions: List<com.arktools.xiaozhang.domain.research.ResearchChainManager.ChainDef> =
+            emptyList(),
+        val programs: Map<String, com.arktools.xiaozhang.domain.research.ResearchChainManager.ChainProgress> =
+            emptyMap(),
+        val completedChains: List<String> = emptyList(),
+        val qualityBonus: Float = 0f,
+        val message: String? = null
+    )
+
+    private val _chainUi = MutableStateFlow(ChainUiState())
+    val chainUi: StateFlow<ChainUiState> = _chainUi.asStateFlow()
+
+    init {
+        viewModelScope.safeLaunch {
+            schoolRepository.getSchoolFlow().collect {
+                refreshChainUi()
+            }
+        }
+    }
+
+    private fun refreshChainUi() {
+        val manager = policyManager.researchChainManager
+        _chainUi.value = _chainUi.value.copy(
+            definitions = manager.definitions(),
+            programs = manager.snapshotState().programs,
+            completedChains = manager.snapshotState().completedChains,
+            qualityBonus = manager.qualityBonus()
+        )
+    }
+
+    fun startChain(chainId: String) {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.startResearchProgram(chainId)
+            _chainUi.value = _chainUi.value.copy(message = result.message)
+            refreshChainUi()
+            if (result.success) audioManager.playResearchUnlock()
+        }
+    }
+
+    fun consumeChainMessage() {
+        _chainUi.value = _chainUi.value.copy(message = null)
+    }
 
     private val _allMethods = MutableStateFlow<List<TeachingMethod>>(emptyList())
 

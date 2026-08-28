@@ -544,6 +544,36 @@ class GameEngine @Inject constructor(
         )
     }
 
+    /**
+     * 启动科研课题链：扣启动经费，之后每天随科研日推进。
+     */
+    suspend fun startResearchProgram(chainId: String): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+                return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            val school = schoolRepository.getSchool()
+                ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
+            val snapshot = policyManager.toJson()
+            val result = policyManager.researchChainManager.startProgram(
+                chainId, school.cash, school.campusLevel
+            )
+            if (!result.success) {
+                return@withLock ManagedOperationResult(false, result.message)
+            }
+            val committed = schoolRepository.mutateSchool { s ->
+                if (s.cash < result.fee) return@mutateSchool false
+                s.cash -= result.fee
+                s.policyJson = policyManager.toJson()
+                true
+            }
+            if (committed == null) {
+                policyManager.researchChainManager.restoreFromJson(snapshot)
+                return@withLock ManagedOperationResult(false, "启动失败：资金不足")
+            }
+            ManagedOperationResult(true, result.message, result.fee)
+        }
+
     suspend fun startAcademicConference(
         type: com.arktools.xiaozhang.domain.conference.ConferenceType,
         role: com.arktools.xiaozhang.domain.conference.ConferenceRole,
@@ -2783,6 +2813,32 @@ class GameEngine @Inject constructor(
             ))
         }
 
+        // 科研课题链：随科研日推进；有在研课题时每日持久化进度
+        runCatching {
+            val completions = policyManager.researchChainManager.advanceDay()
+            completions.forEach { c ->
+                deferEvent(GameEvent.PositiveEvent(
+                    title = if (c.chainFinished) "课题链结题" else "课题阶段完成",
+                    message = "「${c.chain.name}」${c.stage.name}完成。" +
+                        (if (c.stage.rewardCashWan > 0) "科研到账${c.stage.rewardCashWan.toInt()}万。" else "") +
+                        (if (c.stage.rewardReputation > 0) "声誉+${c.stage.rewardReputation}。" else "") +
+                        (if (c.stage.rewardQuality > 0) "教学质量永久+${(c.stage.rewardQuality * 100).toInt()}%。" else ""),
+                    bonusCash = 0.0,
+                    bonusReputation = 0L
+                ))
+            }
+            if (completions.isNotEmpty() ||
+                policyManager.researchChainManager.snapshotState().programs.isNotEmpty()
+            ) {
+                schoolRepository.mutateSchool { latest ->
+                    latest.policyJson = policyManager.toJson()
+                    true
+                }
+            }
+        }.onFailure {
+            android.util.Log.w("GameEngine", "Research chain daily advance failed", it)
+        }
+
         // 股票系统：先处理活跃事件 tick，再更新价格（事件影响已在 updateStockPrices 内叠加）
         stockRepository.tickActiveEvents()
         stockRepository.updateStockPrices()
@@ -2885,6 +2941,7 @@ class GameEngine @Inject constructor(
             var incAlumniDonation = 0.0  // 校友捐赠收入
             var incGovSubsidy = 0.0      // 政府补贴收入
             var incCompetitionPrize = 0.0 // 校际竞赛奖金收入
+            var incResearchGrant = 0.0   // 课题链科研到账
             var expGovFine = 0.0         // 政府罚款支出
             var expMarketing = 0.0       // 招生宣传费（每日累计近似）
 
@@ -3918,7 +3975,65 @@ class GameEngine @Inject constructor(
                     expMarketing + expScholarship + expGovFine + seasonalExpenses
 
             // 校友捐赠计入收入
-            val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy + incCompetitionPrize
+            val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy +
+                incCompetitionPrize + incResearchGrant
+
+            // 课题链阶段奖励入账 + 教师个人故事线月度推进
+            runCatching {
+                val (chainCash, chainRep) = policyManager.researchChainManager.consumePendingRewards()
+                if (chainCash > 0 || chainRep > 0) {
+                    if (chainCash > 0) {
+                        schoolRepository.addCash(chainCash)
+                        incResearchGrant += chainCash
+                    }
+                    if (chainRep > 0) schoolRepository.addReputation(chainRep)
+                }
+                val snapshots = cachedTeachersForMonth.map {
+                    com.arktools.xiaozhang.domain.teacherdev.TeacherStoryManager.TeacherSnapshot(
+                        id = it.id,
+                        name = it.name,
+                        fatigue = it.fatigue,
+                        loyalty = it.loyalty,
+                        averageSkill = it.averageSkill
+                    )
+                }
+                val storyEvents = policyManager.teacherStoryManager.monthlyTick(
+                    school.currentYear, school.currentMonth, snapshots
+                )
+                storyEvents.forEach { story ->
+                    if (story.isFollowUp) {
+                        emitEvent(GameEvent.PositiveEvent(
+                            title = story.title,
+                            message = story.message,
+                            bonusCash = 0.0,
+                            bonusReputation = 5L,
+                            bonusTeacherSkill = 1f
+                        ), school)
+                    } else {
+                        emitEvent(GameEvent.ChoiceEvent(
+                            title = story.title,
+                            message = story.message,
+                            choices = story.choices.map { choice ->
+                                EventChoice(
+                                    text = "${choice.label}（${choice.description}）",
+                                    consequence = EventConsequence(
+                                        cashChange = choice.cashChange,
+                                        reputationChange = choice.reputationChange
+                                    )
+                                )
+                            }
+                        ), school)
+                    }
+                }
+                if (storyEvents.isNotEmpty()) {
+                    schoolRepository.mutateSchool { latest ->
+                        latest.policyJson = policyManager.toJson()
+                        true
+                    }
+                }
+            }.onFailure {
+                android.util.Log.w("GameEngine", "Research chain/story monthly tick failed", it)
+            }
 
             // 校际竞赛月度结算：到期竞赛按师资覆盖与声誉判定胜负
             runCatching {

@@ -179,6 +179,11 @@ fun ResearchScreen(
                         ResearchProgressBar(methods = methods)
                     }
 
+                    // 科研课题链
+                    item {
+                        ResearchChainSection(viewModel)
+                    }
+
                     // Bonus summary panel - show all active bonuses
                     item {
                         BonusSummaryPanel(bonusSummary = bonusSummary)
@@ -754,6 +759,114 @@ private fun UnlockSuccessDialog(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = onDismiss
                 )
+            }
+        }
+    }
+}
+
+// ===== 科研课题链 =====
+
+@Composable
+private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.ResearchViewModel) {
+    val chainUi by viewModel.chainUi.collectAsState()
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = com.arktools.xiaozhang.R.drawable.ic_research_chain),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("科研课题链", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                if (chainUi.qualityBonus > 0f) {
+                    Text(
+                        "教学质量永久+${(chainUi.qualityBonus * 100).toInt()}%",
+                        fontSize = 11.sp,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            chainUi.message?.let { message ->
+                Text(
+                    text = message,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { viewModel.consumeChainMessage() }
+                )
+            }
+            chainUi.definitions.forEach { def ->
+                val program = chainUi.programs[def.id]
+                val finished = chainUi.completedChains.contains(def.id)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(def.name, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(
+                                def.description,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        when {
+                            finished -> Text(
+                                "已结题",
+                                fontSize = 11.sp,
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.Bold
+                            )
+                            program \!= null -> Text(
+                                "进行中",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            else -> Text(
+                                text = "启动",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { viewModel.startChain(def.id) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (program \!= null) {
+                        val stage = def.stages[program.stageIndex]
+                        Text(
+                            "第${program.stageIndex + 1}/${def.stages.size}阶段「${stage.name}」 ${program.daysDone}/${stage.requiredDays}天 · 到账${stage.rewardCashWan.toInt()}万 + ${stage.rewardReputation}声誉",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        LinearProgressIndicator(
+                            progress = {
+                                (program.daysDone.toFloat() / stage.requiredDays).coerceIn(0f, 1f)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+                    } else {
+                        val first = def.stages.first()
+                        Text(
+                            "首阶段「${first.name}」：启动${first.startFeeWan.toInt()}万 · 约${first.requiredDays}天",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
