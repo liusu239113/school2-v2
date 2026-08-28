@@ -101,6 +101,11 @@ object UniversityAcademicCatalog {
         return "${gradeLevel.displayName} · ${collegeName(courseId)} · ${displayName(courseId)}"
     }
 
+    fun collegeOf(courseId: String): CollegeType? {
+        parseMajor(courseId)?.let { return it.college }
+        return parseTrack(courseId)?.college
+    }
+
     fun parseTrack(courseId: String): AdmissionTrack? {
         parseMajor(courseId)?.let { return it.track }
         if (!courseId.startsWith("TRACK_")) return null

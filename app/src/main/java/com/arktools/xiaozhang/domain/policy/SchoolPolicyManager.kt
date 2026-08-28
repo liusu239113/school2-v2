@@ -75,6 +75,32 @@ class SchoolPolicyManager @Inject constructor(
         _policies.value = _policies.value.copy(budgetAllocation = allocation.normalized())
     }
 
+    fun openCoreCourse(college: CollegeType): ManagedCollegeResult {
+        val dev = _policies.value.collegeDevelopment
+        if (\!dev.founded.contains(college)) {
+            return ManagedCollegeResult(false, "需先成立${college.displayName}")
+        }
+        val count = dev.coreCourses[college.name] ?: 0
+        if (count >= 3) {
+            return ManagedCollegeResult(false, "${college.displayName}核心课已开满3门")
+        }
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = dev.copy(
+                coreCourses = dev.coreCourses + (college.name to (count + 1))
+            )
+        )
+        return ManagedCollegeResult(
+            true,
+            "已开设${college.displayName}核心课（${count + 1}/3），该学院学生掌握度与毕业表现提升"
+        )
+    }
+
+    fun setGraduateProgram(on: Boolean) {
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = _policies.value.collegeDevelopment.copy(graduateProgram = on)
+        )
+    }
+
     fun setAffiliatedHospital(built: Boolean) {
         _policies.value = _policies.value.copy(
             collegeDevelopment = _policies.value.collegeDevelopment.copy(affiliatedHospital = built)
@@ -320,7 +346,9 @@ class SchoolPolicyManager @Inject constructor(
                 competitionStateJson = competitionManager.toJson(),
                 researchChainStateJson = researchChainManager.toJson(),
                 storyStateJson = teacherStoryManager.toJson(),
-                affiliatedHospital = p.collegeDevelopment.affiliatedHospital
+                affiliatedHospital = p.collegeDevelopment.affiliatedHospital,
+                coreCourses = p.collegeDevelopment.coreCourses,
+                graduateProgram = p.collegeDevelopment.graduateProgram
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -358,7 +386,9 @@ class SchoolPolicyManager @Inject constructor(
                     lastReviewResearch = data.lastReviewResearch,
                     lastReviewStudents = data.lastReviewStudents,
                     lastReviewSatisfaction = data.lastReviewSatisfaction,
-                    affiliatedHospital = data.affiliatedHospital
+                    affiliatedHospital = data.affiliatedHospital,
+                    coreCourses = data.coreCourses,
+                    graduateProgram = data.graduateProgram
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -686,7 +716,9 @@ data class PolicyPersistData(
     val competitionStateJson: String = "",
     val researchChainStateJson: String = "",
     val storyStateJson: String = "",
-    val affiliatedHospital: Boolean = false
+    val affiliatedHospital: Boolean = false,
+    val coreCourses: Map<String, Int> = emptyMap(),
+    val graduateProgram: Boolean = false
 )
 
 data class ManagedCollegeResult(
@@ -705,6 +737,8 @@ data class AnnualGoalResult(
 data class CollegeDevelopment(
     val founded: List<CollegeType> = emptyList(),
     val affiliatedHospital: Boolean = false,
+    val coreCourses: Map<String, Int> = emptyMap(),
+    val graduateProgram: Boolean = false,
     val annualGoal: AnnualGoal = AnnualGoal.BALANCED_GROWTH,
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,

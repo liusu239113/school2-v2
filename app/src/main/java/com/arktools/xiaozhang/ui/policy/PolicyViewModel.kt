@@ -76,6 +76,30 @@ class PolicyViewModel @Inject constructor(
         }
     }
 
+    fun openCoreCourse(college: CollegeType) {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.openCoreCourse(college)
+            _operationMessage.value = result.message
+            if (result.success) {
+                audioManager.playCourseCreate()
+            } else {
+                audioManager.playEventNegative()
+            }
+        }
+    }
+
+    fun launchGraduateProgram() {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.launchGraduateProgram()
+            _operationMessage.value = result.message
+            if (result.success) {
+                audioManager.playLevelUp()
+            } else {
+                audioManager.playEventNegative()
+            }
+        }
+    }
+
     fun buildAffiliatedHospital() {
         viewModelScope.safeLaunch {
             val result = gameEngine.buildAffiliatedHospital()

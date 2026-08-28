@@ -545,6 +545,84 @@ class GameEngine @Inject constructor(
     }
 
     /**
+     * 开设专业核心课：学院成立后每门25万，最多3门，
+     * 提升该学院学生掌握度成长与毕业表现。
+     */
+    suspend fun openCoreCourse(college: com.arktools.xiaozhang.domain.policy.CollegeType): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            if (\!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+                return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            val snapshot = policyManager.toJson()
+            val preview = policyManager.openCoreCourse(college)
+            if (\!preview.success) {
+                return@withLock ManagedOperationResult(false, preview.message)
+            }
+            val cost = 25.0
+            val committed = schoolRepository.mutateSchool { s ->
+                if (s.cash < cost) return@mutateSchool false
+                s.cash -= cost
+                s.policyJson = policyManager.toJson()
+                true
+            }
+            if (committed == null) {
+                policyManager.restoreFromJson(snapshot)
+                return@withLock ManagedOperationResult(false, "资金不足：开设核心课需要 ${cost.toInt()}万")
+            }
+            ManagedOperationResult(true, preview.message, cost)
+        }
+
+    /**
+     * 启动硕博点：校园5级且已建理工医学院之一，投入200万。
+     * 每月带来导师经费、声誉与科研推进，并触发研究生事件。
+     */
+    suspend fun launchGraduateProgram(): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            if (\!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+                return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            val dev = policyManager.policies.value.collegeDevelopment
+            if (dev.graduateProgram) {
+                return@withLock ManagedOperationResult(false, "硕博点已启动")
+            }
+            val eligible = listOf(
+                com.arktools.xiaozhang.domain.policy.CollegeType.SCIENCE,
+                com.arktools.xiaozhang.domain.policy.CollegeType.ENGINEERING,
+                com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE
+            ).any { dev.founded.contains(it) }
+            if (\!eligible) {
+                return@withLock ManagedOperationResult(
+                    false,
+                    "需要先成立理学院、工学院或医学院其一"
+                )
+            }
+            val school0 = schoolRepository.getSchool()
+                ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
+            if (school0.campusLevel < 5) {
+                return@withLock ManagedOperationResult(false, "硕博点需要校园5级")
+            }
+            val cost = 200.0
+            if (school0.cash < cost) {
+                return@withLock ManagedOperationResult(
+                    false,
+                    "资金不足：启动硕博点需要 ${cost.toInt()}万"
+                )
+            }
+            policyManager.setGraduateProgram(true)
+            val committed = schoolRepository.mutateSchool { s ->
+                if (s.cash < cost) return@mutateSchool false
+                s.cash -= cost
+                s.policyJson = policyManager.toJson()
+                true
+            }
+            if (committed == null) {
+                policyManager.setGraduateProgram(false)
+                return@withLock ManagedOperationResult(false, "启动失败：资金不足")
+            }
+            ManagedOperationResult(true, "硕博点获批！每月导师经费与声誉入账，科研进度加快", cost)
+        }
+
+    /**
      * 建设附属医院：医学院成立后可投入300万，带来诊疗收入、声誉与实习事件。
      */
     suspend fun buildAffiliatedHospital(): ManagedOperationResult =
@@ -2987,6 +3065,7 @@ class GameEngine @Inject constructor(
             var incCompetitionPrize = 0.0 // 校际竞赛奖金收入
             var incResearchGrant = 0.0   // 课题链科研到账
             var incHospitalRevenue = 0.0 // 附属医院诊疗收入
+            var incGradGrant = 0.0       // 硕博点导师经费
             var expGovFine = 0.0         // 政府罚款支出
             var expMarketing = 0.0       // 招生宣传费（每日累计近似）
             var expHospitalOp = 0.0      // 附属医院运营补贴
@@ -4022,7 +4101,7 @@ class GameEngine @Inject constructor(
 
             // 校友捐赠计入收入
             val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy +
-                incCompetitionPrize + incResearchGrant + incHospitalRevenue
+                incCompetitionPrize + incResearchGrant + incHospitalRevenue + incGradGrant
 
             // 课题链阶段奖励入账 + 教师个人故事线月度推进
             runCatching {
@@ -4147,6 +4226,44 @@ class GameEngine @Inject constructor(
                                 message = "实习学生在附属医院的沟通环节出现瑕疵，家属投诉到院办。学校加派带教老师并修订实习守则。",
                                 penaltyCash = 0.0,
                                 penaltyReputation = 5L
+                            ), school)
+                        }
+                    }
+                }
+
+                // 硕博点：导师经费 + 声誉 + 每月额外科研日 + 研究生事件
+                if (policyManager.policies.value.collegeDevelopment.graduateProgram &&
+                    \!isRetrySettlement
+                ) {
+                    val gradsIncome = cachedActiveStudentsForMonth.size * 0.06
+                    if (gradsIncome > 0) {
+                        schoolRepository.addCash(gradsIncome)
+                        incGradGrant += gradsIncome
+                    }
+                    schoolRepository.addReputation(3)
+                    runCatching { researchRepository.advanceResearchDay() }
+                        .onFailure {
+                            android.util.Log.w("GameEngine", "Graduate research day failed", it)
+                        }
+                    if (kotlin.random.Random.nextFloat() < 0.2f) {
+                        when (kotlin.random.Random.nextInt(3)) {
+                            0 -> emitEvent(GameEvent.PositiveEvent(
+                                title = "研究生培养·论文发表",
+                                message = "硕博点研究生的一篇论文被核心期刊收录，导师团队与学校学术声誉同步上涨。",
+                                bonusCash = 0.0,
+                                bonusReputation = 10L
+                            ), school)
+                            1 -> emitEvent(GameEvent.PositiveEvent(
+                                title = "研究生培养·经费到账",
+                                message = "研究生参与的重点课题通过中期检查，导师经费15万到账。",
+                                bonusCash = 15.0,
+                                bonusReputation = 0L
+                            ), school)
+                            else -> emitEvent(GameEvent.NegativeEvent(
+                                title = "研究生培养·学术规范检查",
+                                message = "研究生论文抽检发现引用不规范问题，学院已组织学术规范重修。",
+                                penaltyCash = 0.0,
+                                penaltyReputation = 4L
                             ), school)
                         }
                     }
@@ -5901,9 +6018,16 @@ class GameEngine @Inject constructor(
                 classTeachers.map { it.averageSkill }.average().toFloat()
             } else 30f
 
-            // 使用教学配置计算教学质量参数（乘以政策质量系数）
+            // 使用教学配置计算教学质量参数（乘以政策质量系数与学院核心课系数）
             val studentClassTier = getStudentClassTier(student)
-            val teachingQuality = teachingConfig.overallQuality(teacherAvgSkill) * policyEffects.qualityMultiplier
+            val studentCollege = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .collegeOf(student.courseId)
+            val coreCourseCount = studentCollege?.let {
+                policyManager.policies.value.collegeDevelopment.coreCourses[it.name]
+            } ?: 0
+            val courseFactor = 1f + coreCourseCount * 0.05f
+            val teachingQuality = teachingConfig.overallQuality(teacherAvgSkill) *
+                policyEffects.qualityMultiplier * courseFactor
             val scoreGrowthMul = teachingManager.scoreGrowthMultiplier(studentClassTier)
 
             // 计算每日学期掌握度（基于教学配置而非旧课程）
@@ -6558,7 +6682,12 @@ class GameEngine @Inject constructor(
                 matchedTeachers.map { it.averageSkill }.average().toFloat()
             } else 30f
             val teachingQualityBonus = teachingManager.config.overallQuality(teacherAvgSkill)
-            val teachingScoreMultiplier = 0.9f + (teachingQualityBonus / 100f) * 0.2f
+            val gradCollege = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                .collegeOf(student.courseId)
+            val gradCourseFactor = 1f + (gradCollege?.let {
+                policyManager.policies.value.collegeDevelopment.coreCourses[it.name]
+            } ?: 0) * 0.04f
+            val teachingScoreMultiplier = (0.9f + (teachingQualityBonus / 100f) * 0.2f) * gradCourseFactor
             val examHistory = examManager.getStudentScores(student.id)
             val baseScore = GaoKaoCalculator.calculateScore(
                 student = student,

@@ -318,6 +318,69 @@ fun PolicyScreen(
                         }
                     }
                 }
+                if (policies.collegeDevelopment.founded.isNotEmpty()) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                    Text("专业核心课", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "每门25万，每学院最多3门；核心课越齐，该学院学生掌握度与毕业表现越好",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    policies.collegeDevelopment.founded.forEach { college ->
+                        val count = policies.collegeDevelopment.coreCourses[college.name] ?: 0
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                college.displayName,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                "$count/3",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (count >= 3) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (count < 3) {
+                                Text(
+                                    "开设",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .padding(start = 10.dp)
+                                        .clickable { viewModel.openCoreCourse(college) }
+                                )
+                            }
+                        }
+                    }
+                }
+                if (policies.collegeDevelopment.founded.any {
+                        it == CollegeType.SCIENCE || it == CollegeType.ENGINEERING || it == CollegeType.MEDICINE
+                    }
+                ) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("硕博点", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "投入200万启动（校园5级）：每月导师经费、声誉+3、科研+1天，并触发研究生事件",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (policies.collegeDevelopment.graduateProgram) {
+                            Text("已启动", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                        } else {
+                            OutlinedButton(onClick = { viewModel.launchGraduateProgram() }) {
+                                Text("启动")
+                            }
+                        }
+                    }
+                }
             }
         }
 

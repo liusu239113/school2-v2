@@ -144,6 +144,10 @@ object AchievementRegistry {
         Achievement("college_all", "六大全院", "成立全部6所学院", AchievementCategory.ACADEMIC) { collegeCount(it) >= 6 },
         Achievement("chain_all", "科研三链", "教学、应用、产学研三条课题链全部结题", AchievementCategory.ACADEMIC) { chainFinished(it) >= 3 },
         Achievement("hospital", "悬壶济世", "建成附属医院", AchievementCategory.FACILITY) { it.policyJson.contains("\"affiliatedHospital\":true") },
+        Achievement("core_courses", "课程体系", "任一学院开设满3门专业核心课", AchievementCategory.ACADEMIC) {
+            Regex("\"coreCourses\":\\{[^}]*\"[A-Z_]+\":3").containsMatchIn(it.policyJson)
+        },
+        Achievement("graduate", "硕博点", "启动研究生培养体系", AchievementCategory.ACADEMIC) { it.policyJson.contains("\"graduateProgram\":true") },
         Achievement("competition_win", "竞赛首冠", "校际学科竞赛首次夺冠", AchievementCategory.CHALLENGE) {
             Regex("\\\\\"totalWins\\\\\":[1-9]").containsMatchIn(it.policyJson)
         }

@@ -114,6 +114,9 @@ class EventViewModel @Inject constructor(
             event.title.contains("校际竞赛夺冠") -> audioManager.playCompetitionWin()
             event.title.contains("校际竞赛止步") -> audioManager.playCompetitionLose()
             event.title.contains("学生转专业") -> audioManager.playMajorTransfer()
+            event.title.contains("研究生培养") &&
+                (event.title.contains("论文") || event.title.contains("经费")) ->
+                audioManager.playResearchUnlock()
         }
     }
 
@@ -398,7 +401,8 @@ class EventViewModel @Inject constructor(
                         event.title.contains("师资缺口") ||
                         event.title.contains("学年目标未完成") ||
                         event.title.contains("校际竞赛夺冠") ||
-                        event.title.contains("学生转专业") -> Unit
+                        event.title.contains("学生转专业") ||
+                        event.title.contains("研究生培养") -> Unit
                     else -> audioManager.playEventPositive()
                 }
                 if (event.bonusCash > 0.0 || event.bonusReputation > 0L) {
