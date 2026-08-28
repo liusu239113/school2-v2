@@ -205,6 +205,9 @@ fun MainScreen(
 
     // TapTap 登录状态
     var isTapLoggedIn by remember { mutableStateOf(false) }
+    // ═══ 测试期开关 ═══
+    // debug 包直接进入游戏（跳过 TapTap 登录与防沉迷）；上线 release 包自动恢复三层门控
+    val skipLoginAndCompliance = BuildConfig.DEBUG
 
     // 防沉迷状态：只有收到 LOGIN_SUCCESS(500) 才为 true
     var compliancePassed by remember { mutableStateOf(false) }
@@ -419,7 +422,8 @@ fun MainScreen(
     }
 
     // 第二层门控：TapTap登录（未登录时显示登录界面）
-    if (!isTapLoggedIn) {
+    // debug 测试包跳过登录；release 包恢复
+    if (!skipLoginAndCompliance && !isTapLoggedIn) {
         TapTapLoginScreen(
             onLoginSuccess = { account ->
                 isTapLoggedIn = true
@@ -430,7 +434,8 @@ fun MainScreen(
     }
 
     // 第三层门控：防沉迷（必须通过，不可跳过）
-    if (!compliancePassed) {
+    // debug 测试包跳过防沉迷；release 包恢复
+    if (!skipLoginAndCompliance && !compliancePassed) {
         // 防沉迷限制提示弹窗（宵禁/时长用完/年龄限制/实名未完成）
         if (complianceBlocked && complianceMessage.isNotEmpty()) {
             AlertDialog(
