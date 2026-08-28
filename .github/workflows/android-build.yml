@@ -48,6 +48,12 @@ jobs:
     - name: Build Release APK
       run: ./gradlew assembleRelease
 
+    - name: Upload APK to Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-apk
+        path: app/build/outputs/apk/release/*.apk
+
     - name: Get version and date
       id: version
       run: |
@@ -60,7 +66,7 @@ jobs:
         tag_name: v${{ steps.version.outputs.version }}
         name: Release v${{ steps.version.outputs.version }}
         files: |
-          app/build/outputs/apk/release/app-release.apk
+          app/build/outputs/apk/release/*.apk
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
