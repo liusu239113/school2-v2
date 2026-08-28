@@ -57,12 +57,12 @@ object CampusBuildTypes {
         R.drawable.bld_admin, movable = false, removable = false
     )
     val COLLEGE_SPECS = listOf(
-        Spec("C_LIBERAL", "人文学院", 2, 2, 18.0, 1, R.drawable.bld_liberal, college = CollegeType.LIBERAL_ARTS), removable = false,
-        Spec("C_SCIENCE", "理学院", 2, 2, 36.0, 2, R.drawable.bld_generic, college = CollegeType.SCIENCE), removable = false,
-        Spec("C_ENGINEERING", "工学院", 2, 2, 58.0, 3, R.drawable.bld_generic, college = CollegeType.ENGINEERING), removable = false,
-        Spec("C_BUSINESS", "商学院", 2, 2, 72.0, 4, R.drawable.bld_generic, college = CollegeType.BUSINESS), removable = false,
-        Spec("C_ART", "艺术学院", 2, 2, 65.0, 3, R.drawable.bld_art, college = CollegeType.ART), removable = false,
-        Spec("C_MEDICINE", "医学院", 2, 2, 110.0, 4, R.drawable.bld_medicine, college = CollegeType.MEDICINE), removable = false
+        Spec("C_LIBERAL", "人文学院", 2, 2, 18.0, 1, R.drawable.bld_liberal, college = CollegeType.LIBERAL_ARTS, removable = false),
+        Spec("C_SCIENCE", "理学院", 2, 2, 36.0, 2, R.drawable.bld_generic, college = CollegeType.SCIENCE, removable = false),
+        Spec("C_ENGINEERING", "工学院", 2, 2, 58.0, 3, R.drawable.bld_generic, college = CollegeType.ENGINEERING, removable = false),
+        Spec("C_BUSINESS", "商学院", 2, 2, 72.0, 4, R.drawable.bld_generic, college = CollegeType.BUSINESS, removable = false),
+        Spec("C_ART", "艺术学院", 2, 2, 65.0, 3, R.drawable.bld_art, college = CollegeType.ARTS, removable = false),
+        Spec("C_MEDICINE", "医学院", 2, 2, 110.0, 4, R.drawable.bld_medicine, college = CollegeType.MEDICINE, removable = false)
     )
     val FACILITY_SPECS = listOf(
         Spec("F_LIBRARY", "图书馆", 2, 2, 30.0, 1, R.drawable.bld_library, facility = FacilityType.LIBRARY),
