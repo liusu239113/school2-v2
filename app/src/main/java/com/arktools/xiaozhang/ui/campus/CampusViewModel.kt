@@ -256,7 +256,7 @@ class CampusViewModel @Inject constructor(
         val kind = when {
             placed.key == "ADMIN" -> CampusBuilding.Kind.ADMIN
             placed.key == "HOSPITAL" -> CampusBuilding.Kind.HOSPITAL
-            spec.college \!= null -> CampusBuilding.Kind.COLLEGE
+            spec.college != null -> CampusBuilding.Kind.COLLEGE
             else -> CampusBuilding.Kind.FACILITY
         }
         _state.value = st.copy(

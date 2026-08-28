@@ -814,8 +814,6 @@ fun MainScreen(
         )
     }
 
-        )
-    }
 
     if (disciplinaryPause != null) {
         val activity = context as? android.app.Activity
