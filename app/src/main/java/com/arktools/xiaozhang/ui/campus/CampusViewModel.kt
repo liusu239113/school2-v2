@@ -187,10 +187,11 @@ class CampusViewModel @Inject constructor(
             if (spot != null) placed.add(BT.PlacedBuilding("HOSPITAL", spot.first, spot.second))
         }
         // 默认道路网：横 y=9 全宽 + 纵 x=2
-        val terrain = mutableListOf<BT.TerrainCell>()
-        for (x in 0 until BT.GRID_W) terrain.add(BT.TerrainCell(x, 9, "ROAD"))
-        for (y in 3 until 10) terrain.add(BT.TerrainCell(2, y, "ROAD"))
-        persistLayout(placed, terrain)
+        val terrainCells = mutableListOf<BT.TerrainCell>()
+        for (x in 0 until BT.GRID_W) terrainCells.add(BT.TerrainCell(x, 9, "ROAD"))
+        for (y in 3 until 10) terrainCells.add(BT.TerrainCell(2, y, "ROAD"))
+        val terrainMap = terrainCells.associate { (it.y * 1000L + it.x) to BT.TileKind.ROAD }
+        persistLayout(placed, terrainMap)
     }
 
     private fun persistLayout(
