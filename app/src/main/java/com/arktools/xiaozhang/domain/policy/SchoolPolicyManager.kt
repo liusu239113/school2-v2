@@ -77,7 +77,7 @@ class SchoolPolicyManager @Inject constructor(
 
     fun openCoreCourse(college: CollegeType): ManagedCollegeResult {
         val dev = _policies.value.collegeDevelopment
-        if (\!dev.founded.contains(college)) {
+        if (!dev.founded.contains(college)) {
             return ManagedCollegeResult(false, "需先成立${college.displayName}")
         }
         val count = dev.coreCourses[college.name] ?: 0

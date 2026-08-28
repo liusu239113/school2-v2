@@ -1429,7 +1429,7 @@ private fun CompetitionCard(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
-            if (uiState.message \!= null) {
+            if (uiState.message != null) {
                 Text(
                     text = uiState.message,
                     style = MaterialTheme.typography.bodySmall,

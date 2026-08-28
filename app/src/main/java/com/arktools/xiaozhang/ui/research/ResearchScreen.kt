@@ -827,7 +827,7 @@ private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.R
                                 color = Color(0xFF4CAF50),
                                 fontWeight = FontWeight.Bold
                             )
-                            program \!= null -> Text(
+                            program != null -> Text(
                                 "进行中",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.primary,
@@ -843,7 +843,7 @@ private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.R
                         }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    if (program \!= null) {
+                    if (program != null) {
                         val stage = def.stages[program.stageIndex]
                         Text(
                             "第${program.stageIndex + 1}/${def.stages.size}阶段「${stage.name}」 ${program.daysDone}/${stage.requiredDays}天 · 到账${stage.rewardCashWan.toInt()}万 + ${stage.rewardReputation}声誉",

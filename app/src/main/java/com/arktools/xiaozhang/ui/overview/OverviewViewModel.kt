@@ -216,7 +216,7 @@ class OverviewViewModel @Inject constructor(
                 val policyEffects = policyManager.getPolicyEffects()
                 val strongestCollege = runCatching {
                     studentRepository.getActiveStudents()
-                        .filter { com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.parseMajor(it.courseId) \!= null }
+                        .filter { com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.parseMajor(it.courseId) != null }
                         .groupingBy { com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.collegeName(it.courseId) }
                         .eachCount()
                         .maxByOrNull { it.value }

@@ -550,12 +550,12 @@ class GameEngine @Inject constructor(
      */
     suspend fun openCoreCourse(college: com.arktools.xiaozhang.domain.policy.CollegeType): ManagedOperationResult =
         engineOperationMutex.withLock {
-            if (\!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+            if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
                 return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
             }
             val snapshot = policyManager.toJson()
             val preview = policyManager.openCoreCourse(college)
-            if (\!preview.success) {
+            if (!preview.success) {
                 return@withLock ManagedOperationResult(false, preview.message)
             }
             val cost = 25.0
@@ -578,7 +578,7 @@ class GameEngine @Inject constructor(
      */
     suspend fun launchGraduateProgram(): ManagedOperationResult =
         engineOperationMutex.withLock {
-            if (\!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+            if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
                 return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
             }
             val dev = policyManager.policies.value.collegeDevelopment
@@ -590,7 +590,7 @@ class GameEngine @Inject constructor(
                 com.arktools.xiaozhang.domain.policy.CollegeType.ENGINEERING,
                 com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE
             ).any { dev.founded.contains(it) }
-            if (\!eligible) {
+            if (!eligible) {
                 return@withLock ManagedOperationResult(
                     false,
                     "需要先成立理学院、工学院或医学院其一"
@@ -4198,7 +4198,7 @@ class GameEngine @Inject constructor(
                 val collegeDev = policyManager.policies.value.collegeDevelopment
                 if (collegeDev.founded.contains(
                         com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE
-                    ) && collegeDev.affiliatedHospital && \!isRetrySettlement
+                    ) && collegeDev.affiliatedHospital && !isRetrySettlement
                 ) {
                     val medStudents = cachedActiveStudentsForMonth.count { student ->
                         com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
@@ -4233,7 +4233,7 @@ class GameEngine @Inject constructor(
 
                 // 硕博点：导师经费 + 声誉 + 每月额外科研日 + 研究生事件
                 if (policyManager.policies.value.collegeDevelopment.graduateProgram &&
-                    \!isRetrySettlement
+                    !isRetrySettlement
                 ) {
                     val gradsIncome = cachedActiveStudentsForMonth.size * 0.06
                     if (gradsIncome > 0) {
@@ -4273,7 +4273,7 @@ class GameEngine @Inject constructor(
                 val artsFounded = collegeDev.founded.contains(
                     com.arktools.xiaozhang.domain.policy.CollegeType.ARTS
                 )
-                if (artsFounded && school.currentMonth % 3 == 0 && \!isRetrySettlement &&
+                if (artsFounded && school.currentMonth % 3 == 0 && !isRetrySettlement &&
                     kotlin.random.Random.nextFloat() < 0.4f
                 ) {
                     emitEvent(GameEvent.ChoiceEvent(
