@@ -143,7 +143,9 @@ class UniversityCompetitionManager @Inject constructor() {
         year: Int,
         month: Int,
         reputation: Long,
-        coverageByCollege: Map<CollegeType, Float>
+        coverageByCollege: Map<CollegeType, Float>,
+        rivalEdge: Float = 0f,
+        rivalName: String = ""
     ): List<Pair<CompetitionState, Boolean>> {
         val due = state.active.filter { it.resolveYear == year && it.resolveMonth == month }
         if (due.isEmpty()) return emptyList()
@@ -157,7 +159,8 @@ class UniversityCompetitionManager @Inject constructor() {
                 CompetitionTier.PROVINCE.name -> -0.10f
                 else -> -0.20f
             }
-            val winChance = (0.30f + coverage * 0.45f + repBonus + tierPenalty).coerceIn(0.15f, 0.90f)
+            val winChance = (0.30f + coverage * 0.45f + repBonus + tierPenalty + rivalEdge)
+                .coerceIn(0.10f, 0.90f)
             val win = random.nextFloat() < winChance
             results.add(comp to win)
         }
@@ -165,7 +168,8 @@ class UniversityCompetitionManager @Inject constructor() {
         state = state.copy(
             active = state.active.filter { active -> due.none { it.id == active.id } },
             lastResultSummary = results.joinToString("；") { (comp, win) ->
-                "${comp.name}${if (win) "夺冠" else "止步"}"
+                val versus = if (rivalName.isNotBlank()) "（对手：$rivalName）" else ""
+                "${comp.name}${if (win) "夺冠" else "止步"}$versus"
             },
             winsThisYear = state.winsThisYear + wonIds.size,
             totalWins = state.totalWins + wonIds.size

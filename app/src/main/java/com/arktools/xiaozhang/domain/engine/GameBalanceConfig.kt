@@ -46,7 +46,7 @@ object GameBalanceConfig {
                 minReputation = 800L,    // 800声望
                 minTeachers = 18,
                 minClasses = 8,
-                minStudents = 500,
+                minStudents = 400,       // v2.10: 500→400，避免"要学院才能扩招、要扩招才能建学院"死锁
                 minYearsAtCurrentLevel = 1,
                 description = "通过本科教学合格评估，形成稳定的专业与人才培养体系"
             )
@@ -55,7 +55,7 @@ object GameBalanceConfig {
                 minReputation = 2500L,   // 2500声望
                 minTeachers = 40,
                 minClasses = 16,
-                minStudents = 1200,
+                minStudents = 1000,      // v2.10: 1200→1000，与Lv3同因
                 minYearsAtCurrentLevel = 2,
                 minAverageTeacherSkill = 70,
                 description = "形成优势学科群，科研成果和毕业生就业质量进入省内前列"

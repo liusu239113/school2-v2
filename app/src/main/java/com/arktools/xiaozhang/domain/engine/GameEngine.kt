@@ -4078,6 +4078,43 @@ class GameEngine @Inject constructor(
                     }
                 }
 
+                // 学院投入滴灌声望维度：学院结构长期塑造五维声誉画像
+                runCatching {
+                    val foundedNow = collegeDev.founded
+                    if (foundedNow.isNotEmpty()) {
+                        var academic = 0f
+                        var social = 0f
+                        var arts = 0f
+                        foundedNow.forEach { c ->
+                            when (c) {
+                                com.arktools.xiaozhang.domain.policy.CollegeType.SCIENCE,
+                                com.arktools.xiaozhang.domain.policy.CollegeType.ENGINEERING,
+                                com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE -> academic += 1.5f
+                                com.arktools.xiaozhang.domain.policy.CollegeType.LIBERAL_ARTS -> {
+                                    academic += 0.5f; social += 0.5f
+                                }
+                                com.arktools.xiaozhang.domain.policy.CollegeType.BUSINESS -> social += 1.0f
+                                com.arktools.xiaozhang.domain.policy.CollegeType.ARTS -> arts += 1.5f
+                            }
+                        }
+                        if (collegeDev.affiliatedHospital) social += 1.0f
+                        if (academic > 0) reputationManager.addDimensionReputation(
+                            com.arktools.xiaozhang.domain.reputation.ReputationDimension.ACADEMIC,
+                            academic, "学院学科建设"
+                        )
+                        if (social > 0) reputationManager.addDimensionReputation(
+                            com.arktools.xiaozhang.domain.reputation.ReputationDimension.SOCIAL_SERVICE,
+                            social, "学院社会服务"
+                        )
+                        if (arts > 0) reputationManager.addDimensionReputation(
+                            com.arktools.xiaozhang.domain.reputation.ReputationDimension.ARTS,
+                            arts, "艺术活动"
+                        )
+                    }
+                }.onFailure {
+                    android.util.Log.w("GameEngine", "College dimension drip failed", it)
+                }
+
                 // 附属医院：诊疗收入 + 声誉 + 医学实习事件
                 val collegeDev = policyManager.policies.value.collegeDevelopment
                 if (collegeDev.founded.contains(
@@ -4157,8 +4194,16 @@ class GameEngine @Inject constructor(
                     if (school.currentMonth == 9 && !isRetrySettlement) {
                         policyManager.competitionManager.newYearReset(school.currentYear)
                     }
+                    val topRival = competitorEngine.competitorState.value
+                        .filter { it.isActive }
+                        .maxByOrNull { it.reputation }
+                    val rivalEdge = topRival?.let {
+                        ((school.reputation - it.reputation) / 10000f).coerceIn(-0.15f, 0.15f)
+                    } ?: 0f
                     val results = policyManager.competitionManager.resolveDue(
-                        school.currentYear, school.currentMonth, school.reputation, coverageByCollege
+                        school.currentYear, school.currentMonth, school.reputation, coverageByCollege,
+                        rivalEdge = rivalEdge,
+                        rivalName = topRival?.name ?: ""
                     )
                     if (results.isNotEmpty() && !isRetrySettlement) {
                         results.forEach { (comp, win) ->

@@ -129,7 +129,9 @@ class OverviewViewModel @Inject constructor(
         val foundedCollegeNames: List<String> = emptyList(),
         val collegeMonthlyCost: Double = 0.0,
         val facultyCoverageRatio: Float = 1f,
-        val facultyCoverageSummary: String = "各学院核心师资已配齐"
+        val facultyCoverageSummary: String = "各学院核心师资已配齐",
+        val strongestCollegeName: String = "",
+        val strongestCollegeCount: Int = 0
     )
 
     private val _schoolStats = MutableStateFlow(SchoolOverviewStats())
@@ -212,6 +214,13 @@ class OverviewViewModel @Inject constructor(
                     .count { roleName -> Subject.entries.any { it.name == roleName } }
 
                 val policyEffects = policyManager.getPolicyEffects()
+                val strongestCollege = runCatching {
+                    studentRepository.getActiveStudents()
+                        .filter { com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.parseMajor(it.courseId) \!= null }
+                        .groupingBy { com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.collegeName(it.courseId) }
+                        .eachCount()
+                        .maxByOrNull { it.value }
+                }.getOrNull()
                 val facultyCoverage = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.facultyCoverage(
                     founded = policyManager.policies.value.collegeDevelopment.founded,
                     teachers = teachers
@@ -250,7 +259,9 @@ class OverviewViewModel @Inject constructor(
                     foundedCollegeNames = policyEffects.foundedCollegeNames,
                     collegeMonthlyCost = policyEffects.monthlySpecialBudgetCost,
                     facultyCoverageRatio = facultyCoverage.coverageRatio,
-                    facultyCoverageSummary = facultyCoverage.missingSummary
+                    facultyCoverageSummary = facultyCoverage.missingSummary,
+                    strongestCollegeName = strongestCollege?.key ?: "",
+                    strongestCollegeCount = strongestCollege?.value ?: 0
                 )
             }.collect { stats ->
                 _schoolStats.value = stats

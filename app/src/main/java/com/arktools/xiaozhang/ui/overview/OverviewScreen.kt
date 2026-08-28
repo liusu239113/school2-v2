@@ -439,8 +439,13 @@ private fun PrincipalAgendaCard(
                     } else {
                         stats.foundedCollegeNames.joinToString("、")
                     }
+                    val strengthText = if (stats.strongestCollegeName.isNotEmpty() && stats.strongestCollegeName != "未分院") {
+                        " · 学科强项：${stats.strongestCollegeName}（${stats.strongestCollegeCount}人）"
+                    } else {
+                        ""
+                    }
                     Text(
-                        "目标「${stats.annualGoalName}」· $collegeText · 师资覆盖 ${(stats.facultyCoverageRatio * 100).toInt()}% · 专项每月约 ${"%.1f".format(stats.collegeMonthlyCost)}万",
+                        "目标「${stats.annualGoalName}」· $collegeText$strengthText · 师资覆盖 ${(stats.facultyCoverageRatio * 100).toInt()}% · 专项每月约 ${"%.1f".format(stats.collegeMonthlyCost)}万",
                         color = Color(0xFF8FA3B3),
                         style = MaterialTheme.typography.labelSmall
                     )
