@@ -1454,11 +1454,21 @@ private fun FacultyCoverageCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "学院师资覆盖",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (coverage.coverageRatio < 1f) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_faculty_gap),
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = "学院师资覆盖",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Text(
                     text = "${(coverage.coverageRatio * 100).toInt()}%",
                     style = MaterialTheme.typography.titleSmall,

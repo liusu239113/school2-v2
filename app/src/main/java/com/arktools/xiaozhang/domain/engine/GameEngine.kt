@@ -4466,6 +4466,19 @@ class GameEngine @Inject constructor(
                     ),
                     school
                 )
+                if (policyManager.policies.value.collegeDevelopment.founded.isNotEmpty() &&
+                    facultyCoverage.coverageRatio < 0.6f
+                ) {
+                    emitEvent(
+                        GameEvent.NegativeEvent(
+                            title = "师资缺口预警",
+                            message = "${facultyCoverage.missingSummary}。缺编学院的学生掌握度和毕业分数会被拉低，请优先补齐对应学科教师。",
+                            penaltyCash = 0.0,
+                            penaltyReputation = 0L
+                        ),
+                        school
+                    )
+                }
                 val goalResult = policyManager.evaluateAnnualGoal(
                     year = school.currentYear,
                     campusLevel = school.campusLevel,
@@ -5836,7 +5849,7 @@ class GameEngine @Inject constructor(
                 title = "新学年开学",
                 message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。报考结构：$trackNote。$collegeNote",
                 bonusCash = 0.0,
-                bonusReputation = (assignedStudents.size / 10).toLong() + policyEffects.welfareReputationBonus
+                bonusReputation = (assignedStudents.size / 5).toLong() + policyEffects.welfareReputationBonus
             ), school)
 
             // P0-6: 最低招生线检查

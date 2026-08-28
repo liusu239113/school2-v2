@@ -107,6 +107,10 @@ class EventViewModel @Inject constructor(
             event.title.contains("毕业生喜讯") ||
                 event.title.contains("毕业就业放榜") ||
                 event.title.contains("危机解除") -> audioManager.playGraduation()
+            event.title.contains("新学年开学") -> audioManager.playAdmissionSeason()
+            event.title.contains("大二分专业") -> audioManager.playMajorAssign()
+            event.title.contains("师资缺口") -> audioManager.playFacultyGap()
+            event.title.contains("学年目标未完成") -> audioManager.playGoalFail()
         }
     }
 
@@ -381,12 +385,15 @@ class EventViewModel @Inject constructor(
         when (event) {
             is GameEvent.PositiveEvent -> {
                 when {
-                    event.title.contains("新学年开学") || event.title.contains("大二分专业") ->
-                        audioManager.playStudentEnrolled()
                     event.title.contains("学年目标达成") ->
-                        audioManager.playReputationUp()
-                    // 毕业喜讯/放榜的毕业音效已在事件到达时播放，这里不再叠加
-                    event.title.contains("毕业生喜讯") || event.title.contains("毕业就业放榜") -> Unit
+                        audioManager.playGoalPass()
+                    // 到达音已覆盖：开学/分专业/毕业/师资缺口/目标未完成
+                    event.title.contains("新学年开学") ||
+                        event.title.contains("大二分专业") ||
+                        event.title.contains("毕业生喜讯") ||
+                        event.title.contains("毕业就业放榜") ||
+                        event.title.contains("师资缺口") ||
+                        event.title.contains("学年目标未完成") -> Unit
                     else -> audioManager.playEventPositive()
                 }
                 if (event.bonusCash > 0.0 || event.bonusReputation > 0L) {

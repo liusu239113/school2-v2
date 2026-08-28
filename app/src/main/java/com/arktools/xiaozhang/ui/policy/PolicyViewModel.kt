@@ -55,18 +55,20 @@ class PolicyViewModel @Inject constructor(
     fun adjustBudget(line: BudgetLine, delta: Int) {
         val next = policyManager.policies.value.budgetAllocation.adjust(line, delta)
         policyManager.setBudgetAllocation(next)
+        audioManager.playBudgetSlide()
     }
     fun setAnnualGoal(goal: AnnualGoal) = policyManager.setAnnualGoal(goal)
     fun adjustAdmissionTrack(track: com.arktools.xiaozhang.domain.model.AdmissionTrack, delta: Int) {
         val next = policyManager.policies.value.admissionTrackPlan.adjust(track, delta)
         policyManager.setAdmissionTrackPlan(next)
+        audioManager.playBudgetSlide()
     }
     fun foundCollege(type: CollegeType) {
         viewModelScope.safeLaunch {
             val result = gameEngine.foundCollege(type)
             _operationMessage.value = result.message
             if (result.success) {
-                audioManager.playBuildFacility()
+                audioManager.playCollegeFound()
                 gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
             } else {
                 audioManager.playEventNegative()

@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -283,6 +285,15 @@ private fun CollegeQualitySection(viewModel: TeachingViewModel) {
     val qualityList by viewModel.collegeQuality.collectAsState()
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = com.arktools.xiaozhang.R.drawable.ic_major_scroll),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("专业分流与培养", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
             if (qualityList.isEmpty()) {
                 Text(
                     "还没有在读学生。9月招生后，这里会按学院显示培养质量。",

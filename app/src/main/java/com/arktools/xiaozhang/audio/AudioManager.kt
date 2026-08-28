@@ -60,7 +60,14 @@ class AudioManager @Inject constructor(
         MINIGAME_FAIL,
         MONEY_EARNED,
         REPUTATION_UP,
-        GRADUATION
+        GRADUATION,
+        COLLEGE_FOUND,
+        MAJOR_ASSIGN,
+        GOAL_PASS,
+        GOAL_FAIL,
+        FACULTY_GAP,
+        ADMISSION_SEASON,
+        BUDGET_SLIDE
     }
 
     enum class BgmType(val resName: String) {
@@ -93,7 +100,14 @@ class AudioManager @Inject constructor(
         SoundType.MINIGAME_FAIL to "v2_event_negative",
         SoundType.MONEY_EARNED to "v2_money_earn",
         SoundType.REPUTATION_UP to "v2_reputation_up",
-        SoundType.GRADUATION to "v2_graduation"
+        SoundType.GRADUATION to "v2_graduation",
+        SoundType.COLLEGE_FOUND to "v2_college_found",
+        SoundType.MAJOR_ASSIGN to "v2_major_assign",
+        SoundType.GOAL_PASS to "v2_goal_pass",
+        SoundType.GOAL_FAIL to "v2_goal_fail",
+        SoundType.FACULTY_GAP to "v2_faculty_gap",
+        SoundType.ADMISSION_SEASON to "v2_admission_season",
+        SoundType.BUDGET_SLIDE to "v2_budget_slide"
     )
 
     private fun getResId(name: String): Int {
@@ -250,6 +264,13 @@ class AudioManager @Inject constructor(
     fun playReputationUp() = playSound(SoundType.REPUTATION_UP)
     fun playGraduation() = playSound(SoundType.GRADUATION)
     fun playCrisisAlert() = playSound(SoundType.CRISIS_ALERT)
+    fun playCollegeFound() = playSound(SoundType.COLLEGE_FOUND)
+    fun playMajorAssign() = playSound(SoundType.MAJOR_ASSIGN)
+    fun playGoalPass() = playSound(SoundType.GOAL_PASS)
+    fun playGoalFail() = playSound(SoundType.GOAL_FAIL)
+    fun playFacultyGap() = playSound(SoundType.FACULTY_GAP)
+    fun playAdmissionSeason() = playSound(SoundType.ADMISSION_SEASON)
+    fun playBudgetSlide() = playSound(SoundType.BUDGET_SLIDE)
 
     /**
      * 释放资源。作为 @Singleton，正常情况下不应该被调用。

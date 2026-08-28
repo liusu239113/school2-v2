@@ -14,6 +14,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.arktools.xiaozhang.R
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -204,6 +208,18 @@ fun PolicyScreen(
         }
 
         item {
+            Image(
+                painter = painterResource(id = R.drawable.banner_admission_v2),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        item {
             PolicySection(
                 title = "报考大类计划",
                 description = "共10点，决定9月新生先进入文史、理学、工学还是经管。大二再按学院进入具体专业。"
@@ -227,6 +243,18 @@ fun PolicyScreen(
                     )
                 }
             }
+        }
+
+        item {
+            Image(
+                painter = painterResource(id = R.drawable.banner_annual_goal_v2),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
         }
 
         item {
@@ -504,8 +532,14 @@ private fun CollegeFoundRow(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Image(
+            painter = painterResource(id = collegeIconRes(type)),
+            contentDescription = type.displayName,
+            modifier = Modifier.size(40.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("${type.icon} ${type.displayName}", fontWeight = FontWeight.SemiBold)
+            Text(type.displayName, fontWeight = FontWeight.SemiBold)
             Text(
                 "${type.description} 校园${type.unlockLevel}级解锁 · 成立 ${type.foundingCostWan.toInt()}万 · 每月 ${"%.1f".format(type.monthlyCostWan)}万",
                 style = MaterialTheme.typography.labelSmall,
@@ -520,6 +554,13 @@ private fun CollegeFoundRow(
             }
         }
     }
+}
+
+private fun collegeIconRes(type: CollegeType): Int = when (type) {
+    CollegeType.LIBERAL_ARTS -> R.drawable.ic_college_liberal
+    CollegeType.SCIENCE -> R.drawable.ic_college_science
+    CollegeType.ENGINEERING -> R.drawable.ic_college_engineering
+    CollegeType.BUSINESS -> R.drawable.ic_college_business
 }
 
 private fun formatMultiplier(value: Float): String {
