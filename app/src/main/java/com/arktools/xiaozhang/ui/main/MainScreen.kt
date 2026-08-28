@@ -27,6 +27,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.arktools.xiaozhang.ui.campus.CampusView
+import com.arktools.xiaozhang.ui.external.ExternalScreen
+import com.arktools.xiaozhang.ui.governance.GovernanceScreen
+import com.arktools.xiaozhang.ui.hiring.HiringScreen
+import com.arktools.xiaozhang.ui.campus.CampusView
 import com.arktools.xiaozhang.BuildConfig
 import com.arktools.xiaozhang.R
 import androidx.compose.material.icons.Icons
@@ -670,30 +674,24 @@ fun MainScreen(
                     onClick = { selectedTab = 0; tutorialManager.notifyTabChanged(0) }
                 )
                 NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "学院", modifier = Modifier.size(28.dp)) },
-                    label = { Text("学院") },
+                    icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "治院", modifier = Modifier.size(28.dp)) },
+                    label = { Text("治院") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1; tutorialManager.notifyTabChanged(1) }
                 )
                 NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_teacher_v2), contentDescription = "师资", modifier = Modifier.size(28.dp)) },
-                    label = { Text("师资") },
+                    icon = { Image(painter = painterResource(id = R.drawable.nav_teacher_v2), contentDescription = "人事", modifier = Modifier.size(28.dp)) },
+                    label = { Text("人事") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2; tutorialManager.notifyTabChanged(2) }
                 )
                 NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_research_v2), contentDescription = "科研", modifier = Modifier.size(28.dp)) },
-                    label = { Text("科研") },
+                    icon = { Image(painter = painterResource(id = R.drawable.nav_research_v2), contentDescription = "外联", modifier = Modifier.size(28.dp)) },
+                    label = { Text("外联") },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3; tutorialManager.notifyTabChanged(3) }
                 )
-                NavigationBarItem(
-                    icon = { Image(painter = painterResource(id = R.drawable.nav_society_v2), contentDescription = "社会", modifier = Modifier.size(28.dp)) },
-                    label = { Text("社会") },
-                    selected = selectedTab == 4,
-                    onClick = { selectedTab = 4; tutorialManager.notifyTabChanged(4) }
-                )
-            }
+                }
         }
     ) { paddingValues ->
         Column(
@@ -718,9 +716,9 @@ fun MainScreen(
             ) { tab ->
                 when (tab) {
                     0 -> CampusView()
-                    1 -> TeachingScreen()
-                    2 -> TeacherListScreen()
-                    3 -> ResearchScreen()
+                    1 -> GovernanceScreen()
+                    2 -> HiringScreen()
+                    3 -> ExternalScreen()
                     4 -> DistrictScreen()
                     else -> {
                         val lockedModule = GameBalanceConfig.moduleForTab(tab)
