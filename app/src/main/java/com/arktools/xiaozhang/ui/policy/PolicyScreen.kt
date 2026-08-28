@@ -561,6 +561,8 @@ private fun collegeIconRes(type: CollegeType): Int = when (type) {
     CollegeType.SCIENCE -> R.drawable.ic_college_science
     CollegeType.ENGINEERING -> R.drawable.ic_college_engineering
     CollegeType.BUSINESS -> R.drawable.ic_college_business
+    CollegeType.ARTS -> R.drawable.ic_college_arts
+    CollegeType.MEDICINE -> R.drawable.ic_college_medicine
 }
 
 private fun formatMultiplier(value: Float): String {

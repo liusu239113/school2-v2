@@ -38,6 +38,18 @@ enum class AdmissionTrack(
         "经管基础培养，大二进入商学院专业。",
         CollegeType.BUSINESS,
         "经管大类（未分专业）"
+    ),
+    ART(
+        "艺术大类", "🎨",
+        "美术音乐设计基础培养，大二进入艺术学院专业。",
+        CollegeType.ARTS,
+        "艺术大类（未分专业）"
+    ),
+    MEDICINE(
+        "医学大类", "🩺",
+        "医学基础培养，大二进入医学院专业。",
+        CollegeType.MEDICINE,
+        "医学大类（未分专业）"
     );
 
     val courseId: String get() = "TRACK_$name"
@@ -59,7 +71,13 @@ enum class UniversityMajor(
     CIVIL("土木工程", AdmissionTrack.ENGINEERING, "结构与城市建设"),
     FINANCE("金融学", AdmissionTrack.BUSINESS, "市场、投资与风险"),
     MANAGEMENT("工商管理", AdmissionTrack.BUSINESS, "组织、运营与决策"),
-    MARKETING("市场营销", AdmissionTrack.BUSINESS, "品牌、渠道与用户");
+    MARKETING("市场营销", AdmissionTrack.BUSINESS, "品牌、渠道与用户"),
+    FINE_ARTS("美术学", AdmissionTrack.ART, "绘画与造型基础"),
+    MUSIC_PERFORMANCE("音乐表演", AdmissionTrack.ART, "声乐器乐与舞台实践"),
+    VISUAL_DESIGN("视觉设计", AdmissionTrack.ART, "品牌视觉与数字媒体"),
+    CLINICAL("临床医学", AdmissionTrack.MEDICINE, "诊断治疗与临床实习"),
+    NURSING("护理学", AdmissionTrack.MEDICINE, "临床护理与健康照护"),
+    PHARMACY("药学", AdmissionTrack.MEDICINE, "药物研发与临床药学");
 
     val courseId: String get() = "MAJOR_$name"
     val college: CollegeType get() = track.college
@@ -111,6 +129,8 @@ object UniversityAcademicCatalog {
         CollegeType.SCIENCE -> listOf(TeacherRole.MATH, TeacherRole.PHYSICS, TeacherRole.CHEMISTRY)
         CollegeType.ENGINEERING -> listOf(TeacherRole.MATH, TeacherRole.PHYSICS, TeacherRole.GEOGRAPHY)
         CollegeType.BUSINESS -> listOf(TeacherRole.ENGLISH, TeacherRole.POLITICS, TeacherRole.MATH)
+        CollegeType.ARTS -> listOf(TeacherRole.ART, TeacherRole.MUSIC, TeacherRole.CHINESE)
+        CollegeType.MEDICINE -> listOf(TeacherRole.BIOLOGY, TeacherRole.CHEMISTRY, TeacherRole.MATH)
     }
 
     fun requiredRoles(courseId: String): List<TeacherRole> {
@@ -191,6 +211,24 @@ object UniversityAcademicCatalog {
                     IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 2),
                     IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.FINANCE, 2)
                 )
+            UniversityMajor.FINE_ARTS, UniversityMajor.MUSIC_PERFORMANCE ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 4),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 3),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 1)
+                )
+            UniversityMajor.VISUAL_DESIGN ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.TECHNOLOGY, 3),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 3),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 2)
+                )
+            UniversityMajor.CLINICAL, UniversityMajor.NURSING, UniversityMajor.PHARMACY ->
+                listOf(
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.HEALTHCARE, 5),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.RESEARCH, 2),
+                    IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 1)
+                )
         }
     }
 
@@ -213,6 +251,14 @@ object UniversityAcademicCatalog {
             AdmissionTrack.BUSINESS -> listOf(
                 IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.FINANCE, 3),
                 IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 3)
+            )
+            AdmissionTrack.ART -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.MEDIA, 4),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.EDUCATION, 2)
+            )
+            AdmissionTrack.MEDICINE -> listOf(
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.HEALTHCARE, 4),
+                IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.RESEARCH, 2)
             )
             null -> listOf(
                 IndustryPreference(com.arktools.xiaozhang.domain.employment.Industry.COMMERCE, 2),
@@ -293,23 +339,32 @@ object UniversityAcademicCatalog {
                 (attributes.intelligence + attributes.physical) / 200f
             UniversityMajor.FINANCE, UniversityMajor.MANAGEMENT, UniversityMajor.MARKETING ->
                 (attributes.social + attributes.intelligence) / 200f
+            UniversityMajor.FINE_ARTS, UniversityMajor.MUSIC_PERFORMANCE, UniversityMajor.VISUAL_DESIGN ->
+                (attributes.creativity * 0.7f + attributes.social * 0.3f) / 100f
+            UniversityMajor.CLINICAL, UniversityMajor.NURSING, UniversityMajor.PHARMACY ->
+                (attributes.intelligence * 0.5f + attributes.morality * 0.3f + attributes.physical * 0.2f) / 100f
         }
     }
 }
 
 data class AdmissionTrackPlan(
-    val liberalWeight: Int = 3,
-    val scienceWeight: Int = 3,
+    val liberalWeight: Int = 2,
+    val scienceWeight: Int = 2,
     val engineeringWeight: Int = 2,
-    val businessWeight: Int = 2
+    val businessWeight: Int = 2,
+    val artsWeight: Int = 1,
+    val medicineWeight: Int = 1
 ) {
-    fun totalPoints(): Int = liberalWeight + scienceWeight + engineeringWeight + businessWeight
+    fun totalPoints(): Int =
+        liberalWeight + scienceWeight + engineeringWeight + businessWeight + artsWeight + medicineWeight
 
     fun weightOf(track: AdmissionTrack): Int = when (track) {
         AdmissionTrack.LIBERAL -> liberalWeight
         AdmissionTrack.SCIENCE -> scienceWeight
         AdmissionTrack.ENGINEERING -> engineeringWeight
         AdmissionTrack.BUSINESS -> businessWeight
+        AdmissionTrack.ART -> artsWeight
+        AdmissionTrack.MEDICINE -> medicineWeight
     }
 
     fun normalized(): AdmissionTrackPlan {
@@ -319,15 +374,25 @@ data class AdmissionTrackPlan(
                 liberalWeight = liberalWeight.coerceIn(0, TOTAL_POINTS),
                 scienceWeight = scienceWeight.coerceIn(0, TOTAL_POINTS),
                 engineeringWeight = engineeringWeight.coerceIn(0, TOTAL_POINTS),
-                businessWeight = businessWeight.coerceIn(0, TOTAL_POINTS)
+                businessWeight = businessWeight.coerceIn(0, TOTAL_POINTS),
+                artsWeight = artsWeight.coerceIn(0, TOTAL_POINTS),
+                medicineWeight = medicineWeight.coerceIn(0, TOTAL_POINTS)
             )
         }
-        val liberal = ((liberalWeight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, TOTAL_POINTS)
-        val science = ((scienceWeight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, TOTAL_POINTS - liberal)
-        val engineering = ((engineeringWeight.toFloat() / total) * TOTAL_POINTS).toInt()
-            .coerceIn(0, TOTAL_POINTS - liberal - science)
-        val business = (TOTAL_POINTS - liberal - science - engineering).coerceIn(0, TOTAL_POINTS)
-        return AdmissionTrackPlan(liberal, science, engineering, business)
+        var remaining = TOTAL_POINTS
+        fun scale(weight: Int): Int {
+            val v = if (remaining <= 0) 0
+            else ((weight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, remaining)
+            remaining -= v
+            return v
+        }
+        val liberal = scale(liberalWeight)
+        val science = scale(scienceWeight)
+        val engineering = scale(engineeringWeight)
+        val business = scale(businessWeight)
+        val arts = scale(artsWeight)
+        val medicine = scale(medicineWeight).coerceAtLeast(0)
+        return AdmissionTrackPlan(liberal, science, engineering, business, arts, medicine)
     }
 
     fun adjust(track: AdmissionTrack, delta: Int): AdmissionTrackPlan {
@@ -340,6 +405,8 @@ data class AdmissionTrackPlan(
             AdmissionTrack.SCIENCE -> copy(scienceWeight = next)
             AdmissionTrack.ENGINEERING -> copy(engineeringWeight = next)
             AdmissionTrack.BUSINESS -> copy(businessWeight = next)
+            AdmissionTrack.ART -> copy(artsWeight = next)
+            AdmissionTrack.MEDICINE -> copy(medicineWeight = next)
         }
     }
 

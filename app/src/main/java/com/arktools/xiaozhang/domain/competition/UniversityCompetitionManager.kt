@@ -151,7 +151,7 @@ class UniversityCompetitionManager @Inject constructor() {
         due.forEach { comp ->
             val track = AdmissionTrack.entries.firstOrNull { it.displayName == comp.trackName }
             val coverage = track?.let { coverageByCollege[it.college] } ?: 0.6f
-            val repBonus = ((reputation / 4000L).coerceAtMost(0.20f)).toFloat()
+            val repBonus = ((reputation / 20000L).coerceAtMost(0.20f)).toFloat()
             val tierPenalty = when (comp.tier) {
                 CompetitionTier.CITY.name -> 0.00f
                 CompetitionTier.PROVINCE.name -> -0.10f

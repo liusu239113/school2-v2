@@ -309,6 +309,8 @@ class SchoolPolicyManager @Inject constructor(
                 scienceTrackWeight = p.admissionTrackPlan.scienceWeight,
                 engineeringTrackWeight = p.admissionTrackPlan.engineeringWeight,
                 businessTrackWeight = p.admissionTrackPlan.businessWeight,
+                artsTrackWeight = p.admissionTrackPlan.artsWeight,
+                medicineTrackWeight = p.admissionTrackPlan.medicineWeight,
                 competitionStateJson = competitionManager.toJson(),
                 researchChainStateJson = researchChainManager.toJson(),
                 storyStateJson = teacherStoryManager.toJson()
@@ -354,7 +356,9 @@ class SchoolPolicyManager @Inject constructor(
                     liberalWeight = data.liberalTrackWeight,
                     scienceWeight = data.scienceTrackWeight,
                     engineeringWeight = data.engineeringTrackWeight,
-                    businessWeight = data.businessTrackWeight
+                    businessWeight = data.businessTrackWeight,
+                    artsWeight = data.artsTrackWeight,
+                    medicineWeight = data.medicineTrackWeight
                 ).normalized()
             )
             _policies.value = restoredPolicies
@@ -669,6 +673,8 @@ data class PolicyPersistData(
     val scienceTrackWeight: Int = 3,
     val engineeringTrackWeight: Int = 2,
     val businessTrackWeight: Int = 2,
+    val artsTrackWeight: Int = 1,
+    val medicineTrackWeight: Int = 1,
     val competitionStateJson: String = "",
     val researchChainStateJson: String = "",
     val storyStateJson: String = ""
@@ -743,6 +749,16 @@ enum class CollegeType(
         "商学院", "💼",
         "换取社会声誉和产业合作，对满意度帮助有限。",
         4, 72.0, 4.2, 0.05f, 0.02f, -1.0f, 8L, 0.04f
+    ),
+    ARTS(
+        "艺术学院", "🎨",
+        "校园氛围与满意度显著提升，就业偏传媒与教育。",
+        3, 65.0, 3.4, 0.03f, 0.02f, 4.0f, 4L, 0.02f
+    ),
+    MEDICINE(
+        "医学院", "🩺",
+        "成本最高但就业质量极好，附属医院带来声誉。",
+        4, 110.0, 6.0, 0.02f, 0.05f, 0.0f, 6L, 0.08f
     )
 }
 
