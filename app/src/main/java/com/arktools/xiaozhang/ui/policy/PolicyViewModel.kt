@@ -75,6 +75,19 @@ class PolicyViewModel @Inject constructor(
             }
         }
     }
+
+    fun buildAffiliatedHospital() {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.buildAffiliatedHospital()
+            _operationMessage.value = result.message
+            if (result.success) {
+                audioManager.playBuildFacility()
+                gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
+            } else {
+                audioManager.playEventNegative()
+            }
+        }
+    }
     fun consumeOperationMessage() {
         _operationMessage.value = null
     }

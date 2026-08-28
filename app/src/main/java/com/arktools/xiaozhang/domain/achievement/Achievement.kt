@@ -134,6 +134,28 @@ object AchievementRegistry {
         Achievement("marathon", "马拉松", "经营超过40年且保持正现金流", AchievementCategory.CHALLENGE) { (it.currentYear - it.foundedYear) >= 40 && it.cash > 0 },
         Achievement("minimalist", "极简主义", "仅用2个设施达到3级学校", AchievementCategory.CHALLENGE) { it.campusLevel >= 3 && it.facilities.size <= 2 },
         Achievement("late_bloomer", "大器晚成", "20年后才升到3级", AchievementCategory.CHALLENGE) { it.campusLevel >= 3 && (it.currentYear - it.foundedYear) >= 20 },
-        Achievement("perfectionist", "完美主义者", "5星评分+5级学校+现金>5000万", AchievementCategory.CHALLENGE) { it.starRating >= 5.0f && it.campusLevel >= 5 && it.cash >= 5000.0 }
+        Achievement("perfectionist", "完美主义者", "5星评分+5级学校+现金>5000万", AchievementCategory.CHALLENGE) { it.starRating >= 5.0f && it.campusLevel >= 5 && it.cash >= 5000.0 },
+
+        // ═══════════════════════════════════════════
+        // 大学体系（学院/课题链/附属医院/竞赛）
+        // ═══════════════════════════════════════════
+        Achievement("college_first", "开院立学", "成立第一所学院", AchievementCategory.ACADEMIC) { collegeCount(it) >= 1 },
+        Achievement("college_three", "三院并立", "成立3所学院", AchievementCategory.ACADEMIC) { collegeCount(it) >= 3 },
+        Achievement("college_all", "六大全院", "成立全部6所学院", AchievementCategory.ACADEMIC) { collegeCount(it) >= 6 },
+        Achievement("chain_all", "科研三链", "教学、应用、产学研三条课题链全部结题", AchievementCategory.ACADEMIC) { chainFinished(it) >= 3 },
+        Achievement("hospital", "悬壶济世", "建成附属医院", AchievementCategory.FACILITY) { it.policyJson.contains("\"affiliatedHospital\":true") },
+        Achievement("competition_win", "竞赛首冠", "校际学科竞赛首次夺冠", AchievementCategory.CHALLENGE) {
+            Regex("\\\\\"totalWins\\\\\":[1-9]").containsMatchIn(it.policyJson)
+        }
     )
+
+    private fun collegeCount(school: School): Int =
+        Regex("\"foundedColleges\":\\[([^\\]]*)\\]").find(school.policyJson)
+            ?.groupValues?.get(1)
+            ?.split(',')?.count { it.isNotBlank() } ?: 0
+
+    private fun chainFinished(school: School): Int =
+        Regex("\"completedChains\":\\[([^\\]]*)\\]").find(school.policyJson)
+            ?.groupValues?.get(1)
+            ?.split(',')?.count { it.isNotBlank() } ?: 0
 }

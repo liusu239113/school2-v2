@@ -545,6 +545,50 @@ class GameEngine @Inject constructor(
     }
 
     /**
+     * 建设附属医院：医学院成立后可投入300万，带来诊疗收入、声誉与实习事件。
+     */
+    suspend fun buildAffiliatedHospital(): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+                return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            val collegeDev = policyManager.policies.value.collegeDevelopment
+            if (!collegeDev.founded.contains(
+                    com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE
+                )
+            ) {
+                return@withLock ManagedOperationResult(
+                    false,
+                    "需要先成立医学院才能建设附属医院"
+                )
+            }
+            if (collegeDev.affiliatedHospital) {
+                return@withLock ManagedOperationResult(false, "附属医院已建成")
+            }
+            val cost = 300.0
+            val school = schoolRepository.getSchool()
+                ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
+            if (school.cash < cost) {
+                return@withLock ManagedOperationResult(
+                    false,
+                    "资金不足：建设附属医院需要 ${cost.toInt()}万"
+                )
+            }
+            policyManager.setAffiliatedHospital(true)
+            val committed = schoolRepository.mutateSchool { s ->
+                if (s.cash < cost) return@mutateSchool false
+                s.cash -= cost
+                s.policyJson = policyManager.toJson()
+                true
+            }
+            if (committed == null) {
+                policyManager.setAffiliatedHospital(false)
+                return@withLock ManagedOperationResult(false, "建设失败：资金不足")
+            }
+            ManagedOperationResult(true, "附属医院落成！每月带来诊疗收入与声誉，医学类学生开始轮转实习", cost)
+        }
+
+    /**
      * 启动科研课题链：扣启动经费，之后每天随科研日推进。
      */
     suspend fun startResearchProgram(chainId: String): ManagedOperationResult =
@@ -2942,8 +2986,10 @@ class GameEngine @Inject constructor(
             var incGovSubsidy = 0.0      // 政府补贴收入
             var incCompetitionPrize = 0.0 // 校际竞赛奖金收入
             var incResearchGrant = 0.0   // 课题链科研到账
+            var incHospitalRevenue = 0.0 // 附属医院诊疗收入
             var expGovFine = 0.0         // 政府罚款支出
             var expMarketing = 0.0       // 招生宣传费（每日累计近似）
+            var expHospitalOp = 0.0      // 附属医院运营补贴
 
             val monthlyRevenue: Double
             val expenseBreakdown: MonthlyExpenseBreakdown
@@ -3972,11 +4018,11 @@ class GameEngine @Inject constructor(
             // （之前 monthlyExpenses 只包含薪资+租金+教学，导致净利润虚高）
             monthlyExpenses += expClubMonthly + expCareerProgram + expLifeExpenses +
                     expMaintenance + expConference + expClubActivity + expTeacherDev +
-                    expMarketing + expScholarship + expGovFine + seasonalExpenses
+                    expMarketing + expScholarship + expGovFine + seasonalExpenses + expHospitalOp
 
             // 校友捐赠计入收入
             val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy +
-                incCompetitionPrize + incResearchGrant
+                incCompetitionPrize + incResearchGrant + incHospitalRevenue
 
             // 课题链阶段奖励入账 + 教师个人故事线月度推进
             runCatching {
@@ -4030,6 +4076,70 @@ class GameEngine @Inject constructor(
                         latest.policyJson = policyManager.toJson()
                         true
                     }
+                }
+
+                // 附属医院：诊疗收入 + 声誉 + 医学实习事件
+                val collegeDev = policyManager.policies.value.collegeDevelopment
+                if (collegeDev.founded.contains(
+                        com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE
+                    ) && collegeDev.affiliatedHospital && \!isRetrySettlement
+                ) {
+                    val medStudents = cachedActiveStudentsForMonth.count { student ->
+                        com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
+                            .parseTrack(student.courseId) ==
+                            com.arktools.xiaozhang.domain.model.AdmissionTrack.MEDICINE
+                    }
+                    val revenue = 15.0 + medStudents * 0.2
+                    schoolRepository.addCash(revenue)
+                    incHospitalRevenue += revenue
+                    schoolRepository.addReputation(2)
+                    expHospitalOp += 8.0
+                    if (medStudents > 0 && kotlin.random.Random.nextFloat() < 0.18f) {
+                        if (kotlin.random.Random.nextBoolean()) {
+                            emitEvent(GameEvent.PositiveEvent(
+                                title = "临床实习佳绩",
+                                message = "附属医院本轮带教${medStudents}名医学类学生，${
+                                    kotlin.random.Random.nextInt(1, 4)
+                                }例疑难病例处置出色，带教医生点名表扬，医院口碑与学校声誉同步上涨。",
+                                bonusCash = 0.0,
+                                bonusReputation = 8L
+                            ), school)
+                        } else {
+                            emitEvent(GameEvent.NegativeEvent(
+                                title = "医患沟通风波",
+                                message = "实习学生在附属医院的沟通环节出现瑕疵，家属投诉到院办。学校加派带教老师并修订实习守则。",
+                                penaltyCash = 0.0,
+                                penaltyReputation = 5L
+                            ), school)
+                        }
+                    }
+                }
+
+                // 艺术汇演：艺术学院成立后每逢季末月份随机触发
+                val artsFounded = collegeDev.founded.contains(
+                    com.arktools.xiaozhang.domain.policy.CollegeType.ARTS
+                )
+                if (artsFounded && school.currentMonth % 3 == 0 && \!isRetrySettlement &&
+                    kotlin.random.Random.nextFloat() < 0.4f
+                ) {
+                    emitEvent(GameEvent.ChoiceEvent(
+                        title = "艺术汇演邀请",
+                        message = "艺术学院师生筹备了本季汇演，市政厅发来公演邀请。办一场出色的汇演能显著提升学校口碑。",
+                        choices = listOf(
+                            EventChoice(
+                                "盛大公演（-12万，声誉大涨）",
+                                EventConsequence(cashChange = -12.0, reputationChange = 25L)
+                            ),
+                            EventChoice(
+                                "校内简办（-4万，小幅口碑）",
+                                EventConsequence(cashChange = -4.0, reputationChange = 8L)
+                            ),
+                            EventChoice(
+                                "本季取消（外界略有微词）",
+                                EventConsequence(cashChange = 0.0, reputationChange = -3L)
+                            )
+                        )
+                    ), school)
                 }
             }.onFailure {
                 android.util.Log.w("GameEngine", "Research chain/story monthly tick failed", it)

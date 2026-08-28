@@ -75,6 +75,12 @@ class SchoolPolicyManager @Inject constructor(
         _policies.value = _policies.value.copy(budgetAllocation = allocation.normalized())
     }
 
+    fun setAffiliatedHospital(built: Boolean) {
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = _policies.value.collegeDevelopment.copy(affiliatedHospital = built)
+        )
+    }
+
     fun setAnnualGoal(goal: AnnualGoal) {
         _policies.value = _policies.value.copy(
             collegeDevelopment = _policies.value.collegeDevelopment.copy(annualGoal = goal)
@@ -313,7 +319,8 @@ class SchoolPolicyManager @Inject constructor(
                 medicineTrackWeight = p.admissionTrackPlan.medicineWeight,
                 competitionStateJson = competitionManager.toJson(),
                 researchChainStateJson = researchChainManager.toJson(),
-                storyStateJson = teacherStoryManager.toJson()
+                storyStateJson = teacherStoryManager.toJson(),
+                affiliatedHospital = p.collegeDevelopment.affiliatedHospital
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -350,7 +357,8 @@ class SchoolPolicyManager @Inject constructor(
                     lastReviewReputation = data.lastReviewReputation,
                     lastReviewResearch = data.lastReviewResearch,
                     lastReviewStudents = data.lastReviewStudents,
-                    lastReviewSatisfaction = data.lastReviewSatisfaction
+                    lastReviewSatisfaction = data.lastReviewSatisfaction,
+                    affiliatedHospital = data.affiliatedHospital
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -677,7 +685,8 @@ data class PolicyPersistData(
     val medicineTrackWeight: Int = 1,
     val competitionStateJson: String = "",
     val researchChainStateJson: String = "",
-    val storyStateJson: String = ""
+    val storyStateJson: String = "",
+    val affiliatedHospital: Boolean = false
 )
 
 data class ManagedCollegeResult(
@@ -695,6 +704,7 @@ data class AnnualGoalResult(
 
 data class CollegeDevelopment(
     val founded: List<CollegeType> = emptyList(),
+    val affiliatedHospital: Boolean = false,
     val annualGoal: AnnualGoal = AnnualGoal.BALANCED_GROWTH,
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,

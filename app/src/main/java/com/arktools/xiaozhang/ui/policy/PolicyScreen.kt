@@ -295,6 +295,29 @@ fun PolicyScreen(
                         onFound = { viewModel.foundCollege(type) }
                     )
                 }
+                if (policies.collegeDevelopment.founded.contains(CollegeType.MEDICINE)) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("附属医院", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "投入300万建设：每月带来诊疗收入（15万+0.2万/医学类学生）、声誉+2，并触发医学实习事件",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (policies.collegeDevelopment.affiliatedHospital) {
+                            Text("已建成", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                        } else {
+                            OutlinedButton(onClick = { viewModel.buildAffiliatedHospital() }) {
+                                Text("建设")
+                            }
+                        }
+                    }
+                }
             }
         }
 
