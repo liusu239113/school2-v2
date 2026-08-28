@@ -1,8 +1,8 @@
 package com.arktools.xiaozhang.domain.competition
 
 import com.arktools.xiaozhang.domain.model.AdmissionTrack
-import com.arktools.xiaozhang.domain.model.CollegeType
 import com.arktools.xiaozhang.domain.model.FacultyCoverage
+import com.arktools.xiaozhang.domain.policy.CollegeType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -153,7 +153,7 @@ class UniversityCompetitionManager @Inject constructor() {
         due.forEach { comp ->
             val track = AdmissionTrack.entries.firstOrNull { it.displayName == comp.trackName }
             val coverage = track?.let { coverageByCollege[it.college] } ?: 0.6f
-            val repBonus = ((reputation / 20000L).coerceAtMost(0.20f)).toFloat()
+            val repBonus = (reputation.toFloat() / 20000f).coerceAtMost(0.20f)
             val tierPenalty = when (comp.tier) {
                 CompetitionTier.CITY.name -> 0.00f
                 CompetitionTier.PROVINCE.name -> -0.10f

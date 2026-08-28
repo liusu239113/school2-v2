@@ -283,6 +283,17 @@ object UniversityAcademicCatalog {
         return prefs.first().industry
     }
 
+    fun pickIndustry(courseId: String, random: java.util.Random): com.arktools.xiaozhang.domain.employment.Industry {
+        val prefs = preferredIndustries(courseId)
+        val total = prefs.sumOf { it.weight }
+        var roll = random.nextInt(total.coerceAtLeast(1))
+        prefs.forEach { pref ->
+            if (roll < pref.weight) return pref.industry
+            roll -= pref.weight
+        }
+        return prefs.first().industry
+    }
+
     fun pickIndustryDeterministic(courseId: String, index: Int): com.arktools.xiaozhang.domain.employment.Industry {
         val prefs = preferredIndustries(courseId)
         val weighted = prefs.flatMap { pref -> List(pref.weight) { pref.industry } }

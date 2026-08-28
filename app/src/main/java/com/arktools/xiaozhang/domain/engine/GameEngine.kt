@@ -4117,9 +4117,9 @@ class GameEngine @Inject constructor(
                     com.arktools.xiaozhang.domain.teacherdev.TeacherStoryManager.TeacherSnapshot(
                         id = it.id,
                         name = it.name,
-                        fatigue = it.fatigue,
+                        fatigue = it.fatigue.toFloat(),
                         loyalty = it.loyalty,
-                        averageSkill = it.averageSkill
+                        averageSkill = it.averageSkill.toFloat()
                     )
                 }
                 val storyEvents = policyManager.teacherStoryManager.monthlyTick(
@@ -4159,7 +4159,8 @@ class GameEngine @Inject constructor(
 
                 // 学院投入滴灌声望维度：学院结构长期塑造五维声誉画像
                 runCatching {
-                    val foundedNow = collegeDev.founded
+                    val devNow = policyManager.policies.value.collegeDevelopment
+                    val foundedNow = devNow.founded
                     if (foundedNow.isNotEmpty()) {
                         var academic = 0f
                         var social = 0f
@@ -4176,7 +4177,7 @@ class GameEngine @Inject constructor(
                                 com.arktools.xiaozhang.domain.policy.CollegeType.ARTS -> arts += 1.5f
                             }
                         }
-                        if (collegeDev.affiliatedHospital) social += 1.0f
+                        if (devNow.affiliatedHospital) social += 1.0f
                         if (academic > 0) reputationManager.addDimensionReputation(
                             com.arktools.xiaozhang.domain.reputation.ReputationDimension.ACADEMIC,
                             academic, "学院学科建设"
