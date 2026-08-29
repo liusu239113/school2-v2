@@ -4133,13 +4133,13 @@ class GameEngine @Inject constructor(
             ) {
                 governmentInspectionManager.advanceMonth(
                     school.currentYear, school.currentMonth,
-                    school.reputation.toLong(), st.cachedTeachersForMonth.size, st.teacherAvgSkill,
+                    school.reputation.toLong(), st.cachedTeachersForMonth.size, teacherAvgSkill,
                     st.cachedActiveStudentsForMonth.size, avgSatisfaction, facilityCondition,
                     school.cash, st.monthlyRevenue,
                     employmentRate = employmentResult.currentEmploymentRate,
                     schoolLevel = school.campusLevel,
                     teachingQualityScore = (
-                        teachingManager.config.overallQuality(st.teacherAvgSkill) +
+                        teachingManager.config.overallQuality(teacherAvgSkill) +
                             academicConferenceManager.getResearchScore() / 20f
                         ).coerceAtMost(100f),
                     weeklyPEHours = teachingManager.config.weeklyPEHours
@@ -5095,7 +5095,7 @@ class GameEngine @Inject constructor(
                 emitEvent(
                     GameEvent.PositiveEvent(
                         title = "学年办学评估",
-                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。师资覆盖${(facultyCoverage.coverageRatio * 100).toInt()}%。${facultyCoverage.missingSummary}。在校生${st.studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
+                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。师资覆盖${(facultyCoverage.coverageRatio * 100).toInt()}%。${facultyCoverage.missingSummary}。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
                         bonusCash = 0.0,
                         bonusReputation = reviewBonus
                     ),
@@ -5117,7 +5117,7 @@ class GameEngine @Inject constructor(
                 val goalResult = policyManager.evaluateAnnualGoal(
                     year = school.currentYear,
                     campusLevel = school.campusLevel,
-                    students = st.studentCount,
+                    students = studentCount,
                     research = researchCount,
                     reputation = school.reputation,
                     satisfaction = satisfaction,
