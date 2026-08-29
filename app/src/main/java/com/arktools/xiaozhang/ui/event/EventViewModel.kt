@@ -204,6 +204,11 @@ class EventViewModel @Inject constructor(
             executeClubAction(action)
         }
 
+        // 办学层次升格申报（签字确认 / 暂缓）
+        consequence.promotionAction?.let { action ->
+            gameEngine.executePromotionApproval(action)
+        }
+
         // 危机后续事件
         if (crisisFollowUp != null) {
             _eventHistory.value = _eventHistory.value + crisisFollowUp

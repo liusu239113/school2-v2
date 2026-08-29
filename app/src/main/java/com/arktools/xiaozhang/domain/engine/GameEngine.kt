@@ -219,6 +219,10 @@ class GameEngine @Inject constructor(
     @Volatile
     private var pendingGraduationProjectionRetry = false
 
+    /** 校长暂缓升格申报的年份（当年内不再弹出申报函） */
+    @Volatile
+    private var promotionDeclineYear = -1
+
     private val graduationProjectionManagerFields = setOf(
         "alumniJson",
         "employmentJson",
@@ -637,6 +641,38 @@ class GameEngine @Inject constructor(
             }
             ManagedOperationResult(true, "硕博点获批！每月导师经费与声誉入账，科研进度加快", cost)
         }
+
+    /**
+     * 执行升格申报的签批结果（由事件系统调用，幂等）。
+     * decline=true：记录暂缓年份；否则按申报目标变更办学层次并发布公告。
+     */
+    suspend fun executePromotionApproval(
+        action: com.arktools.xiaozhang.domain.model.PromotionAction
+    ) {
+        if (action.decline) {
+            promotionDeclineYear = schoolRepository.getSchool()?.currentYear ?: -1
+            return
+        }
+        if (action.targetTierKey.isBlank()) return
+        val promoted = schoolRepository.mutateSchool { latest ->
+            val current = SchoolTier.fromKey(latest.tierKey)
+            if (current.promotionTargetKey == action.targetTierKey) {
+                latest.tierKey = action.targetTierKey
+                true
+            } else {
+                false
+            }
+        }
+        if (promoted == null) return
+        val school = schoolRepository.getSchool() ?: return
+        val newTier = SchoolTier.fromKey(action.targetTierKey)
+        emitEvent(GameEvent.MilestoneEvent(
+            title = "升格成功：正式获批${newTier.displayName}",
+            message = "经省教育厅专家评审，${school.name}正式升格为${newTier.displayName}。" +
+                "学制、学院目录与财政政策已按新层次执行，新的征程开始了。",
+            milestoneType = com.arktools.xiaozhang.domain.model.MilestoneType.MARKET_CAP_MILESTONE
+        ), school)
+    }
 
     /**
      * 建设附属医院：医学院成立后可投入300万，带来诊疗收入、声誉与实习事件。
@@ -3524,14 +3560,25 @@ class GameEngine @Inject constructor(
                 governmentBoostFactor = totalGovBoost,
                 schoolLevel = school.campusLevel
             )
-            // 扣除职业辅导费用
-            val programCost = employmentMarket.getProgramMonthlyCost()
+            // 扣除职业辅导费用（职业本科校企合作：企业分摊 4 成）
+            val employmentTier = school.schoolTier()
+            val programCostBase = employmentMarket.getProgramMonthlyCost()
+            val programCost = if (employmentTier == SchoolTier.VOCATIONAL_BACHELOR) {
+                programCostBase * 0.6
+            } else {
+                programCostBase
+            }
             if (programCost > 0) {
                 schoolRepository.deductCash(programCost)
                 st.expCareerProgram += programCost
             }
             if (st.employmentResult.reputationBonus > 0) {
-                schoolRepository.addReputation(st.employmentResult.reputationBonus.toLong())
+                val repGain = if (employmentTier == SchoolTier.VOCATIONAL_BACHELOR) {
+                    (st.employmentResult.reputationBonus * 1.5f).toLong()
+                } else {
+                    st.employmentResult.reputationBonus.toLong()
+                }
+                schoolRepository.addReputation(repGain)
             }
             st.employmentResult.events.forEach { empEvent ->
                 when (empEvent) {
@@ -4517,14 +4564,28 @@ class GameEngine @Inject constructor(
                         rivalName = topRival?.name ?: ""
                     )
                     if (results.isNotEmpty() && !st.isRetrySettlement) {
+                        // 竞争组别：研究型重学术声誉，职业类重奖金，本科标准
+                        val competitionTier = school.schoolTier()
+                        val prizeFactor = when (competitionTier) {
+                            SchoolTier.RESEARCH -> 0.8
+                            SchoolTier.VOCATIONAL, SchoolTier.VOCATIONAL_BACHELOR -> 1.15
+                            else -> 1.0
+                        }
+                        val competitionRepFactor = when (competitionTier) {
+                            SchoolTier.RESEARCH -> 1.3f
+                            SchoolTier.VOCATIONAL, SchoolTier.VOCATIONAL_BACHELOR -> 0.9f
+                            else -> 1.0f
+                        }
                         results.forEach { (comp, win) ->
                             if (win) {
-                                schoolRepository.addCash(comp.prize)
-                                schoolRepository.addReputation(comp.reputationReward)
-                                st.incCompetitionPrize += comp.prize
+                                val prize = comp.prize * prizeFactor
+                                val reward = (comp.reputationReward * competitionRepFactor).toLong()
+                                schoolRepository.addCash(prize)
+                                schoolRepository.addReputation(reward)
+                                st.incCompetitionPrize += prize
                                 emitEvent(GameEvent.PositiveEvent(
                                     title = "校际竞赛夺冠",
-                                    message = "${comp.name}夺得冠军！奖金${comp.prize.toInt()}万入账，声誉+${comp.reputationReward}。师资覆盖越全，竞赛胜率越高。",
+                                    message = "${comp.name}在${competitionTier.displayName}组别夺得冠军！奖金${prize.toInt()}万入账，声誉+${reward}。师资覆盖越全，竞赛胜率越高。",
                                     bonusCash = 0.0,
                                     bonusReputation = 0L
                                 ), school)
@@ -5123,33 +5184,39 @@ class GameEngine @Inject constructor(
                 android.util.Log.e("GameEngine", "Vocational employment lifeline check failed", e)
             }
 
-            // 专科长线目标：办学声誉、校园规模、经费与在校生规模达标后，升格为应用型本科
+            // 专科长线目标：条件达标后发出升格申报函，校长签字确认（手动申报制）
             try {
                 val currentTier = updatedSchool.schoolTier()
-                if (currentTier.canPromote && !st.isRetrySettlement) {
+                if (currentTier.canPromote && !st.isRetrySettlement &&
+                    promotionDeclineYear != updatedSchool.currentYear
+                ) {
                     val studentCountNow = st.cachedActiveStudentsForMonth.size
                     val promotionReady = updatedSchool.reputation >= 1000 &&
                         updatedSchool.campusLevel >= 2 &&
                         updatedSchool.cash >= 200 &&
                         studentCountNow >= 200
                     if (promotionReady) {
-                        val promoted = schoolRepository.mutateSchool { latest ->
-                            if (SchoolTier.fromKey(latest.tierKey).canPromote) {
-                                latest.tierKey = SchoolTier.APPLIED.key
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        if (promoted != null) {
-                            emitEvent(GameEvent.MilestoneEvent(
-                                title = "升格成功：正式获批本科院校",
-                                message = "经省教育厅专家评审，${updatedSchool.name}正式升格为应用型本科院校。" +
-                                    "学制延长为四年，全部学院向你们开放，科研与竞赛舞台也更广阔了。" +
-                                    "（声誉≥1000 · 校园≥2级 · 经费≥200万 · 在校生≥200人）",
-                                milestoneType = com.arktools.xiaozhang.domain.model.MilestoneType.MARKET_CAP_MILESTONE
-                            ), updatedSchool)
-                        }
+                        val targetTier = SchoolTier.fromKey(currentTier.promotionTargetKey)
+                        deferEvent(GameEvent.ChoiceEvent(
+                            title = "升格申报：省教育厅来函",
+                            message = "经评估，贵校办学条件已达到${targetTier.displayName}设置标准" +
+                                "（声誉≥1000 · 校园≥2级 · 经费≥200万 · 在校生≥200人）。\n\n" +
+                                "是否提交升格申请？获批后学制、学院目录与财政政策将按「${targetTier.displayName}」执行，" +
+                                "现为「${currentTier.displayName}」。",
+                            choices = listOf(
+                                EventChoice("签字申报", EventConsequence(
+                                    promotionAction = com.arktools.xiaozhang.domain.model.PromotionAction(
+                                        targetTierKey = targetTier.key
+                                    ),
+                                    requiresSignature = true
+                                )),
+                                EventChoice("暂缓申报（本年度不再提醒）", EventConsequence(
+                                    promotionAction = com.arktools.xiaozhang.domain.model.PromotionAction(
+                                        decline = true
+                                    )
+                                ))
+                            )
+                        ))
                     }
                 }
             } catch (e: Exception) {

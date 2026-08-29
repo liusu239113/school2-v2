@@ -55,9 +55,19 @@ data class EventConsequence(
     val activityAction: ActivityAction? = null,
     val clubAction: ClubAction? = null,
     val factionChoiceAction: FactionChoiceAction? = null,
+    val promotionAction: PromotionAction? = null,
     val followUpEvent: GameEvent? = null,
     /** 是否需要校长签字（显示打字机签名动画） */
     val requiresSignature: Boolean = false
+)
+
+/**
+ * 办学层次升格申报动作：签字后由 GameEngine.executePromotionApproval 幂等执行；
+ * decline=true 表示暂缓申报（当年内不再提醒）。
+ */
+data class PromotionAction(
+    val targetTierKey: String = "",
+    val decline: Boolean = false
 )
 
 /**
