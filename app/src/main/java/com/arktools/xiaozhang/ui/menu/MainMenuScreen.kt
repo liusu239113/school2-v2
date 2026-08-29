@@ -76,6 +76,7 @@ enum class FoundingStyle(val key: String, val displayName: String, val detail: S
 @Composable
 fun MainMenuScreen(
     hasSaveData: Boolean,
+    saveSummary: String? = null,
     onNewGame: (schoolName: String, principalName: String, style: FoundingStyle) -> Unit,
     onContinueGame: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -177,6 +178,7 @@ private fun TitleScreen(
                 if (hasSaveData) {
                     PixelMenuButton(
                         text = "继续游戏",
+                        subText = saveSummary,
                         icon = Icons.Default.PlayArrow,
                         isPrimary = true,
                         onClick = onContinue
@@ -205,7 +207,8 @@ private fun PixelMenuButton(
     text: String,
     icon: ImageVector,
     isPrimary: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    subText: String? = null
 ) {
     val buttonResource = if (isPrimary) R.drawable.btn_primary else R.drawable.btn_secondary
     Box(
@@ -228,13 +231,21 @@ private fun PixelMenuButton(
         ) {
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(22.dp))
             Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
                 )
-            )
+                if (subText '!=' null) {
+                    Text(
+                        text = subText,
+                        fontSize = 10.sp
+                    )
+                }
+            }
         }
     }
 }

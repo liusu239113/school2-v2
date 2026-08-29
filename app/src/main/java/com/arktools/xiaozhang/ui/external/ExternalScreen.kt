@@ -48,14 +48,16 @@ class ExternalViewModel @Inject constructor(
     private val policyManager: SchoolPolicyManager,
     private val competitorEngine: CompetitorEngine,
     private val gameEngine: GameEngine,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    private val studentRepository: com.arktools.xiaozhang.domain.repository.StudentRepository
 ) : ViewModel() {
 
     data class RankRow(
         val name: String,
         val reputation: Long,
         val isPlayer: Boolean,
-        val isActive: Boolean
+        val isActive: Boolean,
+        val studentCount: Int = 0
     )
 
     data class CompetitionUiState(
@@ -81,8 +83,14 @@ class ExternalViewModel @Inject constructor(
             }.collect { (school, competitors, policies) ->
                 if (school == null) return@collect
                 val manager = policyManager.competitionManager
+                val playerStudents = runCatching {
+                    studentRepository.getActiveStudentCount()
+                }.getOrDefault(0)
                 val rankRows = competitorEngine.getRankings(school).map {
-                    RankRow(it.name, it.reputation, it.isPlayer, it.isActive)
+                    RankRow(
+                        it.name, it.reputation, it.isPlayer, it.isActive,
+                        if (it.isPlayer) playerStudents else 0
+                    )
                 }
                 _state.value = _state.value.copy(
                     ranks = rankRows,

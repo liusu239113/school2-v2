@@ -241,6 +241,16 @@ fun CampusView(
                         dstSize = IntSize(dstW.toInt(), (dstH * 0.9f).toInt()),
                         filterQuality = FilterQuality.None
                     )
+                    if (placed.level >= 2) {
+                        drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + 4f, placed.y * cell + dstH * 0.55f))
+                        drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + dstW - 4f, placed.y * cell + dstH * 0.55f))
+                    }
+                    if (placed.level >= 3) {
+                        val poleX = placed.x * cell + dstW - 8f
+                        val poleY = placed.y * cell + dstH * 0.12f
+                        drawRect(Color(0xFF9AA8B5), Offset(poleX, poleY), Size(2f, dstH * 0.12f))
+                        drawRect(Color(0xFF1E96C8), Offset(poleX + 2f, poleY + 2f), Size(12f, 7f))
+                    }
                 }
             }
         }

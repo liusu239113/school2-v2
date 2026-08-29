@@ -483,6 +483,7 @@ fun MainScreen(
         // Show main menu when game is not actively running
         MainMenuScreen(
             hasSaveData = hasSaveData,
+            saveSummary = menuViewModel.saveSummary.collectAsState().value,
             onNewGame = { name, principalName, style ->
                 menuViewModel.playClickSound()
                 menuViewModel.stopMenuBgm()

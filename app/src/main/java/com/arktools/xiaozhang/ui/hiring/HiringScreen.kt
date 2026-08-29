@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.arktools.xiaozhang.R
+import com.arktools.xiaozhang.ui.utils.TeacherAvatarHelper
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -155,30 +161,70 @@ private fun CandidateCard(
     Column(
         modifier = modifier
             .background(Color.White)
-            .clickable(onClick = onHire)
-            .padding(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .clickable(onClick = onHire),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .background(levelColor(teacher.level))
-                .padding(horizontal = 10.dp, vertical = 2.dp)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = TeacherAvatarHelper.getAvatarResId(teacher)),
+                contentDescription = teacher.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp)
+                    .background(Color(0xFFDCEFF8)),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .background(levelColor(teacher.level))
+                    .padding(horizontal = 8.dp, vertical = 1.dp)
+            ) {
+                Text(
+                    teacher.level.name,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text(
-                teacher.level.name,
-                color = Color.White,
+                teacher.name,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF182635),
+                maxLines = 1
             )
+            Text(
+                teacher.role.displayName,
+                fontSize = 11.sp,
+                color = Color(0xFF617386),
+                maxLines = 1
+            )
+            Text(
+                "综合 " + teacher.averageSkill,
+                fontSize = 12.sp,
+                color = Color(0xFF182635)
+            )
+            Box(
+                modifier = Modifier
+                    .background(Color(0xFF0B2038))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    "聘用",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
-        Text(
-            teacher.name,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF182635),
-            maxLines = 1
-        )
+    }
         Text(
             teacher.role.displayName,
             fontSize = 11.sp,
