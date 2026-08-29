@@ -11,6 +11,7 @@ import com.arktools.xiaozhang.domain.engine.GameOverReason
 import com.arktools.xiaozhang.domain.engine.HealthReport
 import com.arktools.xiaozhang.domain.model.schoolOwnership
 import com.arktools.xiaozhang.domain.model.schoolTier
+import com.arktools.xiaozhang.domain.model.promotionHistoryText
 import com.arktools.xiaozhang.domain.repository.SchoolRepository
 import com.arktools.xiaozhang.domain.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -86,7 +87,8 @@ class GameOverViewModel @Inject constructor(
                 peakCash = school?.totalRevenue ?: 0.0,
                 schoolTypeName = school?.let {
                     it.schoolTier().displayName + "·" + it.schoolOwnership().displayName
-                } ?: ""
+                } ?: "",
+                promotionHistoryText = school?.promotionHistoryText() ?: ""
             )
             gameOverDetector.confirmGameOver(reason)
             gameEngine.confirmGameOver()

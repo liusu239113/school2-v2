@@ -72,9 +72,9 @@ enum class SchoolTier(
     ),
     VOCATIONAL_BACHELOR(
         "VOCATIONAL_BACHELOR", "职业本科",
-        "4年制 · 就业导向 · 校企合作：就业辅导费6折、就业声誉加成+50% · 理学医学不开放 · 目标：就业强校",
+        "4年制 · 就业导向 · 校企合作：就业辅导费6折、就业声誉加成+50% · 理学医学不开放 · 长线目标：申报升格应用型本科",
         4, GradeLevel.GRADE_4, 400, 480,
-        0.85, 1.15, 0.9f, 420.0, 0.95f, null,
+        0.85, 1.15, 0.9f, 420.0, 0.95f, "APPLIED",
         setOf("LIBERAL_ARTS", "ENGINEERING", "BUSINESS", "ARTS")
     );
 
@@ -96,3 +96,27 @@ fun School.schoolTier(): SchoolTier = SchoolTier.fromKey(tierKey)
 
 /** 从 School 读取当前办学性质（旧档缺省 = 民办） */
 fun School.schoolOwnership(): SchoolOwnership = SchoolOwnership.fromKey(ownershipKey)
+
+/** 升格史记录（持久化于 promotionHistoryJson） */
+@kotlinx.serialization.Serializable
+data class SchoolPromotionRecord(
+    val year: Int,
+    val month: Int,
+    val fromTierKey: String,
+    val toTierKey: String
+)
+
+/** 读取升格史（旧档/无升格 = 空列表） */
+fun School.promotionHistory(): List<SchoolPromotionRecord> {
+    if (promotionHistoryJson.isBlank()) return emptyList()
+    return runCatching {
+        kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            .decodeFromString<List<SchoolPromotionRecord>>(promotionHistoryJson)
+    }.getOrDefault(emptyList())
+}
+
+/** 升格史的可读文本（GameOver 结算用），如「2026年9月升格职业本科、2029年6月升格应用型本科」 */
+fun School.promotionHistoryText(): String =
+    promotionHistory().joinToString("、") { record ->
+        "${record.year}年${record.month}月升格${SchoolTier.fromKey(record.toTierKey).displayName}"
+    }

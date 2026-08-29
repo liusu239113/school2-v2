@@ -1,6 +1,8 @@
 package com.arktools.xiaozhang.domain.competitor
 
 import com.arktools.xiaozhang.domain.model.School
+import com.arktools.xiaozhang.domain.model.SchoolTier
+import com.arktools.xiaozhang.domain.model.schoolTier
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -234,9 +236,12 @@ class CompetitorEngine @Inject constructor() {
         )
 
         // 添加AI对手 - 只显示同一校舍等级层的对手（±1级范围内）
+        // 研究型大学额外可见研究型同侪池，其他层次仅见通用对手池
         val playerLevel = school.campusLevel
+        val showResearchPool = school.schoolTier() == SchoolTier.RESEARCH
         competitors.forEach { competitor ->
-            if (competitor.campusLevel in (playerLevel - 1)..(playerLevel + 1)) {
+            val poolVisible = competitor.pool != "RESEARCH" || showResearchPool
+            if (poolVisible && competitor.campusLevel in (playerLevel - 1)..(playerLevel + 1)) {
                 entries.add(
                     RankingEntry(
                         name = competitor.name,

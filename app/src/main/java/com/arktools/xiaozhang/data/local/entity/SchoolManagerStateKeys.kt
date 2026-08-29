@@ -35,4 +35,5 @@ object SchoolManagerStateKeys {
     const val SUGGESTION_BOX = "suggestionBoxJson"
     const val TIER_KEY = "tierKey"
     const val OWNERSHIP_KEY = "ownershipKey"
+    const val PROMOTION_HISTORY = "promotionHistoryJson"
 }

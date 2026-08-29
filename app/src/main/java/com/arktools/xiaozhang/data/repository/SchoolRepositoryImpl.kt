@@ -374,7 +374,8 @@ class SchoolRepositoryImpl @Inject constructor(
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.CLASS_TIER_MAP, school.classTierMapJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.SUGGESTION_BOX, school.suggestionBoxJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.TIER_KEY, school.tierKey, now),
-            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.OWNERSHIP_KEY, school.ownershipKey, now)
+            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.OWNERSHIP_KEY, school.ownershipKey, now),
+            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.PROMOTION_HISTORY, school.promotionHistoryJson, now)
         )
     }
 
@@ -394,6 +395,7 @@ class SchoolRepositoryImpl @Inject constructor(
             ownershipKey = state(SchoolManagerStateKeys.OWNERSHIP_KEY).ifEmpty {
                 com.arktools.xiaozhang.domain.model.SchoolOwnership.PRIVATE.key
             },
+            promotionHistoryJson = state(SchoolManagerStateKeys.PROMOTION_HISTORY),
             cash = cash,
             marketCap = marketCap,
             reputation = reputation,

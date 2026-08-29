@@ -8,6 +8,7 @@ import com.arktools.xiaozhang.domain.model.SchoolOwnership
 import com.arktools.xiaozhang.domain.model.SchoolTier
 import com.arktools.xiaozhang.domain.model.schoolOwnership
 import com.arktools.xiaozhang.domain.model.schoolTier
+import com.arktools.xiaozhang.domain.model.promotionHistory
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
 import com.arktools.xiaozhang.domain.model.FacilityType
@@ -113,6 +114,14 @@ data class ManagedOperationResult(
     val success: Boolean,
     val message: String,
     val amount: Double = 0.0
+)
+
+/** 升格申报条件（按当前办学层次分化） */
+private data class PromotionRequirement(
+    val reputation: Long,
+    val campusLevel: Int,
+    val cash: Double,
+    val students: Int
 )
 
 private data class TeacherDevelopmentCommit<T>(
@@ -654,17 +663,31 @@ class GameEngine @Inject constructor(
             return
         }
         if (action.targetTierKey.isBlank()) return
+        var promotedSchool: School? = null
         val promoted = schoolRepository.mutateSchool { latest ->
             val current = SchoolTier.fromKey(latest.tierKey)
             if (current.promotionTargetKey == action.targetTierKey) {
                 latest.tierKey = action.targetTierKey
+                // 追加升格史（GameOver 结算与荣誉展示用）
+                val history = latest.promotionHistory()
+                val record = com.arktools.xiaozhang.domain.model.SchoolPromotionRecord(
+                    year = latest.currentYear,
+                    month = latest.currentMonth,
+                    fromTierKey = current.key,
+                    toTierKey = action.targetTierKey
+                )
+                latest.promotionHistoryJson = kotlinx.serialization.json.Json.encodeToString(
+                    kotlinx.serialization.serializer<List<com.arktools.xiaozhang.domain.model.SchoolPromotionRecord>>(),
+                    history + record
+                )
+                promotedSchool = latest
                 true
             } else {
                 false
             }
         }
         if (promoted == null) return
-        val school = schoolRepository.getSchool() ?: return
+        val school = promotedSchool ?: schoolRepository.getSchool() ?: return
         val newTier = SchoolTier.fromKey(action.targetTierKey)
         emitEvent(GameEvent.MilestoneEvent(
             title = "升格成功：正式获批${newTier.displayName}",
@@ -2921,7 +2944,8 @@ class GameEngine @Inject constructor(
                 peakReputation = currentSchool.reputation,
                 peakCash = currentSchool.totalRevenue,
                 schoolTypeName = currentSchool.schoolTier().displayName + "·" +
-                    currentSchool.schoolOwnership().displayName
+                    currentSchool.schoolOwnership().displayName,
+                promotionHistoryText = currentSchool.promotionHistoryText()
             )
         )
         isPaused = true
@@ -2946,7 +2970,8 @@ class GameEngine @Inject constructor(
                             peakReputation = school.reputation, // 简化：当前即为记录
                             peakCash = school.totalRevenue,
                             schoolTypeName = school.schoolTier().displayName + "·" +
-                                school.schoolOwnership().displayName
+                                school.schoolOwnership().displayName,
+                            promotionHistoryText = school.promotionHistoryText()
                         )
                     )
                 }
@@ -4552,9 +4577,11 @@ class GameEngine @Inject constructor(
                     if (school.currentMonth == 9 && !st.isRetrySettlement) {
                         policyManager.competitionManager.newYearReset(school.currentYear)
                     }
-                    val topRival = competitorEngine.competitorState.value
-                        .filter { it.isActive }
-                        .maxByOrNull { it.reputation }
+                    // 头号对手：研究型层次可见研究型同侪池
+                    val visibleRivals = competitorEngine.competitorState.value.filter {
+                        it.isActive && (it.pool != "RESEARCH" || school.schoolTier() == SchoolTier.RESEARCH)
+                    }
+                    val topRival = visibleRivals.maxByOrNull { it.reputation }
                     val rivalEdge = topRival?.let {
                         ((school.reputation - it.reputation) / 10000f).coerceIn(-0.15f, 0.15f)
                     } ?: 0f
@@ -5184,23 +5211,30 @@ class GameEngine @Inject constructor(
                 android.util.Log.e("GameEngine", "Vocational employment lifeline check failed", e)
             }
 
-            // 专科长线目标：条件达标后发出升格申报函，校长签字确认（手动申报制）
+            // 升格长线：条件达标后发出升格申报函，校长签字确认（手动申报制）
+            // 职业专科→职业本科为首次升格，职业本科→应用型本科为二次升格（条件更苛刻）
             try {
                 val currentTier = updatedSchool.schoolTier()
-                if (currentTier.canPromote && !st.isRetrySettlement &&
+                val requirement = when (currentTier) {
+                    SchoolTier.VOCATIONAL -> PromotionRequirement(1000L, 2, 200.0, 200)
+                    SchoolTier.VOCATIONAL_BACHELOR -> PromotionRequirement(3000L, 3, 500.0, 400)
+                    else -> null
+                }
+                if (currentTier.canPromote && requirement != null && !st.isRetrySettlement &&
                     promotionDeclineYear != updatedSchool.currentYear
                 ) {
                     val studentCountNow = st.cachedActiveStudentsForMonth.size
-                    val promotionReady = updatedSchool.reputation >= 1000 &&
-                        updatedSchool.campusLevel >= 2 &&
-                        updatedSchool.cash >= 200 &&
-                        studentCountNow >= 200
+                    val promotionReady = updatedSchool.reputation >= requirement.reputation &&
+                        updatedSchool.campusLevel >= requirement.campusLevel &&
+                        updatedSchool.cash >= requirement.cash &&
+                        studentCountNow >= requirement.students
                     if (promotionReady) {
                         val targetTier = SchoolTier.fromKey(currentTier.promotionTargetKey)
                         deferEvent(GameEvent.ChoiceEvent(
                             title = "升格申报：省教育厅来函",
                             message = "经评估，贵校办学条件已达到${targetTier.displayName}设置标准" +
-                                "（声誉≥1000 · 校园≥2级 · 经费≥200万 · 在校生≥200人）。\n\n" +
+                                "（声誉≥${requirement.reputation} · 校园≥${requirement.campusLevel}级 · " +
+                                "经费≥${requirement.cash.toInt()}万 · 在校生≥${requirement.students}人）。\n\n" +
                                 "是否提交升格申请？获批后学制、学院目录与财政政策将按「${targetTier.displayName}」执行，" +
                                 "现为「${currentTier.displayName}」。",
                             choices = listOf(
@@ -6474,9 +6508,9 @@ class GameEngine @Inject constructor(
         // 9. 营销推广招生加成
         val marketingEnrollBonus = MarketingCalculator.getEnrollmentMultiplier(school.marketingCampaigns)
 
-        // 10. 经营压力系统：招生季限制 + 竞争分流（使用真实竞争对手声誉）
+        // 10. 经营压力系统：招生季限制 + 竞争分流（使用真实竞争对手声誉，按层次过滤对手池）
         val topCompetitorRep = competitorEngine.competitorState.value
-            .filter { it.isActive }
+            .filter { it.isActive && (it.pool != "RESEARCH" || school.schoolTier() == SchoolTier.RESEARCH) }
             .maxOfOrNull { it.reputation } ?: (school.reputation * 8 / 10)
         val pressureEnrollMultiplier = pressureSystemManager.getEnrollmentMultiplier(
             month = school.currentMonth,

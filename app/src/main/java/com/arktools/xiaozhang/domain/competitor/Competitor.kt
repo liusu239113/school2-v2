@@ -32,7 +32,9 @@ data class Competitor(
     // 状态
     var isActive: Boolean = true,      // 是否仍在竞争
     var eliminatedYear: Int? = null,    // 被淘汰的年份
-    var specialEventCooldown: Int = 0   // 特殊事件冷却(月)
+    var specialEventCooldown: Int = 0,  // 特殊事件冷却(月)
+    /** 对手池：MAIN=通用教育机构；RESEARCH=研究型大学同侪（仅研究型层次可见） */
+    val pool: String = "MAIN"
 )
 
 enum class CompetitorStrategy(val displayName: String, val description: String) {
@@ -352,6 +354,110 @@ object CompetitorRegistry {
             starRating = 3.2f,
             baseGrowthRate = 0.8f,
             aggressiveness = 0.05f
+        ),
+
+        // ===== 研究型大学同侪池（仅研究型层次可见） =====
+        Competitor(
+            id = "yanjingGezhi",
+            name = "燕京格致大学",
+            motto = "格物致知，止于至善",
+            strategy = CompetitorStrategy.INNOVATION,
+            personality = CompetitorPersonality.NEUTRAL,
+            reputation = 5800,
+            cash = 880.0,
+            studentCount = 240,
+            courseCount = 10,
+            teacherCount = 16,
+            campusLevel = 5,
+            starRating = 4.5f,
+            baseGrowthRate = 1.22f,
+            aggressiveness = 0.5f,
+            pool = "RESEARCH"
+        ),
+        Competitor(
+            id = "huadongTech",
+            name = "华东理工联合大学",
+            motto = "厚德博学，求是创新",
+            strategy = CompetitorStrategy.QUALITY,
+            personality = CompetitorPersonality.CUNNING,
+            reputation = 5200,
+            cash = 760.0,
+            studentCount = 210,
+            courseCount = 9,
+            teacherCount = 14,
+            campusLevel = 4,
+            starRating = 4.2f,
+            baseGrowthRate = 1.15f,
+            aggressiveness = 0.45f,
+            pool = "RESEARCH"
+        ),
+        Competitor(
+            id = "jiangdongTech",
+            name = "江东科技大学",
+            motto = "科技报国，行胜于言",
+            strategy = CompetitorStrategy.INNOVATION,
+            personality = CompetitorPersonality.NEUTRAL,
+            reputation = 3600,
+            cash = 520.0,
+            studentCount = 150,
+            courseCount = 7,
+            teacherCount = 10,
+            campusLevel = 3,
+            starRating = 4.0f,
+            baseGrowthRate = 1.18f,
+            aggressiveness = 0.4f,
+            pool = "RESEARCH"
+        ),
+        Competitor(
+            id = "canglanFinance",
+            name = "沧澜财经大学",
+            motto = "经世济民，商道致远",
+            strategy = CompetitorStrategy.STEADY,
+            personality = CompetitorPersonality.FRIENDLY,
+            reputation = 3000,
+            cash = 460.0,
+            studentCount = 130,
+            courseCount = 6,
+            teacherCount = 9,
+            campusLevel = 3,
+            starRating = 3.9f,
+            baseGrowthRate = 1.0f,
+            aggressiveness = 0.2f,
+            pool = "RESEARCH"
+        ),
+        Competitor(
+            id = "qiyuanNormal",
+            name = "启元师范大学",
+            motto = "学高为师，身正为范",
+            strategy = CompetitorStrategy.QUALITY,
+            personality = CompetitorPersonality.FRIENDLY,
+            reputation = 1100,
+            cash = 190.0,
+            studentCount = 55,
+            courseCount = 3,
+            teacherCount = 5,
+            campusLevel = 2,
+            starRating = 3.6f,
+            baseGrowthRate = 0.95f,
+            aggressiveness = 0.1f,
+            pool = "RESEARCH"
+        ),
+        Competitor(
+            id = "bailuAcademy",
+            name = "白鹭研究院",
+            motto = "心静如水，学海无涯",
+            strategy = CompetitorStrategy.INNOVATION,
+            personality = CompetitorPersonality.NEUTRAL,
+            reputation = 700,
+            cash = 130.0,
+            studentCount = 30,
+            courseCount = 2,
+            teacherCount = 4,
+            campusLevel = 1,
+            starRating = 3.4f,
+            baseGrowthRate = 1.2f,
+            aggressiveness = 0.3f,
+            pool = "RESEARCH"
         )
     )
 }
