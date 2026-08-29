@@ -161,8 +161,7 @@ private fun CandidateCard(
     Column(
         modifier = modifier
             .background(Color.White)
-            .clickable(onClick = onHire),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .clickable(onClick = onHire)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Image(
@@ -170,26 +169,42 @@ private fun CandidateCard(
                 contentDescription = teacher.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(84.dp)
+                    .height(92.dp)
                     .background(Color(0xFFDCEFF8)),
                 contentScale = ContentScale.Crop
             )
+            // 等级角标（左上，不压住面部）
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.TopStart)
                     .background(levelColor(teacher.level))
-                    .padding(horizontal = 8.dp, vertical = 1.dp)
+                    .padding(horizontal = 7.dp, vertical = 1.dp)
             ) {
                 Text(
                     teacher.level.name,
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
+                )
+            }
+            // 学科标签（头像右下，全卡仅此一处）
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .background(Color(0xCC0B2038))
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+            ) {
+                Text(
+                    teacher.role.displayName,
+                    color = Color(0xFFFFD54F),
+                    fontSize = 10.sp
                 )
             }
         }
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
@@ -201,36 +216,26 @@ private fun CandidateCard(
                 maxLines = 1
             )
             Text(
-                teacher.role.displayName,
-                fontSize = 11.sp,
-                color = Color(0xFF617386),
-                maxLines = 1
-            )
-            Text(
                 "综合 " + teacher.averageSkill,
                 fontSize = 12.sp,
-                color = Color(0xFF182635)
+                color = Color(0xFF617386)
             )
             Box(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .background(Color(0xFF0B2038))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(vertical = 6.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "聘用",
+                    "聘 用",
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
     }
-        Text(
-            teacher.role.displayName,
-            fontSize = 11.sp,
-            color = Color(0xFF617386),
-            maxLines = 1
-        )
 }
 
 private fun levelColor(level: TeacherLevel): Color = when (level) {

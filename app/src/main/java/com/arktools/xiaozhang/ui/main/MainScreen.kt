@@ -621,7 +621,8 @@ fun MainScreen(
                         Text(
                             text = if (selectedTab > 4) getSubPageTitle(selectedTab) else (school?.name ?: "大学时代"),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            color = Color.White
                         )
                         if (selectedTab <= 4) {
                             Text(
@@ -630,7 +631,7 @@ fun MainScreen(
                                         " · ${it.schoolTier().displayName}·${it.schoolOwnership().displayName}"
                                     } ?: ""),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFFB8C7D6)
                             )
                         }
                     }

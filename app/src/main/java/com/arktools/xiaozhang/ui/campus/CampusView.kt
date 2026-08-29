@@ -19,9 +19,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -81,6 +85,27 @@ fun CampusView(
     var pendingSpec by remember { mutableStateOf<BT.Spec?>(null) }
     var pendingTile by remember { mutableStateOf<BT.TileKind?>(null) }
     var moveTarget by remember { mutableStateOf<BT.PlacedBuilding?>(null) }
+    // 摆放/铺装/搬移的幽灵位置（格子坐标）
+    var ghost by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val inPlacementMode = pendingSpec != null || pendingTile != null || moveTarget != null
+
+    // 幽灵位置合法性：与 ViewModel.canPlaceAt 同规则（边界/解锁区/地形/重叠）
+    fun canPlaceGhostAt(cx: Int, cy: Int, spec: BT.Spec): Boolean {
+        for (dy in 0 until spec.h) for (dx in 0 until spec.w) {
+            val cx2 = cx + dx
+            val cy2 = cy + dy
+            if (cx2 < 0 || cy2 < 0 || cx2 >= BT.GRID_W || cy2 >= BT.GRID_H) return false
+            if (!BT.inUnlockedArea(cx2, cy2, state.campusLevel)) return false
+            val t = state.terrain[cy2 * 1000L + cx2]
+            if (t == BT.TileKind.ROAD || t == BT.TileKind.PLAZA || t == BT.TileKind.WATER) return false
+            val blocked = state.placed.any { p ->
+                val ps = BT.specByKey(p.key)
+                ps != null && BT.occupies(p, ps, cx2, cy2)
+            }
+            if (blocked) return false
+        }
+        return true
+    }
 
     val bitmaps = remember {
         mapOf(
@@ -129,25 +154,43 @@ fun CampusView(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        camera = Offset(camera.x - drag.x, camera.y - drag.y)
-                        clampCamera()
+                .clipToBounds()
+                .pointerInput(inPlacementMode) {
+                    if (inPlacementMode) {
+                        // 摆放/铺装/搬移模式：拖动移动幽灵预览，不平移镜头
+                        detectDragGestures { change, _ ->
+                            change.consume()
+                            val world = change.position + camera
+                            val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
+                            val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
+                            ghost = cx to cy
+                        }
+                    } else {
+                        detectDragGestures { change, drag ->
+                            change.consume()
+                            camera = Offset(camera.x - drag.x, camera.y - drag.y)
+                            clampCamera()
+                        }
                     }
                 }
-                .pointerInput(Unit) {
+                .pointerInput(inPlacementMode, pendingSpec) {
                     detectTapGestures { tap ->
                         val world = tap + camera
                         val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
                         val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
-                        viewModel.onCellTapped(cx, cy)
+                        if (inPlacementMode) {
+                            // 摆放模式：点击选定位置，用底部确认按钮落地
+                            ghost = cx to cy
+                        } else {
+                            viewModel.onCellTapped(cx, cy)
+                        }
                     }
                 }
         ) {
-            // 草地：屏幕空间平铺，随镜头位移产生移动感
-            val ox = ((camera.x % cell) + cell) % cell
-            val oy = ((camera.y % cell) + cell) % cell
+            // 草地：屏幕空间平铺（半格密度，避免大色块条纹），随镜头位移产生移动感
+            val g = cell / 2f
+            val ox = ((camera.x % g) + g) % g
+            val oy = ((camera.y % g) + g) % g
             var sx = -ox
             while (sx < size.width) {
                 var sy = -oy
@@ -157,12 +200,12 @@ fun CampusView(
                         srcOffset = IntOffset.Zero,
                         srcSize = IntSize(grassTile.width, grassTile.height),
                         dstOffset = IntOffset(sx.toInt(), sy.toInt()),
-                        dstSize = IntSize(cell.toInt(), cell.toInt()),
+                        dstSize = IntSize(g.toInt(), g.toInt()),
                         filterQuality = FilterQuality.None
                     )
-                    sy += cell
+                    sy += g
                 }
-                sx += cell
+                sx += g
             }
 
             translate(left = camera.x, top = camera.y) {
@@ -212,44 +255,101 @@ fun CampusView(
                     }
                 }
 
-                // 锁定区域遮罩
+                // 锁定区域遮罩（浅色蒙层 + 解锁提示）
                 val ring = (state.campusLevel - 1).coerceAtMost(4)
                 val ux0 = (BT.INIT_X - ring) * cell
                 val uy0 = (BT.INIT_Y - ring) * cell
                 val ux1 = ux0 + (BT.INIT_W + ring * 2) * cell
                 val uy1 = uy0 + (BT.INIT_H + ring * 2) * cell
-                drawRect(Color(0x66000000), Offset(0f, 0f), Size(worldW, uy0))
-                drawRect(Color(0x66000000), Offset(0f, uy1), Size(worldW, worldH - uy1))
-                drawRect(Color(0x66000000), Offset(0f, uy0), Size(ux0, uy1 - uy0))
-                drawRect(Color(0x66000000), Offset(ux1, uy0), Size(worldW - ux1, uy1 - uy0))
+                drawRect(Color(0x2E000000), Offset(0f, 0f), Size(worldW, uy0))
+                drawRect(Color(0x2E000000), Offset(0f, uy1), Size(worldW, worldH - uy1))
+                drawRect(Color(0x2E000000), Offset(0f, uy0), Size(ux0, uy1 - uy0))
+                drawRect(Color(0x2E000000), Offset(ux1, uy0), Size(worldW - ux1, uy1 - uy0))
                 drawRect(Color(0x33FFFFFF), Offset(ux0, uy0), Size(ux1 - ux0, uy1 - uy0), style = Stroke(3f))
+                drawContext.canvas.nativeCanvas.apply {
+                    val hintPaint = android.graphics.Paint().apply {
+                        color = android.graphics.Color.WHITE
+                        alpha = 160
+                        textSize = cell * 0.45f
+                        textAlign = android.graphics.Paint.Align.CENTER
+                        isAntiAlias = true
+                    }
+                    if (uy0 > cell * 0.8f) {
+                        drawText("升级校园解锁更多土地", worldW / 2f, uy0 / 2f, hintPaint)
+                    }
+                    if (worldH - uy1 > cell * 0.8f) {
+                        drawText("升级校园解锁更多土地", worldW / 2f, (uy1 + worldH) / 2f, hintPaint)
+                    }
+                }
 
-                // 建筑
+                // 建筑（保持贴图原始宽高比，底边对齐地块，避免拉伸压扁）
                 state.placed.forEach { placed ->
                     val spec = BT.specByKey(placed.key) ?: return@forEach
                     val bmp = bitmaps[spec.drawableRes] ?: return@forEach
-                    val dstW = spec.w * cell
-                    val dstH = spec.h * cell
+                    val footW = spec.w * cell
+                    val footH = spec.h * cell
+                    val scale = minOf(footW / bmp.width, (footH * 0.92f) / bmp.height)
+                    val dstW = bmp.width * scale
+                    val dstH = bmp.height * scale
                     drawImage(
                         image = bmp,
                         srcOffset = IntOffset.Zero,
                         srcSize = IntSize(bmp.width, bmp.height),
                         dstOffset = IntOffset(
-                            (placed.x * cell).toInt(),
-                            (placed.y * cell + dstH * 0.10f).toInt()
+                            (placed.x * cell + (footW - dstW) / 2f).toInt(),
+                            (placed.y * cell + (footH - dstH)).toInt()
                         ),
-                        dstSize = IntSize(dstW.toInt(), (dstH * 0.9f).toInt()),
+                        dstSize = IntSize(dstW.toInt(), dstH.toInt()),
                         filterQuality = FilterQuality.None
                     )
                     if (placed.level >= 2) {
-                        drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + 4f, placed.y * cell + dstH * 0.55f))
-                        drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + dstW - 4f, placed.y * cell + dstH * 0.55f))
+                        drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + 4f, placed.y * cell + footH * 0.55f))
+                        drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + footW - 4f, placed.y * cell + footH * 0.55f))
                     }
                     if (placed.level >= 3) {
-                        val poleX = placed.x * cell + dstW - 8f
-                        val poleY = placed.y * cell + dstH * 0.12f
-                        drawRect(Color(0xFF9AA8B5), Offset(poleX, poleY), Size(2f, dstH * 0.12f))
+                        val poleX = placed.x * cell + footW - 8f
+                        val poleY = placed.y * cell + footH * 0.12f
+                        drawRect(Color(0xFF9AA8B5), Offset(poleX, poleY), Size(2f, footH * 0.12f))
                         drawRect(Color(0xFF1E96C8), Offset(poleX + 2f, poleY + 2f), Size(12f, 7f))
+                    }
+                }
+
+                // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放
+                ghost?.let { (gx, gy) ->
+                    val spec = pendingSpec
+                    val gw = (spec?.w ?: 1) * cell
+                    val gh = (spec?.h ?: 1) * cell
+                    val valid = spec?.let { canPlaceGhostAt(gx, gy, it) } ?: true
+                    drawRect(
+                        if (valid) Color(0x5900E676) else Color(0x59FF5252),
+                        Offset(gx * cell, gy * cell),
+                        Size(gw, gh)
+                    )
+                    drawRect(
+                        if (valid) Color(0xFF00E676) else Color(0xFFFF5252),
+                        Offset(gx * cell, gy * cell),
+                        Size(gw, gh),
+                        style = Stroke(3f)
+                    )
+                    spec?.let { s ->
+                        val bmp = bitmaps[s.drawableRes]
+                        if (bmp != null) {
+                            val gs = minOf(gw / bmp.width, (gh * 0.92f) / bmp.height)
+                            val dw = bmp.width * gs
+                            val dh = bmp.height * gs
+                            drawImage(
+                                image = bmp,
+                                srcOffset = IntOffset.Zero,
+                                srcSize = IntSize(bmp.width, bmp.height),
+                                dstOffset = IntOffset(
+                                    (gx * cell + (gw - dw) / 2f).toInt(),
+                                    (gy * cell + (gh - dh)).toInt()
+                                ),
+                                dstSize = IntSize(dw.toInt(), dh.toInt()),
+                                alpha = 0.6f,
+                                filterQuality = FilterQuality.None
+                            )
+                        }
                     }
                 }
             }
@@ -294,9 +394,9 @@ fun CampusView(
 
         // 模式提示（触发容器内顶部：资源条之下）
         val modeHint = when {
-            pendingSpec != null -> "摆放模式：点击绿色解锁区的空地放置「${pendingSpec?.displayName}」，非法位置会提示原因"
-            pendingTile != null -> "铺装模式：点击地图铺设「${pendingTile?.displayName}」（${pendingTile?.costWan}万/格）"
-            moveTarget != null -> "搬移模式：点击空位移动「${moveTarget?.let { BT.specByKey(it.key)?.displayName }}」"
+            pendingSpec != null -> "摆放模式：拖动/点击选择位置，绿框可放、红框不可放；点「建在这里」确认。点此取消"
+            pendingTile != null -> "铺装模式：拖动/点击选格，点「铺设」确认（${pendingTile?.costWan}万/格）。点此取消"
+            moveTarget != null -> "搬移模式：拖动选择新位置，点「搬到这里」确认。点此取消"
             else -> null
         }
         modeHint?.let { hint ->
@@ -313,10 +413,81 @@ fun CampusView(
                         pendingSpec = null
                         pendingTile = null
                         moveTarget = null
+                        ghost = null
                         viewModel.consumeMessage()
                     },
                 textAlign = TextAlign.Center
             )
+        }
+
+        // 操作结果提示（摆放成功/失败原因），点击消失
+        state.message?.let { msg ->
+            Text(
+                msg,
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 48.dp, start = 12.dp, end = 12.dp)
+                    .background(Color(0xCC14648C))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .clickable { viewModel.consumeMessage() },
+                textAlign = TextAlign.Center
+            )
+        }
+
+        // 摆放确认栏：显示费用，钱不够时置红禁用
+        if (inPlacementMode && ghost != null) {
+            val (gx, gy) = ghost!!
+            val spec = pendingSpec
+            val costText = when {
+                spec != null -> "${spec.costWan.toInt()}万"
+                pendingTile != null -> "${pendingTile?.costWan}万"
+                else -> ""
+            }
+            val insufficient = spec != null && state.cash < spec.costWan
+            val verb = when {
+                spec != null -> "建在这里"
+                moveTarget != null -> "搬到这里"
+                else -> "铺在这里"
+            }
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = {
+                        viewModel.onCellTapped(gx, gy)
+                        ghost = null
+                        // 一次选择只落一个：结果（成功/失败原因）显示在顶部提示条
+                        pendingSpec = null
+                        pendingTile = null
+                        moveTarget = null
+                    },
+                    enabled = !insufficient,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (insufficient) Color(0xFF8C2F2F) else MaterialTheme.colorScheme.primary,
+                        disabledContainerColor = Color(0xFF8C2F2F)
+                    )
+                ) {
+                    Text(
+                        if (insufficient) "经费不足（需$costText）" else "$verb · $costText",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                OutlinedButton(onClick = {
+                    pendingSpec = null
+                    pendingTile = null
+                    moveTarget = null
+                    ghost = null
+                }) {
+                    Text("取消", color = Color.White, fontSize = 13.sp)
+                }
+            }
         }
 
         // 面板内消息（建筑面板顶部显示）
@@ -392,15 +563,15 @@ fun CampusView(
                     BuildMenuContent(
                         state = state,
                         onFoundCollege = { spec ->
-                            viewModel.closeBuildMenu()
+                            viewModel.startPlace(spec)
                             pendingSpec = spec
                         },
                         onBuyFacility = { spec ->
-                            viewModel.closeBuildMenu()
+                            viewModel.startPlace(spec)
                             pendingSpec = spec
                         },
                         onPaintTile = { tile ->
-                            viewModel.closeBuildMenu()
+                            viewModel.startPaint(tile)
                             pendingTile = tile
                         }
                     )
@@ -640,11 +811,13 @@ private fun BuildMenuContent(
         BT.COLLEGE_SPECS.forEach { spec ->
             val college = spec.college ?: return@forEach
             val founded = state.foundedColleges.contains(college)
+            val shortOfCash = !founded && state.cash < spec.costWan
             BuildRow(
                 title = spec.displayName,
                 subtitle = college.description,
                 rightText = "${spec.costWan.toInt()}万",
-                locked = !founded && state.cash < spec.costWan,
+                locked = shortOfCash,
+                lockedText = if (shortOfCash) "钱不够" else null,
                 done = founded,
                 onClick = { if (!founded) onFoundCollege(spec) }
             )
@@ -654,11 +827,13 @@ private fun BuildMenuContent(
         BT.FACILITY_SPECS.forEach { spec ->
             val type = spec.facility ?: return@forEach
             val built = state.facilities.any { it.type == type }
+            val shortOfCash = !built && state.cash < spec.costWan
             BuildRow(
                 title = spec.displayName,
                 subtitle = type.description,
                 rightText = "${spec.costWan.toInt()}万",
-                locked = !built && state.cash < spec.costWan,
+                locked = shortOfCash,
+                lockedText = if (shortOfCash) "钱不够" else null,
                 done = built,
                 onClick = { if (!built) onBuyFacility(spec) }
             )
@@ -666,14 +841,16 @@ private fun BuildMenuContent(
 
         Text("地面与装扮", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E96C8))
         BT.TileKind.entries.forEach { tile ->
-            val locked = state.campusLevel < tile.unlockLevel || state.cash < tile.costWan
+            val shortOfCash = state.cash < tile.costWan
+            val levelLocked = state.campusLevel < tile.unlockLevel
             BuildRow(
                 title = tile.displayName,
-                subtitle = if (state.campusLevel < tile.unlockLevel) "校园 Lv.${tile.unlockLevel} 解锁" else "点击后到地图上点格铺设",
+                subtitle = if (levelLocked) "校园 Lv.${tile.unlockLevel} 解锁" else "点击后到地图上点格铺设",
                 rightText = "${tile.costWan}万",
-                locked = locked,
+                locked = levelLocked || shortOfCash,
+                lockedText = if (!levelLocked && shortOfCash) "钱不够" else null,
                 done = false,
-                onClick = { if (!locked) onPaintTile(tile) }
+                onClick = { if (!levelLocked && !shortOfCash) onPaintTile(tile) }
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -687,7 +864,8 @@ private fun BuildRow(
     rightText: String,
     locked: Boolean,
     done: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    lockedText: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -702,11 +880,16 @@ private fun BuildRow(
             Text(subtitle, fontSize = 11.sp, color = Color(0xFF617386), maxLines = 2)
         }
         Text(
-            text = if (done) "已建成" else rightText,
+            text = when {
+                done -> "已建成"
+                locked && lockedText != null -> lockedText
+                else -> rightText
+            },
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             color = when {
                 done -> Color(0xFF2E9B78)
+                locked && lockedText != null -> Color(0xFFD95C5C)
                 locked -> Color(0xFF9AA8B5)
                 else -> Color(0xFF1E96C8)
             }

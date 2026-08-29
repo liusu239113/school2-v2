@@ -315,10 +315,19 @@ private fun NewGamePanel(
                     value = schoolName,
                     onValueChange = { if (it.length <= 12) schoolName = it },
                     label = { Text("大学名称") },
-                    placeholder = { Text("例：星海大学") },
+                    placeholder = { Text("例：星海大学", color = Color(0xFF6E8399)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = androidx.compose.ui.graphics.RectangleShape
+                    shape = androidx.compose.ui.graphics.RectangleShape,
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFFFFD54F),
+                        focusedBorderColor = Color(0xFF1E96C8),
+                        unfocusedBorderColor = Color(0xFF5A7186),
+                        focusedLabelColor = Color(0xFFFFD54F),
+                        unfocusedLabelColor = Color(0xFF9EB3C6)
+                    )
                 )
                 Text(
                     text = "${schoolName.length}/12",
@@ -331,10 +340,19 @@ private fun NewGamePanel(
                     value = principalName,
                     onValueChange = { if (it.length <= 6) principalName = it },
                     label = { Text("校长姓名") },
-                    placeholder = { Text("例：张明") },
+                    placeholder = { Text("例：张明", color = Color(0xFF6E8399)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = androidx.compose.ui.graphics.RectangleShape
+                    shape = androidx.compose.ui.graphics.RectangleShape,
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFFFFD54F),
+                        focusedBorderColor = Color(0xFF1E96C8),
+                        unfocusedBorderColor = Color(0xFF5A7186),
+                        focusedLabelColor = Color(0xFFFFD54F),
+                        unfocusedLabelColor = Color(0xFF9EB3C6)
+                    )
                 )
                 Text(
                     text = "${principalName.length}/6",
@@ -346,6 +364,22 @@ private fun NewGamePanel(
 
                 // 第 2 步：办学层次
                 StepLabel("② 办学层次（决定学制与玩法）")
+                Image(
+                    painter = painterResource(
+                        id = when (tiers[tierIndex]) {
+                            SchoolTier.VOCATIONAL -> R.drawable.preview_tier_vocational
+                            SchoolTier.VOCATIONAL_BACHELOR -> R.drawable.preview_tier_vocbachelor
+                            SchoolTier.APPLIED -> R.drawable.preview_tier_applied
+                            SchoolTier.RESEARCH -> R.drawable.preview_tier_research
+                        }
+                    ),
+                    contentDescription = "校园预览",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(110.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 tiers.forEachIndexed { index, tier ->
                     OptionRow(
                         title = tier.displayName,
