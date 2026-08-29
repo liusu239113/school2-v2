@@ -348,6 +348,7 @@ fun CampusView(
                         onUpgradeFacility = { viewModel.upgradeFacility(building.facility?.id ?: "") },
                         onUpgradeCampus = { viewModel.upgradeCampus() },
                         onOpenTeaching = { onNavigateTo(40) },
+                        onOpenConference = { onNavigateTo(23) },
                         chainSummary = viewModel.libraryChainSummary(),
                         onMove = {
                             state.selectedPlaced?.let { placed ->
@@ -498,6 +499,7 @@ private fun BuildingPanelContent(
     onUpgradeFacility: () -> Unit,
     onUpgradeCampus: () -> Unit,
     onOpenTeaching: () -> Unit,
+    onOpenConference: () -> Unit = {},
     chainSummary: String = "",
     onMove: () -> Unit,
     onRemove: () -> Unit
@@ -557,6 +559,9 @@ private fun BuildingPanelContent(
                         color = Color(0xFF182635)
                     )
                     Text(facility.type.description, fontSize = 13.sp, color = Color(0xFF617386))
+                    if (facility.type == FacilityType.CONFERENCE_CENTER) {
+                        PanelButton("举办学术会议") { onOpenConference() }
+                    }
                     if (facility.type == FacilityType.LIBRARY && chainSummary.isNotEmpty()) {
                         Text(
                             chainSummary,

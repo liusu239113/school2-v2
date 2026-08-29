@@ -4001,6 +4001,38 @@ class GameEngine @Inject constructor(
                 android.util.Log.w("GameEngine", "Campus decoration satisfaction failed", it)
             }
 
+            // 大四学年事件：毕业设计（9月）/ 春季招聘会（3月）/ 论文答辩（5月）
+            runCatching {
+                val seniorCount = cachedActiveStudentsForMonth.count {
+                    it.gradeLevel == GradeLevel.GRADE_4
+                }
+                if (seniorCount > 0 && !isRetrySettlement) {
+                    when (school.currentMonth) {
+                        9 -> emitEvent(GameEvent.PositiveEvent(
+                            title = "毕业设计启动",
+                            message = seniorCount + "名大四学生进入毕业设计阶段，导师团队已分配选题。",
+                            bonusCash = 0.0,
+                            bonusReputation = 2L
+                        ), school)
+                        3 -> emitEvent(GameEvent.PositiveEvent(
+                            title = "春季招聘会",
+                            message = "春季双选会吸引多家企业进校，大四学生求职热情高涨，全校满意度小幅提升。",
+                            bonusCash = 0.0,
+                            bonusReputation = 3L,
+                            bonusTeacherSkill = 0f
+                        ), school)
+                        5 -> emitEvent(GameEvent.PositiveEvent(
+                            title = "论文答辩季",
+                            message = "毕业答辩有序进行，评审组对培养质量表示认可。",
+                            bonusCash = 0.0,
+                            bonusReputation = 4L
+                        ), school)
+                    }
+                }
+            }.onFailure {
+                android.util.Log.w("GameEngine", "Senior year events failed", it)
+            }
+
             // 采纳建议奖励：每采纳一条建议，全校满意度+1，声誉+3
             val resolvedCount = suggestionBoxManager.consumeResolvedCount()
             if (resolvedCount > 0) {

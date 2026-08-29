@@ -116,7 +116,7 @@ object FacilityBonusCalculator {
                     reputationGrowth += 0.08f * levelMultiplier
                     eventReward += 0.10f * levelMultiplier
                 }
-                FacilityType.EMPLOYMENT_CENTER -> enrollment += 0.06f * levelMultiplier
+                FacilityType.EMPLOYMENT_CENTER -> reputationGrowth += 0.06f * levelMultiplier
             }
         }
 

@@ -200,7 +200,7 @@ fun ExternalScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                "声誉 ${row.reputation}",
+                                "生${row.studentCount} · 声誉 ${row.reputation}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF617386)
                             )
