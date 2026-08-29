@@ -558,6 +558,12 @@ private fun getFacilityBonusLabels(facility: Facility): List<Pair<String, Color>
         FacilityType.DORMITORY -> {
             result.add("招生+${20 * lv}%" to Color(0xFF2196F3))
         }
+        FacilityType.CONFERENCE_CENTER -> {
+            result.add("声誉+${8 * lv}%" to Color(0xFF1E96C8))
+        }
+        FacilityType.EMPLOYMENT_CENTER -> {
+            result.add("招生+${6 * lv}%" to Color(0xFF2196F3))
+        }
         FacilityType.AUDITORIUM -> {
             result.add("事件+${20 * lv}%" to Color(0xFF00BCD4))
             result.add("声誉+${5 * lv}%" to Color(0xFFFFD700))

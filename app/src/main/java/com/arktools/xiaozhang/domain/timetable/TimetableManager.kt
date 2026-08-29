@@ -256,6 +256,7 @@ class TimetableManager @Inject constructor() {
             GradeLevel.GRADE_1 -> configuredPEHours.coerceIn(1, 5)
             GradeLevel.GRADE_2 -> (configuredPEHours - 1).coerceIn(1, 4)
             GradeLevel.GRADE_3 -> (configuredPEHours - 2).coerceIn(1, 3)
+            GradeLevel.GRADE_4 -> 1
         }
         val base = when (gradeLevel) {
             GradeLevel.GRADE_1 -> mutableMapOf(
@@ -263,6 +264,10 @@ class TimetableManager @Inject constructor() {
                 Subject.PHYSICS to 4, Subject.CHEMISTRY to 3, Subject.BIOLOGY to 3,
                 Subject.HISTORY to 3, Subject.GEOGRAPHY to 2, Subject.POLITICS to 2,
                 Subject.PE to peHours, Subject.ART to 2, Subject.MUSIC to 1
+            )
+            GradeLevel.GRADE_4 -> mutableMapOf(
+                Subject.CHINESE to 2, Subject.MATH to 2, Subject.ENGLISH to 3,
+                Subject.PE to 1
             )
             GradeLevel.GRADE_2 -> mutableMapOf(
                 Subject.CHINESE to 6, Subject.MATH to 7, Subject.ENGLISH to 5,

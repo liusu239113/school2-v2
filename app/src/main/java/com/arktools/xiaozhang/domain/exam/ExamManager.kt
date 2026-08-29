@@ -313,7 +313,7 @@ class ExamManager @Inject constructor() {
                 Subject.PHYSICS, Subject.CHEMISTRY, Subject.BIOLOGY,
                 Subject.HISTORY, Subject.GEOGRAPHY, Subject.POLITICS
             )
-            GradeLevel.GRADE_2, GradeLevel.GRADE_3 -> SubjectTrack.DEFAULT.subjects
+            GradeLevel.GRADE_2, GradeLevel.GRADE_3, GradeLevel.GRADE_4 -> SubjectTrack.DEFAULT.subjects
         }
         return when (examType) {
             ExamType.MONTHLY_TEST -> core

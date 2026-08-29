@@ -224,6 +224,8 @@ class PressureSystemManager @Inject constructor() {
     }
 
     private fun getMaintenanceDescription(type: FacilityType): String = when (type) {
+        FacilityType.CONFERENCE_CENTER -> listOf("会议厅音响系统故障", "同传设备需要检修", "会场地毯需要更换").random()
+        FacilityType.EMPLOYMENT_CENTER -> listOf("招聘信息屏故障", "面试间桌椅损坏", "就业档案柜需要更换").random()
         FacilityType.CLASSROOM -> listOf("教室天花板漏水需要修缮", "教室门窗老化需要更换", "教室地板开裂需要维修").random()
         FacilityType.MULTIMEDIA_ROOM -> listOf("投影仪故障需要维修", "多媒体设备老化需要升级", "音响系统故障").random()
         FacilityType.LABORATORY -> listOf("实验器材损耗需要补充", "实验室通风系统故障", "实验台面损坏需更换").random()

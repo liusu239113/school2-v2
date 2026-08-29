@@ -26,6 +26,8 @@ object FacilityImageHelper {
             FacilityType.AUDITORIUM -> R.drawable.facility_auditorium
             FacilityType.GARDEN -> R.drawable.facility_garden
             FacilityType.GATE -> R.drawable.facility_gate
+            FacilityType.CONFERENCE_CENTER -> R.drawable.bld_conference
+            FacilityType.EMPLOYMENT_CENTER -> R.drawable.bld_employment
         }
     }
 }

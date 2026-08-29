@@ -112,6 +112,11 @@ object FacilityBonusCalculator {
                 }
                 FacilityType.GARDEN -> loyaltyDecay += 0.20f * levelMultiplier
                 FacilityType.GATE -> reputationGrowth += 0.10f * levelMultiplier
+                FacilityType.CONFERENCE_CENTER -> {
+                    reputationGrowth += 0.08f * levelMultiplier
+                    eventReward += 0.10f * levelMultiplier
+                }
+                FacilityType.EMPLOYMENT_CENTER -> enrollment += 0.06f * levelMultiplier
             }
         }
 

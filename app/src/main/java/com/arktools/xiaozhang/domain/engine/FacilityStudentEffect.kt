@@ -52,6 +52,19 @@ object FacilityStudentEffect {
             val effectivePower = power * conditionFactor
 
             when (facility.type) {
+                FacilityType.CONFERENCE_CENTER -> {
+                    // 会议中心: 学术讲座与志愿接待 → 社交/品德小幅成长
+                    attrs = attrs.applyDelta(
+                        dSocial = effectivePower * 0.10f * traitMods.socialMod,
+                        dMorality = effectivePower * 0.05f * traitMods.moralityMod
+                    )
+                }
+                FacilityType.EMPLOYMENT_CENTER -> {
+                    // 就业指导中心: 职业规划辅导 → 社交成长
+                    attrs = attrs.applyDelta(
+                        dSocial = effectivePower * 0.12f * traitMods.socialMod
+                    )
+                }
                 FacilityType.CANTEEN -> {
                     // 食堂: 体力恢复 + 社交（吃饭聊天） + 饮食质量
                     mealQ = (mealQ + effectivePower * CANTEEN_MEAL_QUALITY_GAIN).coerceAtMost(100f)
