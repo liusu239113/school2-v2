@@ -7,8 +7,6 @@ import java.util.UUID
 /**
  * 班型 - 学校的核心分层机制
  */
-typealias CourseScale = ClassTier
-
 enum class ClassTier(
     val displayName: String,
     val maxSize: Int,

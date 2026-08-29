@@ -4010,7 +4010,7 @@ class GameEngine @Inject constructor(
                     when (school.currentMonth) {
                         9 -> emitEvent(GameEvent.PositiveEvent(
                             title = "毕业设计启动",
-                            message = seniorCount + "名大四学生进入毕业设计阶段，导师团队已分配选题。",
+                            message = "${seniorCount}名大四学生进入毕业设计阶段，导师团队已分配选题。",
                             bonusCash = 0.0,
                             bonusReputation = 2L
                         ), school)
@@ -4018,8 +4018,7 @@ class GameEngine @Inject constructor(
                             title = "春季招聘会",
                             message = "春季双选会吸引多家企业进校，大四学生求职热情高涨，全校满意度小幅提升。",
                             bonusCash = 0.0,
-                            bonusReputation = 3L,
-                            bonusTeacherSkill = 0f
+                            bonusReputation = 3L
                         ), school)
                         5 -> emitEvent(GameEvent.PositiveEvent(
                             title = "论文答辩季",
