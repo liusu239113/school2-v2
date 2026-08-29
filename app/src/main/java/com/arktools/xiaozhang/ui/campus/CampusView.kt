@@ -153,7 +153,7 @@ fun CampusView(
         }
 
         // 进入摆放/铺装/搬移模式时，幽灵自动出现在屏幕中心的格子，立刻可见
-        LaunchedEffect2(inPlacementMode, pendingSpec, pendingTile, moveTarget) {
+        LaunchedEffect2(listOf(inPlacementMode, pendingSpec, pendingTile, moveTarget)) {
             if (inPlacementMode && ghost == null) {
                 val world = Offset(screenW / 2f, screenH / 2f) - camera
                 val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
