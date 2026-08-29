@@ -26,6 +26,9 @@ class MenuViewModel @Inject constructor(
     private val _hasSaveData = MutableStateFlow(false)
     val hasSaveData: StateFlow<Boolean> = _hasSaveData.asStateFlow()
 
+    private val _saveSummary = MutableStateFlow<String?>(null)
+    val saveSummary: StateFlow<String?> = _saveSummary.asStateFlow()
+
     init {
         audioManager.init()
         refreshState()
