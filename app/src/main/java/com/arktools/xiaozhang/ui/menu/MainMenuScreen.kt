@@ -95,6 +95,7 @@ fun MainMenuScreen(
         when (MenuState.entries[menuState]) {
             MenuState.TITLE -> TitleScreen(
                 hasSaveData = hasSaveData,
+                saveSummary = saveSummary,
                 onNewGame = { menuState = MenuState.NEW_GAME.ordinal },
                 onContinue = onContinueGame,
                 onSettings = onOpenSettings
@@ -110,6 +111,7 @@ fun MainMenuScreen(
 @Composable
 private fun TitleScreen(
     hasSaveData: Boolean,
+    saveSummary: String? = null,
     onNewGame: () -> Unit,
     onContinue: () -> Unit,
     onSettings: () -> Unit
