@@ -43,7 +43,9 @@ class MenuViewModel @Inject constructor(
                 school = runCatching { schoolRepository.getSchool() }.getOrNull()
             }
             if (school != null) {
-                _saveSummary.value = school.name + " · Lv." + school.campusLevel + " · " + school.currentYear + "年" + school.currentMonth + "月"
+                val typeSummary = com.arktools.xiaozhang.domain.model.schoolTier(school).displayName +
+                    "·" + com.arktools.xiaozhang.domain.model.schoolOwnership(school).displayName
+                _saveSummary.value = school.name + " · " + typeSummary + " · Lv." + school.campusLevel + " · " + school.currentYear + "年" + school.currentMonth + "月"
                 // 兜底同步 schoolId：旧版本存档可能没记录 schoolId，
                 // 不同步会导致学生/教师/课程按 schoolId 过滤后全部显示为 0。
                 val savedSchoolId = settingsDataStore.getSchoolId()

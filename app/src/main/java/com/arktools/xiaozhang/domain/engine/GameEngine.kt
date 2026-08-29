@@ -4,6 +4,10 @@ import com.arktools.xiaozhang.domain.model.StatisticsManager
 import com.arktools.xiaozhang.domain.model.CourseProject
 import com.arktools.xiaozhang.domain.model.CourseStatus
 import com.arktools.xiaozhang.domain.model.ClassTier
+import com.arktools.xiaozhang.domain.model.SchoolOwnership
+import com.arktools.xiaozhang.domain.model.SchoolTier
+import com.arktools.xiaozhang.domain.model.schoolOwnership
+import com.arktools.xiaozhang.domain.model.schoolTier
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
 import com.arktools.xiaozhang.domain.model.FacilityType
@@ -94,13 +98,15 @@ internal fun isStudentGraduationDue(
     gradeLevel: GradeLevel,
     enrollYear: Int,
     processingYear: Int,
-    processingMonth: Int
+    processingMonth: Int,
+    graduationGrade: GradeLevel = GradeLevel.GRADE_4
 ): Boolean {
-    if (gradeLevel != GradeLevel.GRADE_4) return false
+    if (gradeLevel != graduationGrade) return false
     if (enrollYear <= 0) return processingMonth >= 6
+    val spanYears = graduationGrade.order - 1
     val enrolledYears = processingYear - enrollYear
-    return enrolledYears > 3 ||
-        (enrolledYears == 3 && processingMonth >= 6)
+    return enrolledYears > spanYears ||
+        (enrolledYears == spanYears && processingMonth >= 6)
 }
 
 data class ManagedOperationResult(
@@ -458,6 +464,14 @@ class GameEngine @Inject constructor(
         engineOperationMutex.withLock {
             if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
                 return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            // 办学层次限制：专科只能开设职业学院目录内的学院，升格本科后全部开放
+            val currentTier = schoolRepository.getSchool()?.schoolTier()
+            if (currentTier != null && !currentTier.allowsCollege(type.name)) {
+                return@withLock ManagedOperationResult(
+                    false,
+                    "专科层次暂不能成立${type.displayName}。升格为本科院校后开放（声誉≥1000 · 校园≥2级 · 经费≥200万 · 在校生≥200人）"
+                )
             }
             val snapshot = policyManager.toJson()
             var foundedName = type.displayName
@@ -4084,22 +4098,24 @@ class GameEngine @Inject constructor(
                 android.util.Log.w("GameEngine", "Campus decoration satisfaction failed", it)
             }
 
-            // 大四学年事件：毕业设计（9月）/ 春季招聘会（3月）/ 论文答辩（5月）
+            // 毕业年级事件：毕业设计（9月）/ 春季招聘会（3月）/ 论文答辩（5月）
             runCatching {
+                val gradTier = school.schoolTier()
+                val seniorGradeName = if (gradTier == SchoolTier.VOCATIONAL) "大三" else "大四"
                 val seniorCount = st.cachedActiveStudentsForMonth.count {
-                    it.gradeLevel == GradeLevel.GRADE_4
+                    it.gradeLevel == gradTier.graduationGrade
                 }
                 if (seniorCount > 0 && !st.isRetrySettlement) {
                     when (school.currentMonth) {
                         9 -> emitEvent(GameEvent.PositiveEvent(
                             title = "毕业设计启动",
-                            message = "${seniorCount}名大四学生进入毕业设计阶段，导师团队已分配选题。",
+                            message = "${seniorCount}名${seniorGradeName}学生进入${if (gradTier == SchoolTier.VOCATIONAL) "顶岗实习与毕业设计" else "毕业设计"}阶段，导师团队已分配选题。",
                             bonusCash = 0.0,
                             bonusReputation = 2L
                         ), school)
                         3 -> emitEvent(GameEvent.PositiveEvent(
                             title = "春季招聘会",
-                            message = "春季双选会吸引多家企业进校，大四学生求职热情高涨，全校满意度小幅提升。",
+                            message = "春季双选会吸引多家企业进校，${seniorGradeName}学生求职热情高涨，全校满意度小幅提升。",
                             bonusCash = 0.0,
                             bonusReputation = 3L
                         ), school)
@@ -4149,11 +4165,12 @@ class GameEngine @Inject constructor(
                 com.arktools.xiaozhang.domain.government.GovernmentMonthResult()
             }
             if (govResult.subsidy > 0) {
-                schoolRepository.addCash(govResult.subsidy)
-                st.incGovSubsidy += govResult.subsidy
+                val subsidyAmount = govResult.subsidy * school.schoolOwnership().govSubsidyMultiplier
+                schoolRepository.addCash(subsidyAmount)
+                st.incGovSubsidy += subsidyAmount
                 emitEvent(GameEvent.PositiveEvent(
                     title = "政府补贴",
-                    message = "获得年度补贴 ¥${String.format("%,.0f", govResult.subsidy)}",
+                    message = "获得年度补贴 ¥${String.format("%,.0f", subsidyAmount)}",
                     bonusCash = 0.0,  // 效果已在上方直接应用，事件仅作通知
                     bonusReputation = 0
                 ), school)
@@ -4212,6 +4229,22 @@ class GameEngine @Inject constructor(
                         message = "本期共${scholarshipResult.newRecipients}名学生获得奖学金，总额 ¥${String.format("%,.0f", scholarshipResult.expenses)}",
                         bonusCash = 0.0,
                         bonusReputation = scholarshipResult.newRecipients.toLong()
+                    ), school)
+                }
+            }
+
+            // 公办院校生均财政拨款：按月拨付（民办为 0），重试月结不重复发放
+            if (school.schoolOwnership() == SchoolOwnership.PUBLIC && !st.isRetrySettlement) {
+                val grant = st.cachedActiveStudentsForMonth.size *
+                    school.schoolOwnership().monthlyGrantPerStudent
+                if (grant > 0) {
+                    schoolRepository.addCash(grant)
+                    st.incGovSubsidy += grant
+                    deferEvent(GameEvent.PositiveEvent(
+                        title = "财政拨款到账",
+                        message = "本月生均财政拨款 ¥${String.format("%,.0f", grant * 10000)} 已拨付到账（公办院校按月发放）。",
+                        bonusCash = 0.0,  // 效果已在上方直接应用，事件仅作通知
+                        bonusReputation = 0
                     ), school)
                 }
             }
@@ -5042,6 +5075,39 @@ class GameEngine @Inject constructor(
                 throw e
             }
 
+            // 专科长线目标：办学声誉、校园规模、经费与在校生规模达标后，升格为应用型本科
+            try {
+                val currentTier = updatedSchool.schoolTier()
+                if (currentTier.canPromote && !st.isRetrySettlement) {
+                    val studentCountNow = st.cachedActiveStudentsForMonth.size
+                    val promotionReady = updatedSchool.reputation >= 1000 &&
+                        updatedSchool.campusLevel >= 2 &&
+                        updatedSchool.cash >= 200 &&
+                        studentCountNow >= 200
+                    if (promotionReady) {
+                        val promoted = schoolRepository.mutateSchool { latest ->
+                            if (SchoolTier.fromKey(latest.tierKey).canPromote) {
+                                latest.tierKey = SchoolTier.APPLIED.key
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        if (promoted != null) {
+                            emitEvent(GameEvent.MilestoneEvent(
+                                title = "升格成功：正式获批本科院校",
+                                message = "经省教育厅专家评审，${updatedSchool.name}正式升格为应用型本科院校。" +
+                                    "学制延长为四年，全部学院向你们开放，科研与竞赛舞台也更广阔了。" +
+                                    "（声誉≥1000 · 校园≥2级 · 经费≥200万 · 在校生≥200人）",
+                                milestoneType = com.arktools.xiaozhang.domain.model.MilestoneType.MARKET_CAP_MILESTONE
+                            ), updatedSchool)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GameEngine", "Tier promotion check failed", e)
+            }
+
             // 仅清理具有明确终态年份的旧记录；NULL 历史记录保留，避免误删。
             studentRepository.cleanupOldRecords(
                 beforeYear = school.currentYear - 5
@@ -5651,7 +5717,9 @@ class GameEngine @Inject constructor(
 
         val activeStudentCount = studentRepository.getActiveStudentCount()
         val tuitionPerStudent = GameBalanceConfig.MONTHLY_TUITION_PER_STUDENT *
-            GameBalanceConfig.getTuitionMultiplier(school.campusLevel)
+            GameBalanceConfig.getTuitionMultiplier(school.campusLevel) *
+            school.schoolTier().tuitionMultiplier *
+            school.schoolOwnership().tuitionMultiplier
         val totalMonthlyRevenue =
             activeStudentCount * tuitionPerStudent * revenueMultiplier
 
@@ -6315,6 +6383,7 @@ class GameEngine @Inject constructor(
         val rawEnroll = (baseEnroll * reputationFactor * (1f + dimBonus) * policyEffects.enrollmentMultiplier *
                 (1f + alumniBonus) * (1f + scholarshipBonus) * marketingEnrollBonus.toFloat()
                 * pressureEnrollMultiplier * connectionEnrollBonus * facilityEnrollMultiplier
+                * school.schoolTier().enrollmentMultiplier * school.schoolOwnership().enrollmentMultiplier
                 + employmentBonus).toInt()
         val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(1, gradeCapacity)
         // 大一可能因转入/异常流程提前出现少量学生；九月招生按当前真实大一人数补齐。
@@ -6349,10 +6418,12 @@ class GameEngine @Inject constructor(
                 welfareBackground != null && Random.nextFloat() < 0.55f
             ) welfareBackground else BackgroundTier.randomByProbability()
             val initialAttributes = StudentAttributes.generateForNewStudent(background)
+            // 生源质量：招生政策定位 × 办学层次（专科生源基础较弱、本科标准）
+            val combinedQuality = qualityFactor * school.schoolTier().studentQualityFactor
             val qualityAttributes = initialAttributes.applyDelta(
-                dIntelligence = (qualityFactor - 1f) * 20f,
-                dPhysical = (qualityFactor - 1f) * 10f,
-                dCreativity = (qualityFactor - 1f) * 10f
+                dIntelligence = (combinedQuality - 1f) * 20f,
+                dPhysical = (combinedQuality - 1f) * 10f,
+                dCreativity = (combinedQuality - 1f) * 10f
             )
             val track = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickFreshmanTrack(
                 weights = policyManager.policies.value.admissionTrackPlan,
@@ -6478,13 +6549,15 @@ class GameEngine @Inject constructor(
     private fun isGraduationDue(
         student: Student,
         processingYear: Int,
-        processingMonth: Int
+        processingMonth: Int,
+        graduationGrade: GradeLevel = GradeLevel.GRADE_4
     ): Boolean {
         return isStudentGraduationDue(
             gradeLevel = student.gradeLevel,
             enrollYear = student.enrollYear,
             processingYear = processingYear,
-            processingMonth = processingMonth
+            processingMonth = processingMonth,
+            graduationGrade = graduationGrade
         )
     }
 
@@ -6501,7 +6574,8 @@ class GameEngine @Inject constructor(
             isGraduationDue(
                 student = student,
                 processingYear = school.currentYear,
-                processingMonth = school.currentMonth
+                processingMonth = school.currentMonth,
+                graduationGrade = school.schoolTier().graduationGrade
             )
         }
         val overdueGraduateIds = overdueGraduates
@@ -6519,7 +6593,8 @@ class GameEngine @Inject constructor(
             pendingYearEndStudents,
             currentClasses,
             school.id,
-            school.currentYear
+            school.currentYear,
+            school.schoolTier().graduationGrade
         )
         val studentsById = pendingYearEndStudents.associateBy { it.id }
         val promotedStudents = promotionResult.promotedStudents
@@ -6763,12 +6838,13 @@ class GameEngine @Inject constructor(
         val grade3Students = if (graduatingStudentIds != null) {
             activeStudents.filter { it.id in graduatingStudentIds }
         } else {
-            activeStudents.filter { it.gradeLevel == GradeLevel.GRADE_4 }
+            activeStudents.filter { it.gradeLevel == school.schoolTier().graduationGrade }
         }.filter { student ->
             isGraduationDue(
                 student = student,
                 processingYear = school.currentYear,
-                processingMonth = school.currentMonth
+                processingMonth = school.currentMonth,
+                graduationGrade = school.schoolTier().graduationGrade
             )
         }
         if (grade3Students.isEmpty()) return
@@ -6942,7 +7018,8 @@ class GameEngine @Inject constructor(
                             isGraduationDue(
                                 student = student,
                                 processingYear = graduationYear,
-                                processingMonth = 6
+                                processingMonth = 6,
+                                graduationGrade = school.schoolTier().graduationGrade
                             )
                     }
                     val earliestPendingSettlementYear = alumniNetwork

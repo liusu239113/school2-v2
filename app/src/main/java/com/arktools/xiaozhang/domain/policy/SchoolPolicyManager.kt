@@ -105,20 +105,26 @@ class SchoolPolicyManager @Inject constructor(
      * 应用办学风格：理工/人文免费赠送对应学院；综合返回 50 万启动经费加成。
      * 在新学校创建完成后调用一次。
      */
-    fun applyFoundingStyle(key: String): Double {
+    fun applyFoundingStyle(key: String, allowedColleges: Set<String>? = null): Double {
         val dev = _policies.value.collegeDevelopment
         val gift: CollegeType? = when (key) {
             "TECH" -> CollegeType.SCIENCE
             "HUMAN" -> CollegeType.LIBERAL_ARTS
             else -> null
         }
-        val newFounded = if (gift != null && dev.founded.contains(gift).not()) {
+        // 办学层次限制：赠送学院不在专科目录内时折算为等额开办经费
+        val giftAllowed = gift == null || allowedColleges == null || gift.name in allowedColleges
+        val newFounded = if (gift != null && giftAllowed && dev.founded.contains(gift).not()) {
             dev.founded + gift
         } else dev.founded
         _policies.value = _policies.value.copy(
             collegeDevelopment = dev.copy(foundingStyle = key, founded = newFounded)
         )
-        return if (key == "BALANCED") 50.0 else 0.0
+        return when {
+            key == "BALANCED" -> 50.0
+            gift != null && !giftAllowed -> gift.foundingCostWan
+            else -> 0.0
+        }
     }
 
     fun replaceCollegeDevelopment(dev: CollegeDevelopment) {

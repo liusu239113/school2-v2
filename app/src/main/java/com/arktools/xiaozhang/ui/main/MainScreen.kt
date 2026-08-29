@@ -484,10 +484,10 @@ fun MainScreen(
         MainMenuScreen(
             hasSaveData = hasSaveData,
             saveSummary = menuViewModel.saveSummary.collectAsState().value,
-            onNewGame = { name, principalName, style ->
+            onNewGame = { name, principalName, tierKey, ownershipKey, style ->
                 menuViewModel.playClickSound()
                 menuViewModel.stopMenuBgm()
-                viewModel.newGame(name, principalName, style.key)
+                viewModel.newGame(name, principalName, tierKey, ownershipKey, style.key)
 
             },
             onContinueGame = {

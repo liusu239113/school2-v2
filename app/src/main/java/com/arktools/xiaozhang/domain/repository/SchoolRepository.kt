@@ -7,7 +7,12 @@ interface SchoolRepository {
     fun getSchoolFlow(): Flow<School?>
     suspend fun getSchool(): School?
     suspend fun createSchool(name: String): School
-    suspend fun createNewSchool(name: String, principalName: String = "张校长"): School
+    suspend fun createNewSchool(
+        name: String,
+        principalName: String = "张校长",
+        tierKey: String = "APPLIED",
+        ownershipKey: String = "PRIVATE"
+    ): School
     suspend fun updateSchool(school: School)
     suspend fun advanceDay()
     suspend fun addCash(amount: Double)

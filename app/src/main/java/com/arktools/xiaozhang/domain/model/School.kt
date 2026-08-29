@@ -7,6 +7,8 @@ data class School(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "新星学校",
     val principalName: String = "张校长",
+    var tierKey: String = com.arktools.xiaozhang.domain.model.SchoolTier.APPLIED.key,       // 办学层次（专科/本科）
+    var ownershipKey: String = com.arktools.xiaozhang.domain.model.SchoolOwnership.PRIVATE.key, // 办学性质（公办/民办）
     var cash: Double = com.arktools.xiaozhang.domain.engine.GameBalanceConfig.INITIAL_CASH,
     var marketCap: Double = 100.0,
     var reputation: Long = com.arktools.xiaozhang.domain.engine.GameBalanceConfig.INITIAL_REPUTATION,

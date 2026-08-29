@@ -449,7 +449,8 @@ class ClassManager @Inject constructor() {
         students: List<Student>,
         classes: MutableList<SchoolClass>,
         schoolId: String,
-        currentYear: Int
+        currentYear: Int,
+        graduationGrade: GradeLevel = GradeLevel.GRADE_4
     ): PromotionResult {
         val promoted = mutableListOf<String>()
         val heldBack = mutableListOf<String>()
@@ -461,8 +462,8 @@ class ClassManager @Inject constructor() {
 
         for (student in activeStudents) {
             when {
-                // 大四毕业
-                student.gradeLevel == GradeLevel.GRADE_4 -> {
+                // 毕业年级毕业（本科大四 / 专科大三，按学校办学层次）
+                student.gradeLevel == graduationGrade -> {
                     graduated.add(student.id)
                 }
                 // 成绩极差留级（学期掌握度>30表示已上课足够久，排除新入学的学生）

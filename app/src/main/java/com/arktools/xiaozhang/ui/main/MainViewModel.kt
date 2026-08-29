@@ -384,7 +384,13 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun newGame(schoolName: String, principalName: String, foundingStyle: String? = null) {
+    fun newGame(
+        schoolName: String,
+        principalName: String,
+        tierKey: String = "APPLIED",
+        ownershipKey: String = "PRIVATE",
+        foundingStyle: String? = null
+    ) {
         viewModelScope.safeLaunch {
             try {
                 val school = persistenceCoordinator.runExclusiveDestructiveOperation(
@@ -393,7 +399,9 @@ class MainViewModel @Inject constructor(
                     gameEngine.stopAndJoin()
                     val created = schoolRepository.createNewSchool(
                         schoolName,
-                        principalName
+                        principalName,
+                        tierKey,
+                        ownershipKey
                     )
                     gameEngine.resetForNewGame()
                     created
@@ -402,7 +410,9 @@ class MainViewModel @Inject constructor(
                 // 默认科研数据在新学校事务提交后初始化；失败不会影响已创建学校或旧档保护快照。
                 researchRepository.initializeDefaultMethods(school.id)
                 if (foundingStyle != null) {
-                    val bonus = policyManager.applyFoundingStyle(foundingStyle)
+                    val allowed = com.arktools.xiaozhang.domain.model.SchoolTier
+                        .fromKey(tierKey).allowedColleges
+                    val bonus = policyManager.applyFoundingStyle(foundingStyle, allowed)
                     if (bonus > 0) {
                         schoolRepository.mutateSchool { s ->
                             s.cash += bonus

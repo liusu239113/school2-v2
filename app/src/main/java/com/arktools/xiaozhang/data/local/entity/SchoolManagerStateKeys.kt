@@ -33,4 +33,6 @@ object SchoolManagerStateKeys {
     const val CLASS_TIER_MAP = "classTierMapJson"
     const val PRINCIPAL = "principalJson"
     const val SUGGESTION_BOX = "suggestionBoxJson"
+    const val TIER_KEY = "tierKey"
+    const val OWNERSHIP_KEY = "ownershipKey"
 }

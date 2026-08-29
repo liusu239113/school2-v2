@@ -84,12 +84,20 @@ class SchoolRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createNewSchool(name: String, principalName: String): School = withSchoolLock {
+    override suspend fun createNewSchool(
+        name: String,
+        principalName: String,
+        tierKey: String,
+        ownershipKey: String
+    ): School = withSchoolLock {
         inWriteTransaction {
+            val tier = com.arktools.xiaozhang.domain.model.SchoolTier.fromKey(tierKey)
             val school = School(
                 name = name,
                 principalName = principalName,
-                cash = GameBalanceConfig.INITIAL_CASH,
+                tierKey = tier.key,
+                ownershipKey = com.arktools.xiaozhang.domain.model.SchoolOwnership.fromKey(ownershipKey).key,
+                cash = tier.startCash,
                 reputation = GameBalanceConfig.INITIAL_REPUTATION,
                 campusLevel = GameBalanceConfig.INITIAL_CAMPUS_LEVEL,
                 maxTeachers = GameBalanceConfig.INITIAL_MAX_TEACHERS,
@@ -364,7 +372,9 @@ class SchoolRepositoryImpl @Inject constructor(
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.EMPLOYMENT, school.employmentJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.HEAD_TEACHER_MAP, school.headTeacherMapJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.CLASS_TIER_MAP, school.classTierMapJson, now),
-            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.SUGGESTION_BOX, school.suggestionBoxJson, now)
+            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.SUGGESTION_BOX, school.suggestionBoxJson, now),
+            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.TIER_KEY, school.tierKey, now),
+            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.OWNERSHIP_KEY, school.ownershipKey, now)
         )
     }
 
@@ -378,6 +388,12 @@ class SchoolRepositoryImpl @Inject constructor(
             id = id,
             name = name,
             principalName = principalName,
+            tierKey = state(SchoolManagerStateKeys.TIER_KEY).ifEmpty {
+                com.arktools.xiaozhang.domain.model.SchoolTier.APPLIED.key
+            },
+            ownershipKey = state(SchoolManagerStateKeys.OWNERSHIP_KEY).ifEmpty {
+                com.arktools.xiaozhang.domain.model.SchoolOwnership.PRIVATE.key
+            },
             cash = cash,
             marketCap = marketCap,
             reputation = reputation,

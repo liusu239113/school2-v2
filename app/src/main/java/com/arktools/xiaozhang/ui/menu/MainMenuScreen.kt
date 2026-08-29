@@ -36,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.arktools.xiaozhang.domain.model.SchoolOwnership
+import com.arktools.xiaozhang.domain.model.SchoolTier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +79,7 @@ enum class FoundingStyle(val key: String, val displayName: String, val detail: S
 fun MainMenuScreen(
     hasSaveData: Boolean,
     saveSummary: String? = null,
-    onNewGame: (schoolName: String, principalName: String, style: FoundingStyle) -> Unit,
+    onNewGame: (schoolName: String, principalName: String, tierKey: String, ownershipKey: String, style: FoundingStyle) -> Unit,
     onContinueGame: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -254,14 +256,18 @@ private fun PixelMenuButton(
 
 @Composable
 private fun NewGamePanel(
-    onConfirm: (schoolName: String, principalName: String, style: FoundingStyle) -> Unit,
+    onConfirm: (schoolName: String, principalName: String, tierKey: String, ownershipKey: String, style: FoundingStyle) -> Unit,
     onBack: () -> Unit
 ) {
     var schoolName by rememberSaveable { mutableStateOf("") }
     var principalName by rememberSaveable { mutableStateOf("") }
+    var tierIndex by rememberSaveable { mutableIntStateOf(1) }   // 默认应用型本科
+    var ownershipIndex by rememberSaveable { mutableIntStateOf(1) } // 默认民办
     var styleIndex by rememberSaveable { mutableIntStateOf(0) }
     var visible by remember { mutableStateOf(false) }
 
+    val tiers = SchoolTier.entries
+    val ownerships = SchoolOwnership.entries
     val styles = FoundingStyle.entries
 
     LaunchedEffect(Unit) {
@@ -338,42 +344,51 @@ private fun NewGamePanel(
                 )
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // 第 2 步：办学风格
-                StepLabel("② 办学风格（开局加成）")
+                // 第 2 步：办学层次
+                StepLabel("② 办学层次（决定学制与玩法）")
+                tiers.forEachIndexed { index, tier ->
+                    OptionRow(
+                        title = tier.displayName,
+                        detail = tier.detail,
+                        selected = tierIndex == index,
+                        onClick = { tierIndex = index }
+                    )
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // 第 3 步：办学性质
+                StepLabel("③ 办学性质（财政与压力）")
+                ownerships.forEachIndexed { index, ownership ->
+                    OptionRow(
+                        title = ownership.displayName,
+                        detail = ownership.detail,
+                        selected = ownershipIndex == index,
+                        onClick = { ownershipIndex = index }
+                    )
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // 第 4 步：办学风格
+                StepLabel("④ 办学风格（开局加成）")
                 styles.forEachIndexed { index, style ->
-                    val selected = styleIndex == index
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(if (selected) Color(0xFF14648C) else Color(0xFF0B2038))
-                            .clickable { styleIndex = index }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                style.displayName,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (selected) Color.White else Color(0xFFB8C7D6)
-                            )
-                            Text(
-                                style.detail,
-                                fontSize = 11.sp,
-                                color = Color(0xFFB8C7D6)
-                            )
-                        }
-                        if (selected) {
-                            Text("✓", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    OptionRow(
+                        title = style.displayName,
+                        detail = style.detail,
+                        selected = styleIndex == index,
+                        onClick = { styleIndex = index }
+                    )
                 }
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Button(
                     onClick = {
-                        onConfirm(schoolName.trim(), principalName.trim(), styles[styleIndex])
+                        onConfirm(
+                            schoolName.trim(),
+                            principalName.trim(),
+                            tiers[tierIndex].key,
+                            ownerships[ownershipIndex].key,
+                            styles[styleIndex]
+                        )
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     enabled = schoolName.isNotBlank() && principalName.isNotBlank(),
@@ -404,4 +419,39 @@ private fun StepLabel(text: String) {
             .padding(bottom = 6.dp),
         textAlign = TextAlign.Start
     )
+}
+
+@Composable
+private fun OptionRow(
+    title: String,
+    detail: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (selected) Color(0xFF14648C) else Color(0xFF0B2038))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (selected) Color.White else Color(0xFFB8C7D6)
+            )
+            Text(
+                detail,
+                fontSize = 11.sp,
+                color = Color(0xFFB8C7D6)
+            )
+        }
+        if (selected) {
+            Text("✓", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+    }
+    Spacer(modifier = Modifier.height(6.dp))
 }
