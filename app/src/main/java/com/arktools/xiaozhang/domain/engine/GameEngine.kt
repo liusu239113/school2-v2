@@ -3102,13 +3102,14 @@ class GameEngine @Inject constructor(
         var seasonalExpenses = 0.0
         var totalMonthlyIncome = 0.0
         var revenue = 0.0
-        var teacherAvgSkill = 0.0
+        var teacherAvgSkill = 0f
         var expenseBreakdown = MonthlyExpenseBreakdown(0.0, 0.0, 0.0, 0.0)
         var allTeachersCache: List<Teacher> = emptyList()
         var allCurrentStudents: List<Student> = emptyList()
         var teachers: List<Teacher> = emptyList()
         var cachedTeachersForMonth: List<Teacher> = emptyList()
         var cachedActiveStudentsForMonth: List<Student> = emptyList()
+        lateinit var employmentResult: com.arktools.xiaozhang.domain.employment.EmploymentMonthlyResult
         var currentClasses: MutableList<SchoolClass> = mutableListOf()
         var studentCount: Int = 0
     }
@@ -3498,7 +3499,7 @@ class GameEngine @Inject constructor(
             // 学术会议对就业的累积加成
             val academicEmploymentBoost = academicConferenceManager.getCurrentEmploymentBoost()
             val totalGovBoost = govBoostForEmployment + academicEmploymentBoost
-            val employmentResult = employmentMarket.advanceMonth(
+            st.employmentResult = employmentMarket.advanceMonth(
                 school.reputation.toLong(), school.currentYear, school.currentMonth,
                 governmentBoostFactor = totalGovBoost,
                 schoolLevel = school.campusLevel
@@ -3509,10 +3510,10 @@ class GameEngine @Inject constructor(
                 schoolRepository.deductCash(programCost)
                 st.expCareerProgram += programCost
             }
-            if (employmentResult.reputationBonus > 0) {
-                schoolRepository.addReputation(employmentResult.reputationBonus.toLong())
+            if (st.employmentResult.reputationBonus > 0) {
+                schoolRepository.addReputation(st.employmentResult.reputationBonus.toLong())
             }
-            employmentResult.events.forEach { empEvent ->
+            st.employmentResult.events.forEach { empEvent ->
                 when (empEvent) {
                     is com.arktools.xiaozhang.domain.employment.EmploymentEvent.UniversityGraduation -> {
                         emitEvent(GameEvent.PositiveEvent(
@@ -3572,7 +3573,7 @@ class GameEngine @Inject constructor(
             val repResult = reputationManager.advanceMonth(
                 school.reputation, avgTeacherQuality, facilityConditionFactor, studentSat,
                 school.currentYear, school.currentMonth,
-                employmentRate = employmentResult.currentEmploymentRate,
+                employmentRate = st.employmentResult.currentEmploymentRate,
                 governmentGradeOrdinal = currentGovGradeOrdinal,
                 schoolLevel = school.campusLevel,
                 teachingQualityBonus = teachingManager.config.overallQuality(avgTeacherQuality),
@@ -4136,7 +4137,7 @@ class GameEngine @Inject constructor(
                     school.reputation.toLong(), st.cachedTeachersForMonth.size, teacherAvgSkill,
                     st.cachedActiveStudentsForMonth.size, avgSatisfaction, facilityCondition,
                     school.cash, st.monthlyRevenue,
-                    employmentRate = employmentResult.currentEmploymentRate,
+                    employmentRate = st.employmentResult.currentEmploymentRate,
                     schoolLevel = school.campusLevel,
                     teachingQualityScore = (
                         teachingManager.config.overallQuality(teacherAvgSkill) +
