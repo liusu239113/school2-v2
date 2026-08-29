@@ -3252,7 +3252,7 @@ class GameEngine @Inject constructor(
             try {
                 val processedClasses = processStudentYearEnd(
                     school = school,
-                    st.currentClasses = _classes.value
+                    currentClasses = _classes.value
                         .map { it.copy() }
                         .toMutableList(),
                     currentStudents = st.allCurrentStudents,
