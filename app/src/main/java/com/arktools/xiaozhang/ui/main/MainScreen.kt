@@ -181,6 +181,7 @@ fun MainScreen(
     var showConfetti by remember { mutableStateOf(false) }
     var showTutorial by rememberSaveable { mutableStateOf(false) }
     val tutorialManager = remember { TutorialManager() }
+    val storyTutorialPending by viewModel.storyTutorialPending.collectAsState()
     val unreadCount by notificationViewModel.unreadCount.collectAsState()
     val gameSpeed by viewModel.gameSpeed.collectAsState()
     val showSpeedAdDialog by viewModel.showSpeedAdDialog.collectAsState()
@@ -320,6 +321,15 @@ fun MainScreen(
                     ComplianceManager.startup(activity, userId)
                 }
             }
+        }
+    }
+
+    // 新档启动或设置页重玩：挂上剧情教程
+    LaunchedEffect(storyTutorialPending, isGameRunning) {
+        if (isGameRunning && storyTutorialPending) {
+            tutorialManager.reset()
+            showTutorial = true
+            viewModel.consumeStoryTutorialPending()
         }
     }
 
@@ -890,6 +900,18 @@ fun MainScreen(
     }
 
     AdLoadingOverlay(visible = isAdLoading)
+
+    if (showTutorial && tutorialManager.isActive) {
+        TutorialOverlay(
+            tutorialManager = tutorialManager,
+            onDismiss = {
+                showTutorial = false
+                viewModel.grantSkipTutorialRewards()
+                viewModel.setEventsSuppressed(false)
+                viewModel.resumeGame()
+            }
+        )
+    }
 }
 
 @Composable

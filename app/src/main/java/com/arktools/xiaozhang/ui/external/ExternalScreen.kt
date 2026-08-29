@@ -159,9 +159,15 @@ fun ExternalScreen(
         item {
             Text("外联", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(
-                "大学排名 · 校际学科竞赛",
+                "大学排名 · 校际学科竞赛 · 校友网络",
                 color = Color(0xFFB8C7D6),
                 fontSize = 13.sp
+            )
+            Text(
+                "就业指导中心建好后，毕业去向和校友捐赠会写进这张榜。点建筑面板可直接跳到校友页。",
+                color = Color(0xFF8AA0B4),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
 

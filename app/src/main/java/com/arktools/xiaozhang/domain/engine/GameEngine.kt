@@ -213,6 +213,9 @@ class GameEngine @Inject constructor(
     /** 股价记录去重：避免每次 tick 都写一条导致表无限膨胀 */
     private var lastRecordedPriceDay = -1
 
+    /** 每周校园简报去重（按游戏日） */
+    private var lastCampusBriefDay = -1
+
     /** 游戏日推进信号：每次 tick 推进一天后发射，供 ViewModel 监听刷新 */
     private val _gameDaySignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val gameDaySignal: SharedFlow<Unit> = _gameDaySignal.asSharedFlow()
@@ -2838,6 +2841,7 @@ class GameEngine @Inject constructor(
         pendingMonthlySettlementRetry = false
         pendingStudentYearEndRecovery = false
         pendingGraduationProjectionRetry = false
+        lastCampusBriefDay = -1
         managerRestoreFailedFields.clear()
         android.util.Log.i("GameEngine", "Game loop stopped and database writes drained")
     }
@@ -2882,6 +2886,7 @@ class GameEngine @Inject constructor(
         pendingMonthlySettlementRetry = false
         pendingStudentYearEndRecovery = false
         pendingGraduationProjectionRetry = false
+        lastCampusBriefDay = -1
         managerRestoreFailedFields.clear()
         // Core in-memory state
         gameOverDetector.reset()
@@ -3126,6 +3131,8 @@ class GameEngine @Inject constructor(
 
         // 每日释放一个延迟事件（避免月初弹窗堆积）
         drainOneDeferredEvent(school)
+
+        emitCampusWeeklyBrief(school)
 
         // 每月1号执行尚未完成的月结；仅月结内部失败才会触发重试标记。
         if (isMonthlySettlementDue(school) || pendingMonthlySettlementRetry) {
@@ -7432,6 +7439,56 @@ class GameEngine @Inject constructor(
             rating = rating,
             comment = comment,
             reputationImpact = tier.reputationBonus
+        )
+    }
+
+    /**
+     * 每周校园简报：把建造缺口、现金流和学生体验变成可见待办。
+     * 每月 7/14/21 日投递，避免和月结抢注意力。
+     */
+    private suspend fun emitCampusWeeklyBrief(school: School) {
+        val foundingCheck = school.currentMonth == 8 && school.currentDay == 2
+        if (school.currentDay !in setOf(7, 14, 21) && !foundingCheck) return
+        val dayKey = school.currentYear * 360 + (school.currentMonth - 1) * 30 + school.currentDay
+        if (dayKey == lastCampusBriefDay) return
+        lastCampusBriefDay = dayKey
+
+        val types = school.facilities.filter { it.isOperational }.map { it.type }.toSet()
+        val students = studentRepository.getActiveStudents()
+        val teachers = teacherRepository.getTeachers()
+        val missing = buildList {
+            if (FacilityType.CLASSROOM !in types) add("标准教室")
+            if (FacilityType.DORMITORY !in types) add("宿舍")
+            if (FacilityType.CANTEEN !in types) add("食堂")
+            if (FacilityType.LIBRARY !in types) add("图书馆")
+            if (school.currentMonth in 5..7 && FacilityType.EMPLOYMENT_CENTER !in types) add("就业指导中心")
+        }
+        val avgSat = if (students.isNotEmpty()) students.map { it.satisfaction.toFloat() }.average() else 0.0
+        val payroll = teachers.filter { it.isWorking }.sumOf { it.monthlySalary }
+        val monthsLeft = if (payroll > 0.1) (school.cash / payroll) else 99.0
+        val season = when (school.currentMonth) {
+            8 -> "建校窗口：9月迎新前把教室和宿舍配齐。"
+            9 -> "迎新季：宿舍和食堂直接决定报到体验。"
+            6, 7 -> "毕业季：就业中心和竞赛成绩会写进口碑。"
+            else -> "日常经营：点建筑进入对应系统，别让设施空转。"
+        }
+        val gap = if (missing.isNotEmpty()) "待建：${missing.joinToString("、")}。" else "基础建筑已齐，可升级或装扮校园。"
+        val satLine = if (students.isEmpty()) "尚无在校生。" else "学生满意度 ${avgSat.toInt()}。"
+        val cashLine = "经费 ${"%.0f".format(school.cash)}万，按当前师资大约还能撑 ${"%.1f".format(monthsLeft.coerceAtMost(99.0))} 个月。"
+        notificationManager.addNotification(
+            title = "校园周报 · ${school.currentMonth}月${school.currentDay}日",
+            message = "$season $gap $satLine $cashLine",
+            type = com.arktools.xiaozhang.domain.model.NotificationType.FINANCIAL,
+            priority = if (missing.isNotEmpty() || monthsLeft < 3.0) {
+                com.arktools.xiaozhang.domain.model.NotificationPriority.HIGH
+            } else {
+                com.arktools.xiaozhang.domain.model.NotificationPriority.NORMAL
+            },
+            gameYear = school.currentYear,
+            gameMonth = school.currentMonth,
+            gameDay = school.currentDay,
+            actionLabel = "去建造",
+            actionTabIndex = 0
         )
     }
 

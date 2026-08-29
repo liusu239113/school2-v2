@@ -55,6 +55,21 @@ class MainViewModel @Inject constructor(
     private val _isGameRunning = MutableStateFlow(false)
     val isGameRunning: StateFlow<Boolean> = _isGameRunning.asStateFlow()
 
+    private val _storyTutorialPending = MutableStateFlow(false)
+    val storyTutorialPending: StateFlow<Boolean> = _storyTutorialPending.asStateFlow()
+
+    @Volatile
+    private var tutorialRewardsGranted: Boolean = false
+
+    fun consumeStoryTutorialPending() {
+        _storyTutorialPending.value = false
+    }
+
+    fun requestStoryTutorialReplay() {
+        tutorialRewardsGranted = false
+        _storyTutorialPending.value = true
+    }
+
     private val _isPaused = MutableStateFlow(false)
     val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
 
@@ -352,18 +367,16 @@ class MainViewModel @Inject constructor(
      * 3. 触发招生，获得第一批学生（教程中 WAIT_ENROLLMENT 步骤效果）
      */
     fun grantSkipTutorialRewards() {
+        if (tutorialRewardsGranted) return
+        tutorialRewardsGranted = true
         viewModelScope.safeLaunch {
-            // 检查是否已有教师（避免重复赠送）
             val existingTeachers = teacherRepository.getTeachers()
-            if (existingTeachers.isNotEmpty()) return@safeLaunch
+            if (existingTeachers.isEmpty()) {
+                val teacher = teacherRepository.generateCandidates(TeacherLevel.C, 1).first()
+                teacherRepository.hireTeacher(teacher)
+                gameEngine.refreshTimetablesForTeacherChange()
+            }
 
-            // 1) 赠送1名C级教师（免费，不扣招聘费）—— 和教程一致只给1名
-            val teacher = teacherRepository.generateCandidates(TeacherLevel.C, 1).first()
-            teacherRepository.hireTeacher(teacher)
-            gameEngine.refreshTimetablesForTeacherChange()
-
-            // 2) 配置默认教学方案（教程建议：1重点班 + 2普通班，正常强度）
-            //    新学校有1间教室，最多3个班，刚好满足
             val teachingManager = gameEngine.teachingManager
             if (teachingManager.config.classDistribution.isEmpty()) {
                 teachingManager.setClassDistribution(
@@ -371,9 +384,10 @@ class MainViewModel @Inject constructor(
                 )
             }
 
-            // 3) 恢复游戏运行 + 触发招生（和教程 WAIT_ENROLLMENT 步骤一样）
-            gameEngine.resume()
-            gameEngine.triggerEnrollmentForTutorial()
+            if (studentRepository.getActiveStudentCount() <= 0) {
+                gameEngine.resume()
+                gameEngine.triggerEnrollmentForTutorial()
+            }
         }
     }
 
@@ -422,6 +436,8 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 _isGameRunning.value = false
+                tutorialRewardsGranted = false
+                _storyTutorialPending.value = true
                 startGame()
             } catch (e: Exception) {
                 android.util.Log.e(

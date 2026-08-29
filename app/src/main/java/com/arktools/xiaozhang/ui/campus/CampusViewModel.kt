@@ -66,7 +66,25 @@ class CampusViewModel @Inject constructor(
         val selected: CampusBuilding? = null,
         val selectedPlaced: BT.PlacedBuilding? = null,
         val showBuildMenu: Boolean = false,
-        val message: String? = null
+        val message: String? = null,
+        val studentCount: Int = 0,
+        val teacherCount: Int = 0,
+        val avgDormSatisfaction: Float = 0f,
+        val avgMealQuality: Float = 0f,
+        val avgSatisfaction: Float = 0f,
+        val employmentRate: Float = 0f,
+        val clubCount: Int = 0,
+        val scholarshipRecipientCount: Int = 0,
+        val decorCount: Int = 0,
+        val avgIntelligence: Float = 0f,
+        val avgPhysical: Float = 0f,
+        val avgSocial: Float = 0f,
+        val avgCreativity: Float = 0f,
+        val teachingQualityBonus: Float = 0f,
+        val researchBonus: Float = 0f,
+        val enrollmentBonus: Float = 0f,
+        val currentMonth: Int = 8,
+        val currentDay: Int = 1
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -81,6 +99,11 @@ class CampusViewModel @Inject constructor(
                 if (school == null) return@collect
                 val dev = policyManager.policies.value.collegeDevelopment
                 migrateIfNeeded(school, dev.placedBuildings, dev.terrainMap)
+                val students = runCatching { studentRepository.getActiveStudents() }.getOrDefault(emptyList())
+                val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
+                val terrain = BT.decodeTerrain(dev.terrainMap)
+                val decorKinds = setOf("FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN")
+                val bonuses = FacilityBonusCalculator.calculate(school.facilities)
                 _state.value = _state.value.copy(
                     cash = school.cash,
                     reputation = school.reputation,
@@ -88,9 +111,40 @@ class CampusViewModel @Inject constructor(
                     facilities = school.facilities,
                     maxFacilities = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel),
                     placed = BT.decodeBuildings(dev.placedBuildings),
-                    terrain = BT.decodeTerrain(dev.terrainMap)
-                        .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
-                    tutorialDone = dev.tutorialDone
+                    terrain = terrain.associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
+                    tutorialDone = dev.tutorialDone,
+                    studentCount = students.size,
+                    teacherCount = teachers.count { it.isWorking },
+                    avgDormSatisfaction = if (students.isNotEmpty()) {
+                        students.map { it.dormSatisfaction }.average().toFloat()
+                    } else 0f,
+                    avgMealQuality = if (students.isNotEmpty()) {
+                        students.map { it.mealQuality }.average().toFloat()
+                    } else 0f,
+                    avgSatisfaction = if (students.isNotEmpty()) {
+                        students.map { it.satisfaction.toFloat() }.average().toFloat()
+                    } else 0f,
+                    employmentRate = gameEngine.employmentMarket.state.value.stats.employmentRate,
+                    clubCount = gameEngine.clubManager.clubs.value.size,
+                    scholarshipRecipientCount = gameEngine.scholarshipManager.state.value.recipients.size,
+                    decorCount = terrain.count { it.kind in decorKinds },
+                    avgIntelligence = if (students.isNotEmpty()) {
+                        students.map { it.attributes.intelligence }.average().toFloat()
+                    } else 0f,
+                    avgPhysical = if (students.isNotEmpty()) {
+                        students.map { it.attributes.physical }.average().toFloat()
+                    } else 0f,
+                    avgSocial = if (students.isNotEmpty()) {
+                        students.map { it.attributes.social }.average().toFloat()
+                    } else 0f,
+                    avgCreativity = if (students.isNotEmpty()) {
+                        students.map { it.attributes.creativity }.average().toFloat()
+                    } else 0f,
+                    teachingQualityBonus = bonuses.teachingQualityBonus,
+                    researchBonus = bonuses.researchBonus,
+                    enrollmentBonus = bonuses.enrollmentBonus,
+                    currentMonth = school.currentMonth,
+                    currentDay = school.currentDay
                 )
             }
         }
@@ -548,6 +602,18 @@ class CampusViewModel @Inject constructor(
                 true
             }
             _state.value = _state.value.copy(tutorialDone = true)
+        }
+    }
+
+    fun replayCampusTutorial() {
+        viewModelScope.safeLaunch {
+            val current = policyManager.policies.value.collegeDevelopment
+            policyManager.replaceCollegeDevelopment(current.copy(tutorialDone = false))
+            schoolRepository.mutateSchool { school ->
+                school.policyJson = policyManager.toJson()
+                true
+            }
+            _state.value = _state.value.copy(tutorialDone = false)
         }
     }
 

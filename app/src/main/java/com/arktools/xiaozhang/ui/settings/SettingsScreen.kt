@@ -54,6 +54,7 @@ import com.arktools.xiaozhang.ui.theme.Primary
 fun SettingsScreen(
     mainViewModel: MainViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
+    campusViewModel: com.arktools.xiaozhang.ui.campus.CampusViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val school by mainViewModel.school.collectAsState()
@@ -62,6 +63,7 @@ fun SettingsScreen(
     val sfxVolume by settingsViewModel.sfxVolume.collectAsState()
     val bgmVolume by settingsViewModel.bgmVolume.collectAsState()
     val textColorMode by settingsViewModel.textColorMode.collectAsState()
+    val gameSpeed by settingsViewModel.gameSpeed.collectAsState()
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -144,6 +146,58 @@ fun SettingsScreen(
                     TextColorOption("深色文字", textColorMode == "dark", { settingsViewModel.setTextColorMode("dark") }, Modifier.weight(1f))
                     TextColorOption("浅色文字", textColorMode == "light", { settingsViewModel.setTextColorMode("light") }, Modifier.weight(1f))
                 }
+            }
+
+            SettingsCard(title = "经营设置") {
+                Text("默认游戏速度", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "顶栏速度按钮仍可临时切换；看广告加速不受此项影响。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(1f, 2f, 3f).forEach { speed ->
+                        TextColorOption(
+                            label = "×${speed.toInt()}",
+                            selected = kotlin.math.abs(gameSpeed - speed) < 0.01f,
+                            onClick = {
+                                settingsViewModel.setGameSpeed(speed)
+                                mainViewModel.setGameSpeed(speed)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        mainViewModel.requestStoryTutorialReplay()
+                        onBack()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("重玩剧情教程")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        campusViewModel.replayCampusTutorial()
+                        onBack()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("重玩校园建造引导")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "剧情教程会暂停时间并高亮底部四主区；校园引导只覆盖建造地图。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             SettingsCard(title = "进度保存") {

@@ -308,13 +308,13 @@ object GameBalanceConfig {
     /** 设施解锁 */
     fun getMaxFacilitiesForLevel(level: Int): Int {
         return when (level) {
-            1 -> 5
-            2 -> 8
-            3 -> 12
-            4 -> 18
+            1 -> 8
+            2 -> 12
+            3 -> 16
+            4 -> 20
             5 -> 25
             6 -> 99
-            else -> 5
+            else -> 8
         }
     }
 

@@ -119,16 +119,29 @@ fun CampusView(
     }
 
     val bitmaps = remember {
-        mapOf(
-            R.drawable.bld_admin to R.drawable.bld_admin,
-            R.drawable.bld_liberal to R.drawable.bld_liberal,
-            R.drawable.bld_generic to R.drawable.bld_generic,
-            R.drawable.bld_library to R.drawable.bld_library,
-            R.drawable.bld_dorm to R.drawable.bld_dorm,
-            R.drawable.bld_art to R.drawable.bld_art,
-            R.drawable.bld_medicine to R.drawable.bld_medicine,
-            R.drawable.bld_hospital to R.drawable.bld_hospital
-        ).mapValues { (_, res) ->
+        val ids = listOf(
+            R.drawable.bld_admin,
+            R.drawable.bld_liberal,
+            R.drawable.bld_generic,
+            R.drawable.bld_library,
+            R.drawable.bld_dorm,
+            R.drawable.bld_art,
+            R.drawable.bld_medicine,
+            R.drawable.bld_hospital,
+            R.drawable.bld_conference,
+            R.drawable.bld_employment,
+            R.drawable.facility_classroom,
+            R.drawable.facility_canteen,
+            R.drawable.facility_multimedia_room,
+            R.drawable.facility_garden,
+            R.drawable.facility_gate,
+            R.drawable.facility_sports_field,
+            R.drawable.facility_laboratory,
+            R.drawable.facility_computer_lab,
+            R.drawable.facility_art_studio,
+            R.drawable.facility_auditorium
+        )
+        ids.associateWith { res ->
             BitmapFactory.decodeResource(context.resources, res).asImageBitmap()
         }
     }
@@ -450,6 +463,29 @@ fun CampusView(
         // 楼名标签已绘制在 Canvas 世界坐标系内（与地图绝对同步，不再漂移）；
         // 点击建筑本体仍可打开面板。
 
+        // 校园氛围条：把建造结果变成持续可见的经营数字
+        if (!inPlacementMode) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 16.dp, end = 96.dp)
+                    .background(Color(0xCC0B2038))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    "满意度 ${state.avgSatisfaction.toInt()}  住宿 ${state.avgDormSatisfaction.toInt()}  餐标 ${state.avgMealQuality.toInt()}",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "装扮 ${state.decorCount}件 · 建筑 ${state.facilities.size}/${state.maxFacilities} · 点建筑进入系统",
+                    color = Color(0xFFB8C7D6),
+                    fontSize = 10.sp
+                )
+            }
+        }
+
         // 建造 FAB
         FloatingActionButton(
             onClick = { viewModel.openBuildMenu() },
@@ -598,7 +634,12 @@ fun CampusView(
                         onUpgradeFacility = { viewModel.upgradeFacility(building.facility?.id ?: "") },
                         onUpgradeCampus = { viewModel.upgradeCampus() },
                         onOpenTeaching = { onNavigateTo(40) },
+                        onOpenResearch = { onNavigateTo(41) },
                         onOpenConference = { onNavigateTo(23) },
+                        onOpenStudentLife = { onNavigateTo(21) },
+                        onOpenClub = { onNavigateTo(17) },
+                        onOpenScholarship = { onNavigateTo(29) },
+                        onOpenEmployment = { onNavigateTo(15) },
                         chainSummary = viewModel.libraryChainSummary(),
                         onMove = {
                             state.selectedPlaced?.let { placed ->
@@ -676,11 +717,11 @@ private fun LaunchedEffect2(key: Any?, block: suspend () -> Unit) {
 private fun CampusTutorialOverlay(onDone: () -> Unit) {
     var step by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val steps = listOf(
-        "欢迎来到你的大学！\n\n点击校园里的建筑（如行政楼）可以查看与管理。",
-        "点右下角「建造」按钮：\n\n可以建造学院楼、图书馆、宿舍，也可以铺设道路、摆放树木长椅，装扮你的校园。",
-        "底部「人事」：发布招聘后，从三名候选人中挑选一位入职。",
-        "底部「治院」：把 10 点预算分给教学、科研、校园生活或社会合作，6 月按年度目标考核。",
-        "底部「外联」：查看大学排名榜，报名校际学科竞赛为学校赢取声誉与奖金。"
+        "欢迎来到你的大学！\n\n点击行政楼查看资金、师生和校园等级。建筑不是摆设——点开就能进入对应系统。",
+        "点右下角「建造」：先在地图上摆教室、宿舍、食堂和图书馆。绿框可放、红框不可放。装扮（花坛/长椅）会慢慢抬满意度。",
+        "底部「人事」：发布招聘，从三名候选人中录用第一位教师。没有教师就开不了课。",
+        "底部「治院」：把 10 点预算分给教学、科研、校园生活或社会合作。6 月学年评估按此考核。",
+        "底部「外联」：看大学排名、报名校际竞赛、跟踪校友。就业中心建成后会直接影响毕业去向。"
     )
     Box(
         modifier = Modifier
@@ -749,7 +790,12 @@ private fun BuildingPanelContent(
     onUpgradeFacility: () -> Unit,
     onUpgradeCampus: () -> Unit,
     onOpenTeaching: () -> Unit,
+    onOpenResearch: () -> Unit = {},
     onOpenConference: () -> Unit = {},
+    onOpenStudentLife: () -> Unit = {},
+    onOpenClub: () -> Unit = {},
+    onOpenScholarship: () -> Unit = {},
+    onOpenEmployment: () -> Unit = {},
     chainSummary: String = "",
     onMove: () -> Unit,
     onRemove: () -> Unit
@@ -765,6 +811,29 @@ private fun BuildingPanelContent(
         when (building.kind) {
             CampusViewModel.CampusBuilding.Kind.ADMIN -> {
                 Text("校园等级 Lv.${state.campusLevel}", fontSize = 14.sp, color = Color(0xFF182635))
+                Text(
+                    "在校 ${state.studentCount} 人 · 在编教师 ${state.teacherCount} 人 · 声誉 ${state.reputation}",
+                    fontSize = 13.sp,
+                    color = Color(0xFF617386)
+                )
+                Text(
+                    "满意度 ${state.avgSatisfaction.toInt()} · 住宿 ${state.avgDormSatisfaction.toInt()} · 餐标 ${state.avgMealQuality.toInt()}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF14648C)
+                )
+                Text(
+                    "装扮 ${state.decorCount} 件（每 8 件约 +0.2 满意度，上限 +3）",
+                    fontSize = 12.sp,
+                    color = Color(0xFF14648C)
+                )
+                val seasonHint = when (state.currentMonth) {
+                    8 -> "8月建校窗口：先铺路、建教室和宿舍，9月迎新前把基础配齐。"
+                    9 -> "9月迎新季：招生看宿舍、食堂和声誉。缺宿舍会压低报到率。"
+                    6, 7 -> "毕业与就业季：就业中心、竞赛和校友网络会决定这一年的口碑。"
+                    1, 2 -> "寒假窗口：适合维修、扩建设施，少处理突发事件。"
+                    else -> "日常经营：点建筑进入对应系统，月底会出校园周报。"
+                }
+                Text(seasonHint, fontSize = 12.sp, color = Color(0xFF617386))
                 if (state.campusLevel < com.arktools.xiaozhang.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
                     Text(
                         "升级到 Lv.${state.campusLevel + 1} 需要 ${state.upgradeCampusCost.toInt()} 万（还需满足声誉/师生等条件）",
@@ -809,15 +878,101 @@ private fun BuildingPanelContent(
                         color = Color(0xFF182635)
                     )
                     Text(facility.type.description, fontSize = 13.sp, color = Color(0xFF617386))
-                    if (facility.type == FacilityType.CONFERENCE_CENTER) {
-                        PanelButton("举办学术会议") { onOpenConference() }
-                    }
-                    if (facility.type == FacilityType.LIBRARY && chainSummary.isNotEmpty()) {
-                        Text(
-                            chainSummary,
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
+                    when (facility.type) {
+                        FacilityType.DORMITORY -> {
+                            Text(
+                                "住宿满意度 ${state.avgDormSatisfaction.toInt()} / 100 · 在校 ${state.studentCount} 人",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            Text("宿舍等级越高，招生加成和学生恢复越强。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("学生生活") { onOpenStudentLife() }
+                            PanelButton("奖学金/助学金") { onOpenScholarship() }
+                        }
+                        FacilityType.CANTEEN -> {
+                            Text(
+                                "餐标 ${state.avgMealQuality.toInt()} / 100 · 全校满意度 ${state.avgSatisfaction.toInt()}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            Text("食堂状态差会提高生病风险，升级后能稳住体力与社交。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("学生生活") { onOpenStudentLife() }
+                        }
+                        FacilityType.SPORTS_FIELD -> {
+                            Text(
+                                "社团 ${state.clubCount} 个 · 全校满意度 ${state.avgSatisfaction.toInt()}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            Text("体育馆同时服务体育课、社团活动和季节赛事。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("社团管理") { onOpenClub() }
+                        }
+                        FacilityType.EMPLOYMENT_CENTER -> {
+                            Text(
+                                "就业率 ${(state.employmentRate * 100).toInt()}% · 奖学金 ${state.scholarshipRecipientCount} 人",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            Text("就业中心影响毕业去向、校友捐赠和招生口碑。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("就业与校友") { onOpenEmployment() }
+                        }
+                        FacilityType.CONFERENCE_CENTER -> {
+                            Text(
+                                "声誉增长 +${(state.campusLevel).coerceAtLeast(1) * 8}%/级 · 会议中心承接学术会议",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            PanelButton("举办学术会议") { onOpenConference() }
+                        }
+                        FacilityType.LIBRARY -> {
+                            Text(
+                                "科研加速 +${(state.researchBonus * 100).toInt()}% · 平均智力 ${state.avgIntelligence.toInt()}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            if (chainSummary.isNotEmpty()) {
+                                Text(chainSummary, fontSize = 12.sp, color = Color(0xFF14648C))
+                            } else {
+                                Text("建好图书馆后课题链会在这里显示，科研日会加快。", fontSize = 12.sp, color = Color(0xFF617386))
+                            }
+                            PanelButton("进入科研") { onOpenResearch() }
+                        }
+                        FacilityType.CLASSROOM -> {
+                            Text(
+                                "招生加成 +${(state.enrollmentBonus * 100).toInt()}% · 教室等级决定班容量",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            PanelButton("教学与招生管理") { onOpenTeaching() }
+                        }
+                        FacilityType.MULTIMEDIA_ROOM, FacilityType.LABORATORY, FacilityType.COMPUTER_LAB -> {
+                            Text(
+                                "教学质量 +${(state.teachingQualityBonus * 100).toInt()}% · 平均智力 ${state.avgIntelligence.toInt()}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            Text("实验/机房/多媒体每天提升智力和创造力。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("教学配置") { onOpenTeaching() }
+                        }
+                        FacilityType.ART_STUDIO -> {
+                            Text(
+                                "平均创造力 ${state.avgCreativity.toInt()} · 艺术课评分随工作室升级",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            PanelButton("教学配置") { onOpenTeaching() }
+                        }
+                        FacilityType.GARDEN, FacilityType.AUDITORIUM, FacilityType.GATE -> {
+                            Text(
+                                "平均社交 ${state.avgSocial.toInt()} · 全校满意度 ${state.avgSatisfaction.toInt()}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF14648C)
+                            )
+                            Text("花园、礼堂和校门塑造校园文化，缺少它们社交会缓慢下滑。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("学生生活") { onOpenStudentLife() }
+                            PanelButton("社团管理") { onOpenClub() }
+                        }
+                        else -> {}
                     }
                     Text(
                         "月维护 ${facility.type.baseMaintenance}万",
@@ -891,30 +1046,53 @@ private fun BuildMenuContent(
             val college = spec.college ?: return@forEach
             val founded = state.foundedColleges.contains(college)
             val shortOfCash = !founded && state.cash < spec.costWan
+            val levelLocked = !founded && state.campusLevel < spec.unlockLevel
+            val locked = shortOfCash || levelLocked
+            val lockedText = when {
+                founded -> null
+                levelLocked -> "校园 Lv.${spec.unlockLevel}"
+                shortOfCash -> "钱不够"
+                else -> null
+            }
             BuildRow(
                 title = spec.displayName,
                 subtitle = college.description,
                 rightText = "${spec.costWan.toInt()}万",
-                locked = shortOfCash,
-                lockedText = if (shortOfCash) "钱不够" else null,
+                locked = locked,
+                lockedText = lockedText,
                 done = founded,
-                onClick = { if (!founded) onFoundCollege(spec) }
+                onClick = { if (!founded && !locked) onFoundCollege(spec) }
             )
         }
 
         Text("功能建筑", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E96C8))
+        Text(
+            "已建 ${state.facilities.size}/${state.maxFacilities} · 点建筑打开对应系统",
+            fontSize = 12.sp,
+            color = Color(0xFF617386)
+        )
         BT.FACILITY_SPECS.forEach { spec ->
             val type = spec.facility ?: return@forEach
             val built = state.facilities.any { it.type == type }
             val shortOfCash = !built && state.cash < spec.costWan
+            val levelLocked = !built && state.campusLevel < spec.unlockLevel
+            val capLocked = !built && state.facilities.size >= state.maxFacilities
+            val locked = shortOfCash || levelLocked || capLocked
+            val lockedText = when {
+                built -> null
+                levelLocked -> "校园 Lv.${spec.unlockLevel}"
+                capLocked -> "建筑已满"
+                shortOfCash -> "钱不够"
+                else -> null
+            }
             BuildRow(
                 title = spec.displayName,
                 subtitle = type.description,
                 rightText = "${spec.costWan.toInt()}万",
-                locked = shortOfCash,
-                lockedText = if (shortOfCash) "钱不够" else null,
+                locked = locked,
+                lockedText = lockedText,
                 done = built,
-                onClick = { if (!built) onBuyFacility(spec) }
+                onClick = { if (!built && !locked) onBuyFacility(spec) }
             )
         }
 
