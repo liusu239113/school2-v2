@@ -231,24 +231,6 @@ private fun CandidateCard(
             color = Color(0xFF617386),
             maxLines = 1
         )
-        Text(
-            "综合 ${teacher.averageSkill}",
-            fontSize = 12.sp,
-            color = Color(0xFF182635)
-        )
-        Box(
-            modifier = Modifier
-                .background(Color(0xFF0B2038))
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-        ) {
-            Text(
-                "聘用",
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
 }
 
 private fun levelColor(level: TeacherLevel): Color = when (level) {
