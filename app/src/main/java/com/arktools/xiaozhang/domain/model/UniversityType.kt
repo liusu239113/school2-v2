@@ -45,6 +45,7 @@ enum class SchoolTier(
     val enrollmentMultiplier: Double,    // 招生规模系数（专科量大）
     val studentQualityFactor: Float,     // 生源质量系数（作用于新生属性）
     val startCash: Double,               // 启动经费（万元）
+    val graduateScoreFactor: Float,      // 毕业评估得分系数（专科培养出口更窄）
     val canPromote: Boolean,             // 是否可升格（专科 → 应用型本科）
     val allowedColleges: Set<String>     // 可成立学院（CollegeType.name），升格后按本科开放
 ) {
@@ -52,14 +53,14 @@ enum class SchoolTier(
         "VOCATIONAL", "高职专科",
         "3年制 · 分数线低 · 生源量大但基础较弱 · 学费亲民 · 就业率是生命线 · 长线目标：升格职业本科",
         3, GradeLevel.GRADE_3, 320, 430,
-        0.6, 1.35, 0.8f, 380.0, true,
+        0.6, 1.35, 0.8f, 380.0, 0.85f, true,
         setOf("LIBERAL_ARTS", "ENGINEERING", "BUSINESS")
     ),
     APPLIED(
         "APPLIED", "应用型本科",
         "4年制 · 标准玩法 · 六大学院全开放 · 长线目标：办成世界一流大学",
         4, GradeLevel.GRADE_4, 430, 520,
-        1.0, 1.0, 1.0f, 500.0, false,
+        1.0, 1.0, 1.0f, 500.0, 1.0f, false,
         setOf("LIBERAL_ARTS", "SCIENCE", "ENGINEERING", "MEDICINE", "BUSINESS", "ARTS")
     );
 

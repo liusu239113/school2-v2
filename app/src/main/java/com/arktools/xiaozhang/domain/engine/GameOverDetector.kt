@@ -1,7 +1,9 @@
 package com.arktools.xiaozhang.domain.engine
 
 import com.arktools.xiaozhang.domain.model.School
+import com.arktools.xiaozhang.domain.model.SchoolOwnership
 import com.arktools.xiaozhang.domain.model.Teacher
+import com.arktools.xiaozhang.domain.model.schoolOwnership
 import com.arktools.xiaozhang.domain.repository.SchoolRepository
 import com.arktools.xiaozhang.domain.repository.StudentRepository
 import com.arktools.xiaozhang.domain.repository.TeacherRepository
@@ -113,8 +115,13 @@ class GameOverDetector @Inject constructor(
             conditions.add(FailureCondition.SUSTAINED_LOSSES)
         }
 
-        // 条件2: 资金枯竭（已低于破产线）
-        if (school.cash < GameBalanceConfig.BANKRUPTCY_THRESHOLD) {
+        // 条件2: 资金枯竭（已低于破产线）。公办院校有财政兜底，破产线更宽
+        val bankruptcyLine = if (school.schoolOwnership() == SchoolOwnership.PUBLIC) {
+            GameBalanceConfig.BANKRUPTCY_THRESHOLD * 3.0
+        } else {
+            GameBalanceConfig.BANKRUPTCY_THRESHOLD
+        }
+        if (school.cash < bankruptcyLine) {
             conditions.add(FailureCondition.BANKRUPT)
         }
 

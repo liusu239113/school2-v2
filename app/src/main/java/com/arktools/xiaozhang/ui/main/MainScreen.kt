@@ -103,6 +103,8 @@ import com.arktools.xiaozhang.ui.tutorial.TutorialManager
 import com.arktools.xiaozhang.ui.tutorial.CompletionCondition
 import com.arktools.xiaozhang.ui.utils.FormatUtils
 import com.arktools.xiaozhang.domain.engine.CrisisState
+import com.arktools.xiaozhang.domain.model.schoolOwnership
+import com.arktools.xiaozhang.domain.model.schoolTier
 import com.arktools.xiaozhang.ui.menu.MainMenuScreen
 import com.arktools.xiaozhang.ui.menu.MenuViewModel
 import com.arktools.adsdk.AdHelper
@@ -623,7 +625,10 @@ fun MainScreen(
                         )
                         if (selectedTab <= 4) {
                             Text(
-                                text = "${school?.currentYear ?: "--"}年 ${school?.currentMonth ?: "-"}月 ${school?.currentDay ?: "-"}日",
+                                text = "${school?.currentYear ?: "--"}年 ${school?.currentMonth ?: "-"}月 ${school?.currentDay ?: "-"}日" +
+                                    (school?.let {
+                                        " · ${it.schoolTier().displayName}·${it.schoolOwnership().displayName}"
+                                    } ?: ""),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

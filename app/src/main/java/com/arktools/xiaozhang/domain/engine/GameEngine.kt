@@ -5075,6 +5075,28 @@ class GameEngine @Inject constructor(
                 throw e
             }
 
+            // 专科生命线：就业率低于红线将触发教育厅整改通报并侵蚀声誉
+            try {
+                val tierNow = updatedSchool.schoolTier()
+                if (tierNow == SchoolTier.VOCATIONAL && !st.isRetrySettlement) {
+                    val employmentRate = employmentMarket.state.value.stats.employmentRate
+                    val enrolledCountNow = st.cachedActiveStudentsForMonth.size
+                    if (enrolledCountNow > 0 && employmentRate < 0.55f) {
+                        schoolRepository.deductReputation(8)
+                        deferEvent(GameEvent.NegativeEvent(
+                            title = "就业率预警：教育厅整改通报",
+                            message = "省教育厅通报：本校毕业生就业率仅 ${(employmentRate * 100).toInt()}%，" +
+                                "低于专科院校 55% 的考核红线，全省点名批评，学校声誉受损（声誉-8）。\n\n" +
+                                "请尽快扩建就业中心、深化校企合作、加强就业辅导，就业率回升后通报将解除。",
+                            penaltyCash = 0.0,
+                            penaltyReputation = 0  // 声誉已在上方直接扣减
+                        ))
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GameEngine", "Vocational employment lifeline check failed", e)
+            }
+
             // 专科长线目标：办学声誉、校园规模、经费与在校生规模达标后，升格为应用型本科
             try {
                 val currentTier = updatedSchool.schoolTier()
@@ -6521,9 +6543,18 @@ class GameEngine @Inject constructor(
             } else {
                 "已建学院：${policyEffects.foundedCollegeNames.joinToString("、")}。"
             }
+            // 录取线：按办学层次分数带 × 声誉热度浮动
+            val enrollTier = school.schoolTier()
+            val admissionLine = (
+                enrollTier.admissionScoreMin +
+                    (enrollTier.admissionScoreMax - enrollTier.admissionScoreMin) *
+                    reputationFactor.coerceIn(0.8f, 1.5f) / 1.5f
+                ).toInt()
+            val typeNote = "办学类型：${enrollTier.displayName}·${school.schoolOwnership().displayName}"
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学年开学",
-                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。报考结构：$trackNote。$collegeNote",
+                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。报考结构：$trackNote。$collegeNote\n" +
+                    "今年录取线约 ${admissionLine} 分。$typeNote",
                 bonusCash = 0.0,
                 bonusReputation = (assignedStudents.size / 5).toLong() + policyEffects.welfareReputationBonus
             ), school)
@@ -6885,7 +6916,9 @@ class GameEngine @Inject constructor(
                 com.arktools.xiaozhang.domain.model.ClassTier.KEY -> 1.03f      // 重点班额外+3%
                 else -> 1.0f
             }
-            student.gaoKaoScore = (baseScore * teachingScoreMultiplier * tierBonus * (1f + policyGradBonus)).coerceIn(150f, 750f)
+            // 办学层次影响毕业评估出口：专科培养出口更窄（×0.85），深造去向更少
+            student.gaoKaoScore = (baseScore * teachingScoreMultiplier * tierBonus *
+                school.schoolTier().graduateScoreFactor * (1f + policyGradBonus)).coerceIn(150f, 750f)
 
             // 2. 使用动态录取线录取大学（每年分数线不同！）
             val (tier, uniName) = GaoKaoCalculator.admitUniversityDynamic(student.gaoKaoScore, scoreLines)
