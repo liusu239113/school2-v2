@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.arktools.xiaozhang.audio.AudioManager
 import com.arktools.xiaozhang.data.pref.SettingsDataStore
 import com.arktools.xiaozhang.data.save.SaveManager
+import com.arktools.xiaozhang.domain.model.schoolOwnership
+import com.arktools.xiaozhang.domain.model.schoolTier
 import com.arktools.xiaozhang.domain.repository.SchoolRepository
 import com.arktools.xiaozhang.util.safeLaunch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,8 +45,8 @@ class MenuViewModel @Inject constructor(
                 school = runCatching { schoolRepository.getSchool() }.getOrNull()
             }
             if (school != null) {
-                val typeSummary = com.arktools.xiaozhang.domain.model.schoolTier(school).displayName +
-                    "·" + com.arktools.xiaozhang.domain.model.schoolOwnership(school).displayName
+                val typeSummary = school.schoolTier().displayName +
+                    "·" + school.schoolOwnership().displayName
                 _saveSummary.value = school.name + " · " + typeSummary + " · Lv." + school.campusLevel + " · " + school.currentYear + "年" + school.currentMonth + "月"
                 // 兜底同步 schoolId：旧版本存档可能没记录 schoolId，
                 // 不同步会导致学生/教师/课程按 schoolId 过滤后全部显示为 0。

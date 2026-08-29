@@ -4245,7 +4245,7 @@ class GameEngine @Inject constructor(
                         message = "本月生均财政拨款 ¥${String.format("%,.0f", grant * 10000)} 已拨付到账（公办院校按月发放）。",
                         bonusCash = 0.0,  // 效果已在上方直接应用，事件仅作通知
                         bonusReputation = 0
-                    ), school)
+                    ))
                 }
             }
 
