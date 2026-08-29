@@ -239,7 +239,7 @@ private fun PixelMenuButton(
                         fontSize = 16.sp
                     )
                 )
-                if (subText '!=' null) {
+                if (subText != null) {
                     Text(
                         text = subText,
                         fontSize = 10.sp
