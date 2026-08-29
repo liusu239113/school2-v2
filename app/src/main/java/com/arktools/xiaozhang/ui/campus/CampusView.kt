@@ -152,6 +152,17 @@ fun CampusView(
             }
         }
 
+        // 进入摆放/铺装/搬移模式时，幽灵自动出现在屏幕中心的格子，立刻可见
+        LaunchedEffect2(inPlacementMode, pendingSpec, pendingTile, moveTarget) {
+            if (inPlacementMode && ghost == null) {
+                val world = Offset(screenW / 2f, screenH / 2f) - camera
+                val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
+                val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
+                ghost = cx to cy
+            }
+            if (!inPlacementMode) ghost = null
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -188,28 +199,34 @@ fun CampusView(
                     }
                 }
         ) {
-            // 草地：屏幕空间平铺（半格密度，避免大色块条纹），随镜头位移产生移动感
-            val g = cell / 2f
-            val ox = ((camera.x % g) + g) % g
-            val oy = ((camera.y % g) + g) % g
-            var sx = -ox
-            while (sx < size.width) {
-                var sy = -oy
-                while (sy < size.height) {
-                    drawImage(
-                        image = grassTile,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(grassTile.width, grassTile.height),
-                        dstOffset = IntOffset(sx.toInt(), sy.toInt()),
-                        dstSize = IntSize(g.toInt(), g.toInt()),
-                        filterQuality = FilterQuality.None
-                    )
-                    sy += g
-                }
-                sx += g
-            }
-
             translate(left = camera.x, top = camera.y) {
+                // 草地：世界坐标逐格绘制，与道路/建筑同一坐标系（拖动时整张地图一起动）
+                val minCx = (((-camera.x) / cell).toInt() - 1).coerceAtLeast(-1)
+                val minCy = (((-camera.y) / cell).toInt() - 1).coerceAtLeast(-1)
+                val maxCx = (((-camera.x + size.width) / cell).toInt() + 1).coerceAtMost(BT.GRID_W)
+                val maxCy = (((-camera.y + size.height) / cell).toInt() + 1).coerceAtMost(BT.GRID_H)
+                for (cy in minCy..maxCy) {
+                    for (cx in minCx..maxCx) {
+                        drawImage(
+                            image = grassTile,
+                            srcOffset = IntOffset.Zero,
+                            srcSize = IntSize(grassTile.width, grassTile.height),
+                            dstOffset = IntOffset((cx * cell).toInt(), (cy * cell).toInt()),
+                            dstSize = IntSize(cell.toInt(), cell.toInt()),
+                            filterQuality = FilterQuality.None
+                        )
+                    }
+                }
+
+                // 瓦片网格线：让"一个格子"肉眼可见，建造吸附一目了然
+                val gridLine = Color(0x1A000000)
+                for (cx in minCx..maxCx) {
+                    drawLine(gridLine, Offset(cx * cell, minCy * cell), Offset(cx * cell, (maxCy + 1) * cell), 1f)
+                }
+                for (cy in minCy..maxCy) {
+                    drawLine(gridLine, Offset(minCx * cell, cy * cell), Offset((maxCx + 1) * cell, cy * cell), 1f)
+                }
+
                 // 地形瓦片
                 state.terrain.forEach { (key, kind) ->
                     val tx = (key % 1000L).toInt() * cell
@@ -266,7 +283,7 @@ fun CampusView(
                 drawRect(Color(0x2E000000), Offset(0f, uy1), Size(worldW, worldH - uy1))
                 drawRect(Color(0x2E000000), Offset(0f, uy0), Size(ux0, uy1 - uy0))
                 drawRect(Color(0x2E000000), Offset(ux1, uy0), Size(worldW - ux1, uy1 - uy0))
-                drawRect(Color(0x33FFFFFF), Offset(ux0, uy0), Size(ux1 - ux0, uy1 - uy0), style = Stroke(3f))
+                drawRect(Color(0xB3FFD54F), Offset(ux0, uy0), Size(ux1 - ux0, uy1 - uy0), style = Stroke(3f))
                 drawContext.canvas.nativeCanvas.apply {
                     val hintPaint = android.graphics.Paint().apply {
                         color = android.graphics.Color.WHITE
@@ -289,6 +306,8 @@ fun CampusView(
                     val bmp = bitmaps[spec.drawableRes] ?: return@forEach
                     val footW = spec.w * cell
                     val footH = spec.h * cell
+                    // 足迹描边：建筑占用了哪些瓦片一目了然
+                    drawRect(Color(0x2EFFFFFF), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(1.5f))
                     val scale = minOf(footW / bmp.width, (footH * 0.92f) / bmp.height)
                     val dstW = bmp.width * scale
                     val dstH = bmp.height * scale
@@ -315,23 +334,28 @@ fun CampusView(
                     }
                 }
 
-                // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放
+                // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放（粗描边+四角标记，醒目）
                 ghost?.let { (gx, gy) ->
                     val spec = pendingSpec
                     val gw = (spec?.w ?: 1) * cell
                     val gh = (spec?.h ?: 1) * cell
                     val valid = spec?.let { canPlaceGhostAt(gx, gy, it) } ?: true
+                    val frameColor = if (valid) Color(0xFF00C853) else Color(0xFFFF1744)
                     drawRect(
-                        if (valid) Color(0x5900E676) else Color(0x59FF5252),
+                        if (valid) Color(0x7A00E676) else Color(0x7AFF5252),
                         Offset(gx * cell, gy * cell),
                         Size(gw, gh)
                     )
-                    drawRect(
-                        if (valid) Color(0xFF00E676) else Color(0xFFFF5252),
+                    drawRect(frameColor, Offset(gx * cell, gy * cell), Size(gw, gh), style = Stroke(4f))
+                    val cs = 12f
+                    listOf(
                         Offset(gx * cell, gy * cell),
-                        Size(gw, gh),
-                        style = Stroke(3f)
-                    )
+                        Offset(gx * cell + gw, gy * cell),
+                        Offset(gx * cell, gy * cell + gh),
+                        Offset(gx * cell + gw, gy * cell + gh)
+                    ).forEach { corner ->
+                        drawRect(frameColor, Offset(corner.x - cs / 2, corner.y - cs / 2), Size(cs, cs))
+                    }
                     spec?.let { s ->
                         val bmp = bitmaps[s.drawableRes]
                         if (bmp != null) {
@@ -347,7 +371,7 @@ fun CampusView(
                                     (gy * cell + (gh - dh)).toInt()
                                 ),
                                 dstSize = IntSize(dw.toInt(), dh.toInt()),
-                                alpha = 0.6f,
+                                alpha = 0.65f,
                                 filterQuality = FilterQuality.None
                             )
                         }
@@ -393,48 +417,52 @@ fun CampusView(
             Text("建造", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
 
-        // 模式提示（触发容器内顶部：资源条之下）
+        // 模式提示 + 操作结果：纵向堆叠在同一容器内，永不互相遮挡
         val modeHint = when {
             pendingSpec != null -> "摆放模式：拖动/点击选择位置，绿框可放、红框不可放；点「建在这里」确认。点此取消"
             pendingTile != null -> "铺装模式：拖动/点击选格，点「铺设」确认（${pendingTile?.costWan}万/格）。点此取消"
             moveTarget != null -> "搬移模式：拖动选择新位置，点「搬到这里」确认。点此取消"
             else -> null
         }
-        modeHint?.let { hint ->
-            Text(
-                text = hint,
-                color = Color.White,
-                fontSize = 13.sp,
+        if (modeHint != null || state.message != null) {
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 6.dp, start = 12.dp, end = 12.dp)
-                    .background(Color(0xCC0B2038))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clickable {
-                        pendingSpec = null
-                        pendingTile = null
-                        moveTarget = null
-                        ghost = null
-                        viewModel.consumeMessage()
-                    },
-                textAlign = TextAlign.Center
-            )
-        }
-
-        // 操作结果提示（摆放成功/失败原因），点击消失
-        state.message?.let { msg ->
-            Text(
-                msg,
-                color = Color.White,
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 48.dp, start = 12.dp, end = 12.dp)
-                    .background(Color(0xCC14648C))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                    .clickable { viewModel.consumeMessage() },
-                textAlign = TextAlign.Center
-            )
+                    .padding(top = 6.dp, start = 12.dp, end = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                modeHint?.let { hint ->
+                    Text(
+                        text = hint,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .background(Color(0xCC0B2038))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .clickable {
+                                pendingSpec = null
+                                pendingTile = null
+                                moveTarget = null
+                                ghost = null
+                                viewModel.consumeMessage()
+                            },
+                        textAlign = TextAlign.Center
+                    )
+                }
+                state.message?.let { msg ->
+                    Text(
+                        msg,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .background(Color(0xCC14648C))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .clickable { viewModel.consumeMessage() },
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
 
         // 摆放确认栏：显示费用，钱不够时置红禁用
@@ -447,6 +475,8 @@ fun CampusView(
                 else -> ""
             }
             val insufficient = spec != null && state.cash < spec.costWan
+            val positionInvalid = spec != null && !canPlaceGhostAt(gx, gy, spec)
+            val blocked = insufficient || positionInvalid
             val verb = when {
                 spec != null -> "建在这里"
                 moveTarget != null -> "搬到这里"
@@ -467,14 +497,18 @@ fun CampusView(
                         pendingTile = null
                         moveTarget = null
                     },
-                    enabled = !insufficient,
+                    enabled = !blocked,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (insufficient) Color(0xFF8C2F2F) else MaterialTheme.colorScheme.primary,
+                        containerColor = if (blocked) Color(0xFF8C2F2F) else MaterialTheme.colorScheme.primary,
                         disabledContainerColor = Color(0xFF8C2F2F)
                     )
                 ) {
                     Text(
-                        if (insufficient) "经费不足（需$costText）" else "$verb · $costText",
+                        when {
+                            insufficient -> "经费不足（需$costText）"
+                            positionInvalid -> "此处不可建造"
+                            else -> "$verb · $costText"
+                        },
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
