@@ -295,7 +295,7 @@ class CampusViewModel @Inject constructor(
 
     // ===== 建造：学院 =====
 
-    fun foundCollege(spec: BT.Spec) {
+    fun foundCollege(spec: BT.Spec, at: Pair<Int, Int>? = null) {
         val college = spec.college ?: return
         viewModelScope.safeLaunch {
             val result = gameEngine.foundCollege(college)
@@ -303,10 +303,15 @@ class CampusViewModel @Inject constructor(
                 audioManager.playCollegeFound()
                 gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
                 val st = _state.value
-                val spot = firstFree(spec, st.placed, st.terrain, st.campusLevel)
+                // 优先放在玩家选定的格子；未指定时才自动找空位
+                val spot = if (at != null && canPlaceAt(spec, at.first, at.second, st.placed, st.terrain, st.campusLevel) == null) {
+                    at
+                } else {
+                    firstFree(spec, st.placed, st.terrain, st.campusLevel)
+                }
                 if (spot != null) {
                     val newPlaced = st.placed + BT.PlacedBuilding(spec.key, spot.first, spot.second)
-                    _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已落成并摆放到校园")
+                    _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已落成")
                     updateLayoutSuspend(newPlaced, st.terrain)
                 } else {
                     _state.value = _state.value.copy(message = "${spec.displayName}已成立，但校园没有空位，请清理后再摆放")
@@ -320,7 +325,7 @@ class CampusViewModel @Inject constructor(
 
     // ===== 建造：设施 =====
 
-    fun buildFacility(spec: BT.Spec) {
+    fun buildFacility(spec: BT.Spec, at: Pair<Int, Int>? = null) {
         val type = spec.facility ?: return
         viewModelScope.safeLaunch {
             var newFacility: Facility? = null
@@ -350,7 +355,12 @@ class CampusViewModel @Inject constructor(
                 val f = newFacility
                 val st = _state.value
                 if (f != null) {
-                    val spot = firstFree(spec, st.placed, st.terrain, st.campusLevel)
+                    // 优先放在玩家选定的格子；未指定时才自动找空位
+                    val spot = if (at != null && canPlaceAt(spec, at.first, at.second, st.placed, st.terrain, st.campusLevel) == null) {
+                        at
+                    } else {
+                        firstFree(spec, st.placed, st.terrain, st.campusLevel)
+                    }
                     if (spot != null) {
                         val newPlaced = st.placed + BT.PlacedBuilding(spec.key, spot.first, spot.second, 1, f.id)
                         _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已落成")
@@ -460,9 +470,9 @@ class CampusViewModel @Inject constructor(
                 return
             }
             if (spec.college != null) {
-                foundCollege(spec)
+                foundCollege(spec, x to y)
             } else if (spec.facility != null) {
-                buildFacility(spec)
+                buildFacility(spec, x to y)
             }
             pendingSpec = null
             return

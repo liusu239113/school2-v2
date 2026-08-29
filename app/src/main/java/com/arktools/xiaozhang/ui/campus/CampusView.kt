@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -78,7 +79,11 @@ fun CampusView(
     val context = LocalContext.current
     val density = LocalDensity.current.density
 
-    val cell = 48.dp.value * density
+    // 双指缩放（0.55x ~ 2.4x），cell 随缩放变化，全地图统一
+    var zoom by remember { mutableStateOf(1f) }
+    val baseCell = 48.dp.value * density
+
+    val cell = baseCell * zoom
     val worldW = BT.GRID_W * cell
     val worldH = BT.GRID_H * cell
     var camera by remember { mutableStateOf(Offset(0f, 0f)) }
@@ -90,8 +95,10 @@ fun CampusView(
     var ghost by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val inPlacementMode = pendingSpec != null || pendingTile != null || moveTarget != null
 
-    // 幽灵位置合法性：与 ViewModel.canPlaceAt 同规则（边界/解锁区/地形/重叠）
+    // 幽灵位置合法性：与 ViewModel.canPlaceAt 同规则（边界/解锁区/地形/重叠/搬移豁免）
     fun canPlaceGhostAt(cx: Int, cy: Int, spec: BT.Spec): Boolean {
+        // 搬移模式下豁免建筑自身
+        val ignoreId = moveTarget?.let { it.facilityId.ifBlank { it.key } }
         for (dy in 0 until spec.h) for (dx in 0 until spec.w) {
             val cx2 = cx + dx
             val cy2 = cy + dy
@@ -100,6 +107,9 @@ fun CampusView(
             val t = state.terrain[cy2 * 1000L + cx2]
             if (t == BT.TileKind.ROAD || t == BT.TileKind.PLAZA || t == BT.TileKind.WATER) return false
             val blocked = state.placed.any { p ->
+                if (ignoreId != null && (p.facilityId == ignoreId || p.key == ignoreId)) return@any false
+                // 与 canPlaceAt 一致：行政楼重建可落回原位
+                if (spec.key == "ADMIN" && p.key == "ADMIN") return@any false
                 val ps = BT.specByKey(p.key)
                 ps != null && BT.occupies(p, ps, cx2, cy2)
             }
@@ -128,6 +138,22 @@ fun CampusView(
     val pathTile = remember(R.drawable.tile_path) {
         BitmapFactory.decodeResource(context.resources, R.drawable.tile_path).asImageBitmap()
     }
+    // 楼名标签画笔（世界坐标系内绘制，避免 Compose 元素跟随拖动时漂移）
+    val labelTextPaint = remember(density) {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+            textSize = 11.sp.value * density
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+            isFakeBoldText = true
+        }
+    }
+    val labelBgPaint = remember(density) {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#CC0B2038")
+            style = android.graphics.Paint.Style.FILL
+        }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenW = constraints.maxWidth
@@ -140,6 +166,20 @@ fun CampusView(
                 camera.x.coerceIn(minX, 0f),
                 camera.y.coerceIn(minY, 0f)
             )
+        }
+
+        // 以 focus 点为锚缩放（focus 指向的世界点保持不动）
+        fun zoomBy(factor: Float, focus: Offset) {
+            val oldCell = baseCell * zoom
+            zoom = (zoom * factor).coerceIn(0.55f, 2.4f)
+            val newCell = baseCell * zoom
+            if (newCell != oldCell) {
+                camera = Offset(
+                    focus.x - (focus.x - camera.x) * (newCell / oldCell),
+                    focus.y - (focus.y - camera.y) * (newCell / oldCell)
+                )
+                clampCamera()
+            }
         }
 
         // 初始镜头：对准解锁区中心
@@ -169,19 +209,24 @@ fun CampusView(
                 .clipToBounds()
                 .pointerInput(inPlacementMode) {
                     if (inPlacementMode) {
-                        // 摆放/铺装/搬移模式：拖动移动幽灵预览，不平移镜头
-                        detectDragGestures { change, _ ->
-                            change.consume()
-                            val world = change.position + camera
-                            val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
-                            val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
-                            ghost = cx to cy
+                        // 摆放/铺装/搬移模式：手指移动=挪动幽灵预览；双指捏合=缩放
+                        detectTransformGestures { centroid, pan, zoomChange, _ ->
+                            if (zoomChange != 1f) zoomBy(zoomChange, centroid)
+                            if (pan != Offset.Zero) {
+                                val world = centroid + camera
+                                val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
+                                val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
+                                ghost = cx to cy
+                            }
                         }
                     } else {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            camera = Offset(camera.x - drag.x, camera.y - drag.y)
-                            clampCamera()
+                        // 浏览模式：拖动平移地图（内容跟随手指），双指捏合缩放
+                        detectTransformGestures { centroid, pan, zoomChange, _ ->
+                            if (zoomChange != 1f) zoomBy(zoomChange, centroid)
+                            if (pan != Offset.Zero) {
+                                camera = Offset(camera.x + pan.x, camera.y + pan.y)
+                                clampCamera()
+                            }
                         }
                     }
                 }
@@ -273,16 +318,16 @@ fun CampusView(
                     }
                 }
 
-                // 锁定区域遮罩（浅色蒙层 + 解锁提示）
+                // 锁定区域遮罩（加深蒙层与解锁区形成明显对比 + 金色边界 + 提示文字）
                 val ring = (state.campusLevel - 1).coerceAtMost(4)
                 val ux0 = (BT.INIT_X - ring) * cell
                 val uy0 = (BT.INIT_Y - ring) * cell
                 val ux1 = ux0 + (BT.INIT_W + ring * 2) * cell
                 val uy1 = uy0 + (BT.INIT_H + ring * 2) * cell
-                drawRect(Color(0x2E000000), Offset(0f, 0f), Size(worldW, uy0))
-                drawRect(Color(0x2E000000), Offset(0f, uy1), Size(worldW, worldH - uy1))
-                drawRect(Color(0x2E000000), Offset(0f, uy0), Size(ux0, uy1 - uy0))
-                drawRect(Color(0x2E000000), Offset(ux1, uy0), Size(worldW - ux1, uy1 - uy0))
+                drawRect(Color(0x52000000), Offset(0f, 0f), Size(worldW, uy0))
+                drawRect(Color(0x52000000), Offset(0f, uy1), Size(worldW, worldH - uy1))
+                drawRect(Color(0x52000000), Offset(0f, uy0), Size(ux0, uy1 - uy0))
+                drawRect(Color(0x52000000), Offset(ux1, uy0), Size(worldW - ux1, uy1 - uy0))
                 drawRect(Color(0xB3FFD54F), Offset(ux0, uy0), Size(ux1 - ux0, uy1 - uy0), style = Stroke(3f))
                 drawContext.canvas.nativeCanvas.apply {
                     val hintPaint = android.graphics.Paint().apply {
@@ -377,34 +422,33 @@ fun CampusView(
                         }
                     }
                 }
+
+                // 楼名标签：世界坐标系内绘制，与地图绝对同步（拖动/缩放零漂移）
+                state.placed.forEach { placed ->
+                    val spec = BT.specByKey(placed.key) ?: return@forEach
+                    val text = spec.displayName
+                    val tw = labelTextPaint.measureText(text)
+                    val centerX = placed.x * cell + spec.w * cell / 2f
+                    val bottomY = placed.y * cell + spec.h * cell
+                    val padH = 5f * density
+                    val textH = labelTextPaint.textSize
+                    val bgTop = bottomY + 2f * density
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawRect(
+                            centerX - tw / 2f - padH,
+                            bgTop,
+                            centerX + tw / 2f + padH,
+                            bgTop + textH + 4f * density,
+                            labelBgPaint
+                        )
+                        drawText(text, centerX, bgTop + textH + 1.5f * density, labelTextPaint)
+                    }
+                }
             }
         }
 
-        // 楼名标签（楼图下缘外侧，紧贴不遮挡）
-        state.placed.forEach { placed ->
-            val spec = BT.specByKey(placed.key) ?: return@forEach
-            Box(
-                modifier = Modifier
-                    .offset(
-                        x = with(LocalDensity.current) { (placed.x * cell - camera.x).toDp() },
-                        y = with(LocalDensity.current) { (placed.y * cell + spec.h * cell * 0.92f - camera.y).toDp() }
-                    )
-                    .clickable {
-                        val hit = viewModel.buildingAt(placed.x, placed.y)
-                        if (hit != null) viewModel.selectPlaced(hit.first, hit.second)
-                    }
-            ) {
-                Text(
-                    text = spec.displayName,
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .background(Color(0xCC0B2038))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-        }
+        // 楼名标签已绘制在 Canvas 世界坐标系内（与地图绝对同步，不再漂移）；
+        // 点击建筑本体仍可打开面板。
 
         // 建造 FAB
         FloatingActionButton(
