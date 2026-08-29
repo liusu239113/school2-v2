@@ -40,7 +40,7 @@ interface TeachingConfigRepository {
     /** 设置每周体育课时 */
     suspend fun setWeeklyPEHours(hours: Int)
 
-    /** 设置月考频率 */
+    /** 设置阶段考核频率 */
     suspend fun setMonthlyExamFrequency(frequency: Int)
 
     /** 重置为默认配置 */

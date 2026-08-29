@@ -122,7 +122,7 @@ class StudentViewModel @Inject constructor(
             val students = _uiState.value.activeStudents + _uiState.value.recentGraduates
             students.forEach { student ->
                 val classInfo = classes.find { it.id == student.classId }
-                val className = classInfo?.displayName ?: "未分班"
+                val className = classInfo?.displayName ?: "未编入教学班"
                 val path = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pathLabel(
                     student.gradeLevel,
                     student.courseId
@@ -231,7 +231,7 @@ class StudentViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             teacherRepository.getTeachersFlow().collect { teachers ->
                 val nameMap = teachers.associate { it.id to it.name }
-                // 获取所有已担任班主任的教师ID（排除当前选中班级的班主任，方便重新分配）
+                // 获取所有已担任学业导师的教师ID（排除当前选中班级的学业导师，方便重新分配）
                 val selectedClassId = _classUiState.value.selectedClass?.id
                 val assignedHeadTeacherIds = gameEngine.classes
                     .filter { it.headTeacherId != null && it.id != selectedClassId }
@@ -272,7 +272,7 @@ class StudentViewModel @Inject constructor(
     }
 
     fun showHeadTeacherDialog() {
-        // 打开对话框时重新计算可选老师（排除已在其他班担任班主任的）
+        // 打开对话框时重新计算可选老师（排除已在其他班担任学业导师的）
         refreshAvailableTeachers()
         _classUiState.value = _classUiState.value.copy(showHeadTeacherDialog = true)
     }
@@ -304,7 +304,7 @@ class StudentViewModel @Inject constructor(
             gameEngine.classManager.assignHeadTeacher(selectedClass, teacher, gameEngine.classes)
             gameEngine.notifyClassesChanged()
             gameEngine.saveHeadTeacherMap()
-            // 班主任工作量折减后立即全校重排，避免科任冲突
+            // 学业导师工作量折减后立即全校重排，避免科任冲突
             gameEngine.refreshTimetablesForTeacherChange()
             dismissHeadTeacherDialog()
         }
@@ -326,7 +326,7 @@ class StudentViewModel @Inject constructor(
             val allClasses = gameEngine.classes
             val classesNeedingHead = allClasses.filter { it.headTeacherId == null && it.studentCount > 0 }
             if (classesNeedingHead.isEmpty()) {
-                _classUiState.value = _classUiState.value.copy(message = "所有班级已有班主任，无需分配")
+                _classUiState.value = _classUiState.value.copy(message = "所有班级已有学业导师，无需分配")
                 return@safeLaunch
             }
 
@@ -334,7 +334,7 @@ class StudentViewModel @Inject constructor(
             val assignments = gameEngine.classManager.autoAssignHeadTeachers(allClasses, teachers)
 
             if (assignments.isEmpty()) {
-                _classUiState.value = _classUiState.value.copy(message = "没有可用的教师来担任班主任")
+                _classUiState.value = _classUiState.value.copy(message = "没有可用的教师来担任学业导师")
                 return@safeLaunch
             }
 
@@ -342,7 +342,7 @@ class StudentViewModel @Inject constructor(
             gameEngine.saveHeadTeacherMap()
             gameEngine.refreshTimetablesForTeacherChange()
             _classUiState.value = _classUiState.value.copy(
-                message = "一键分配完成！已为 ${assignments.size} 个班级分配班主任"
+                message = "一键分配完成！已为 ${assignments.size} 个班级分配学业导师"
             )
         }
     }

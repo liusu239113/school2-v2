@@ -63,7 +63,7 @@ fun ExamScreen(
             EmptyState(
                 icon = Icons.Default.Assessment,
                 title = "暂无考试记录",
-                description = "考试将自动安排：月考(3/5/9/11月)、期中(4/10月)、期末(1/7月)"
+                description = "考试将自动安排：阶段考核(3/5/9/11月)、期中(4/10月)、期末(1/7月)"
             )
             return@Scaffold
         }

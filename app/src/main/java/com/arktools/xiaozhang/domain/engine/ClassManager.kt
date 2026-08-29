@@ -9,12 +9,12 @@ import kotlin.random.Random
  * 班级管理引擎
  *
  * 负责:
- * - 新生分班（按策略将新入学学生分配到班级）
+ * - 新生编入教学班（按策略将新入学学生分配到班级）
  * - 班级指标聚合（从学生五维计算班级整体属性）
  * - 年级排名计算
  * - 班级事件触发
  * - 学年末升级/留级/毕业判定
- * - 班主任分配效果计算
+ * - 学业导师分配效果计算
  */
 @Singleton
 class ClassManager @Inject constructor() {
@@ -22,12 +22,12 @@ class ClassManager @Inject constructor() {
     // ======= 核心: 班级列表 (StateFlow in GameEngine) =======
 
     /**
-     * 为新入学学生执行分班
-     * 在每月招生后调用，将未分班的学生分配到对应年级的班级中
+     * 为新入学学生执行编入教学班
+     * 在每月招生后调用，将未编入教学班的学生分配到对应年级的班级中
      *
      * @param unassignedStudents 未分配班级的新生
      * @param existingClasses 现有班级列表
-     * @param strategy 分班策略
+     * @param strategy 编入教学班策略
      * @param schoolId 学校ID
      * @param currentYear 当前年份
      * @param currentMonth 当前月份
@@ -47,10 +47,10 @@ class ClassManager @Inject constructor() {
 
         val studentClassMap = mutableMapOf<String, String>()
 
-        // 按年级分组（新生默认高一）
+        // 按年级分组（新生默认大一）
         val grade1Students = unassignedStudents.filter { it.gradeLevel == GradeLevel.GRADE_1 }
 
-        // 获取高一班级
+        // 获取大一班级
         val grade1Classes = existingClasses.filter { it.gradeLevel == GradeLevel.GRADE_1 }
 
         // 确保按班型配置创建足够班级
@@ -64,7 +64,7 @@ class ClassManager @Inject constructor() {
             gradeDistribution = gradeDistribution
         )
 
-        // 按策略分班
+        // 按策略编入教学班
         when (strategy) {
             ClassStrategy.RANDOM -> assignRandom(grade1Students, targetClasses, studentClassMap)
             ClassStrategy.BALANCED -> assignBalanced(grade1Students, targetClasses, studentClassMap)
@@ -112,7 +112,7 @@ class ClassManager @Inject constructor() {
         return gradeClasses
     }
 
-    // ======= 分班策略实现 =======
+    // ======= 编入教学班策略实现 =======
 
     private fun assignRandom(
         students: List<Student>,
@@ -298,7 +298,7 @@ class ClassManager @Inject constructor() {
             schoolClass.avgAcademicScore = classStudents.map { it.academicScore }.average().toFloat()
             schoolClass.avgSatisfaction = classStudents.map { it.satisfaction }.average().toFloat()
 
-            // 班风 = (社交均值 + 品德均值) / 2，受班主任加成
+            // 班风 = (社交均值 + 品德均值) / 2，受学业导师加成
             var baseSpirit = (schoolClass.avgSocial + schoolClass.avgMorality) / 2f
             // 凝聚力 = 社交均值 * 0.7 + 人数适中奖励
             var baseCohesion = schoolClass.avgSocial * 0.7f +
@@ -306,7 +306,7 @@ class ClassManager @Inject constructor() {
             // 纪律 = 品德均值 * 0.8
             var baseDiscipline = schoolClass.avgMorality * 0.8f
 
-            // 班主任加成
+            // 学业导师加成
             val headTeacher = schoolClass.headTeacherId?.let { id ->
                 teachers.find { it.id == id }
             }
@@ -440,9 +440,9 @@ class ClassManager @Inject constructor() {
 
     /**
      * 学年末（每年6月）执行升级/毕业
-     * - 高三 → 毕业
-     * - 高二 → 高三
-     * - 高一 → 高二
+     * - 大四 → 毕业
+     * - 大二 → 大四
+     * - 大一 → 大二
      * - 学业成绩极差(academicScore < 20) → 留级
      */
     fun yearEndPromotion(
@@ -461,8 +461,8 @@ class ClassManager @Inject constructor() {
 
         for (student in activeStudents) {
             when {
-                // 高三毕业
-                student.gradeLevel == GradeLevel.GRADE_3 -> {
+                // 大四毕业
+                student.gradeLevel == GradeLevel.GRADE_4 -> {
                     graduated.add(student.id)
                 }
                 // 成绩极差留级（学期掌握度>30表示已上课足够久，排除新入学的学生）
@@ -476,7 +476,7 @@ class ClassManager @Inject constructor() {
             }
         }
 
-        // 计算新高一需要多少容量（给下学年招生预留）
+        // 计算新大一需要多少容量（给下学年招生预留）
         val currentGrade1Count = activeStudents.count { it.gradeLevel == GradeLevel.GRADE_1 }
         val newGrade1Capacity = (currentGrade1Count * 1.1f).toInt()
 
@@ -489,16 +489,16 @@ class ClassManager @Inject constructor() {
     }
 
     /**
-     * 分配班主任
-     * 将教师指定为某班级的班主任
-     * @param allClasses 所有班级列表，用于确保同一教师不会同时担任多个班的班主任
+     * 分配学业导师
+     * 将教师指定为某班级的学业导师
+     * @param allClasses 所有班级列表，用于确保同一教师不会同时担任多个班的学业导师
      */
     fun assignHeadTeacher(
         schoolClass: SchoolClass,
         teacher: Teacher,
         allClasses: List<SchoolClass> = emptyList()
     ): HeadTeacherEffect {
-        // 防御性校验：如果该教师已在其他班担任班主任，先移除旧分配
+        // 防御性校验：如果该教师已在其他班担任学业导师，先移除旧分配
         allClasses.forEach { cls ->
             if (cls.id != schoolClass.id && cls.headTeacherId == teacher.id) {
                 cls.headTeacherId = null
@@ -509,7 +509,7 @@ class ClassManager @Inject constructor() {
     }
 
     /**
-     * 自动为无班主任的班级分配班主任
+     * 自动为无学业导师的班级分配学业导师
      * 优先分配: management和psychology能力高的教师
      */
     fun autoAssignHeadTeachers(

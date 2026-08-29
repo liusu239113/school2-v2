@@ -96,7 +96,7 @@ internal fun isStudentGraduationDue(
     processingYear: Int,
     processingMonth: Int
 ): Boolean {
-    if (gradeLevel != GradeLevel.GRADE_3) return false
+    if (gradeLevel != GradeLevel.GRADE_4) return false
     if (enrollYear <= 0) return processingMonth >= 6
     val enrolledYears = processingYear - enrollYear
     return enrolledYears > 3 ||
@@ -1659,8 +1659,8 @@ class GameEngine @Inject constructor(
     }
 
     /**
-     * 将当前班主任映射持久化到 School 的 headTeacherMapJson 字段。
-     * 在分配/移除班主任后调用。
+     * 将当前学业导师映射持久化到 School 的 headTeacherMapJson 字段。
+     * 在分配/移除学业导师后调用。
      */
     suspend fun saveHeadTeacherMap() {
         engineOperationMutex.withLock {
@@ -1836,6 +1836,16 @@ class GameEngine @Inject constructor(
             com.arktools.xiaozhang.domain.seasonal.ActivityType.SPRING_OUTING ->
                 com.arktools.xiaozhang.domain.reputation.ReputationDimension.MANAGEMENT
         }
+    }
+
+
+    private fun BT_decodeTerrainCount(raw: String, kinds: Set<String>): Int {
+        if (raw.isBlank()) return 0
+        return runCatching {
+            val list = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                .decodeFromString<List<com.arktools.xiaozhang.ui.campus.CampusBuildTypes.TerrainCell>>(raw)
+            list.count { it.kind in kinds }
+        }.getOrDefault(0)
     }
 
     private suspend fun emitEvent(event: GameEvent, school: School? = null) {
@@ -2061,7 +2071,7 @@ class GameEngine @Inject constructor(
      * 从数据库中的学生数据重建班级列表。
      * 解决：班级信息仅存在内存中，读档后 _classes 为空的问题。
      * 逻辑：按学生的 classId 分组，为每组创建 SchoolClass 对象并聚合指标。
-     * 同时处理 classId 为 null 的旧存档学生（自动分班）。
+     * 同时处理 classId 为 null 的旧存档学生（自动编入教学班）。
      */
     private suspend fun rebuildClassesFromStudents() {
         // 如果已有班级数据（新游戏刚招生），无需重建
@@ -2181,7 +2191,7 @@ class GameEngine @Inject constructor(
             }
         }
 
-        // 从 headTeacherMapJson 恢复班主任分配
+        // 从 headTeacherMapJson 恢复学业导师分配
         try {
             val headTeacherMapStr = school.headTeacherMapJson
             if (headTeacherMapStr.isNotBlank()) {
@@ -3975,6 +3985,21 @@ class GameEngine @Inject constructor(
                 }
             }
             suggestionBoxManager.cleanupOldSuggestions(school.currentYear, school.currentMonth)
+
+            // 校园装扮（花坛/树木/长椅/雕像/石灯笼）提供小幅满意度加成，上限 +3
+            runCatching {
+                val decorKinds = setOf("FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN")
+                val devNow = policyManager.policies.value.collegeDevelopment
+                val decorCount = BT_decodeTerrainCount(devNow.terrainMap, decorKinds)
+                if (decorCount > 0) {
+                    val boost = (decorCount / 8f * 0.2f).coerceAtMost(3f)
+                    if (boost >= 0.2f) {
+                        studentRepository.adjustActiveStudentSatisfaction(boost)
+                    }
+                }
+            }.onFailure {
+                android.util.Log.w("GameEngine", "Campus decoration satisfaction failed", it)
+            }
 
             // 采纳建议奖励：每采纳一条建议，全校满意度+1，声誉+3
             val resolvedCount = suggestionBoxManager.consumeResolvedCount()
@@ -6033,7 +6058,7 @@ class GameEngine @Inject constructor(
 
             // 计算每日学期掌握度（基于教学配置而非旧课程）
             val dailyMastery = StudentProgressCalculator.calculateDailySemesterMastery(
-                courseScale = CourseScale.FULL_TIME,  // 高中全日制
+                courseScale = CourseScale.FULL_TIME,  // 大学全日制
                 talent = student.talent,
                 courseQuality = teachingQuality,
                 teacherSkill = teacherAvgSkill,
@@ -6210,7 +6235,7 @@ class GameEngine @Inject constructor(
                 * pressureEnrollMultiplier * connectionEnrollBonus * facilityEnrollMultiplier
                 + employmentBonus).toInt()
         val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(1, gradeCapacity)
-        // 高一可能因转入/异常流程提前出现少量学生；九月招生按当前真实高一人数补齐。
+        // 大一可能因转入/异常流程提前出现少量学生；九月招生按当前真实大一人数补齐。
         // 不能只看某月是否已有1条入学记录，否则会把整批招生永久跳过。
         val existingGradeOneCount = studentRepository.getGradeStudentCount(GradeLevel.GRADE_1)
         val enrollCount = (targetEnrollCount - existingGradeOneCount).coerceAtLeast(0)
@@ -6272,7 +6297,7 @@ class GameEngine @Inject constructor(
         }
 
         if (newStudents.isNotEmpty()) {
-            // 在隔离副本上完成分班；数据库提交成功前不污染 live 班级状态。
+            // 在隔离副本上完成编入教学班；数据库提交成功前不污染 live 班级状态。
             val plannedClasses = _classes.value
                 .map { it.copy() }
                 .toMutableList()
@@ -6647,16 +6672,16 @@ class GameEngine @Inject constructor(
     }
 
     /**
-     * 高三6月高考：计算高考分数 → 录取大学 → 毕业
+     * 大四6月高考：计算高考分数 → 录取大学 → 毕业
      * 这是唯一的正式毕业路径
      */
     private suspend fun conductGaoKao(school: School, graduatingStudentIds: Set<String>? = null) {
         val activeStudents = studentRepository.getActiveStudents()
-        // 如果传入了毕业学生ID列表，则只处理这些学生（避免刚升级的高二学生被误毕业）
+        // 如果传入了毕业学生ID列表，则只处理这些学生（避免刚升级的大二学生被误毕业）
         val grade3Students = if (graduatingStudentIds != null) {
             activeStudents.filter { it.id in graduatingStudentIds }
         } else {
-            activeStudents.filter { it.gradeLevel == GradeLevel.GRADE_3 }
+            activeStudents.filter { it.gradeLevel == GradeLevel.GRADE_4 }
         }.filter { student ->
             isGraduationDue(
                 student = student,

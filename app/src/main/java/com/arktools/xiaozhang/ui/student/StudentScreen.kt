@@ -320,7 +320,7 @@ private fun ClassManageContent(viewModel: StudentViewModel) {
     Column(modifier = Modifier.fillMaxSize()) {
         SnackbarHost(hostState = snackbarHostState)
 
-        // 顶部统计 + 一键分配班主任
+        // 顶部统计 + 一键分配学业导师
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -345,7 +345,7 @@ private fun ClassManageContent(viewModel: StudentViewModel) {
                 ) {
                     Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("一键分配班主任(${classesWithoutHead})", style = MaterialTheme.typography.labelMedium)
+                    Text("一键分配学业导师(${classesWithoutHead})", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -416,7 +416,7 @@ private fun ClassManageContent(viewModel: StudentViewModel) {
         }
     }
 
-    // 班主任任命对话框
+    // 学业导师任命对话框
     if (classState.showHeadTeacherDialog) {
         HeadTeacherAssignDialog(
             currentTeacherId = classState.selectedClass?.headTeacherId,
@@ -847,7 +847,7 @@ private fun ClassCard(
                         }
                     }
                     Text(
-                        text = if (headTeacherName != null) "班主任: $headTeacherName" else "未指定班主任",
+                        text = if (headTeacherName != null) "学业导师: $headTeacherName" else "未指定学业导师",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (headTeacherName != null) MaterialTheme.colorScheme.onSurfaceVariant else AccentOrange
                     )
@@ -935,7 +935,7 @@ private fun ClassDetailSheet(
                     Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (headTeacherName != null) "班主任: $headTeacherName" else "未指定班主任",
+                        text = if (headTeacherName != null) "学业导师: $headTeacherName" else "未指定学业导师",
                         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f)
                     )
                     TextButton(onClick = onAssignHeadTeacher) {

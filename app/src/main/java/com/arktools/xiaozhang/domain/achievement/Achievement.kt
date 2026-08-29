@@ -125,7 +125,7 @@ object AchievementRegistry {
         // ═══════════════════════════════════════════
         Achievement("near_bankruptcy", "绝处逢生", "濒临破产后恢复到正数", AchievementCategory.CHALLENGE) { it.cash > 0 && it.wasNearBankrupt },
         Achievement("speed_level2", "闪电升级", "3年内升到2级", AchievementCategory.CHALLENGE) { it.campusLevel >= 2 && (it.currentYear - it.foundedYear) <= 3 },
-        Achievement("speed_level3", "火箭速度", "8年内升到3级", AchievementCategory.CHALLENGE) { it.campusLevel >= 3 && (it.currentYear - it.foundedYear) <= 8 },
+        Achievement("speed_level3", "精英速度", "8年内升到3级", AchievementCategory.CHALLENGE) { it.campusLevel >= 3 && (it.currentYear - it.foundedYear) <= 8 },
         Achievement("speed_level4", "传奇速通", "15年内升到4级", AchievementCategory.CHALLENGE) { it.campusLevel >= 4 && (it.currentYear - it.foundedYear) <= 15 },
         Achievement("speed_level5", "速通大师", "25年内升到5级", AchievementCategory.CHALLENGE) { it.campusLevel >= 5 && (it.currentYear - it.foundedYear) <= 25 },
         Achievement("no_debt_year", "量入为出", "连续运营5年以上且从未负债", AchievementCategory.CHALLENGE) { (it.currentYear - it.foundedYear) >= 5 && !it.wasNearBankrupt && it.cash > 0 },

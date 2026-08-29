@@ -152,7 +152,7 @@ class TeachingManager @Inject constructor() {
     }
 
     /**
-     * 设置每月考试频率
+     * 设置每阶段考核试频率
      */
     fun setMonthlyExamFrequency(freq: Int) {
         _state.update { it.copy(config = it.config.copy(monthlyExamFrequency = freq.coerceIn(0, 4))) }

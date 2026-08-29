@@ -727,10 +727,10 @@ class PressureSystemManager @Inject constructor() {
             )
             BehaviorEventType.MENTAL_HEALTH -> StudentBehaviorEvent(
                 type = BehaviorEventType.MENTAL_HEALTH,
-                description = "班主任报告有学生出现严重心理问题，情绪低落、不愿上课。",
+                description = "学业导师报告有学生出现严重心理问题，情绪低落、不愿上课。",
                 choices = listOf(
                     BehaviorChoice("聘请专业心理咨询师（长期）", 3f, 5L, 3.0, "建立心理援助体系，学生感受到关怀"),
-                    BehaviorChoice("安排班主任一对一谈心", 1f, 0L, 0.0, "有所缓解但非专业处理"),
+                    BehaviorChoice("安排学业导师一对一谈心", 1f, 0L, 0.0, "有所缓解但非专业处理"),
                     BehaviorChoice("通知家长自行处理", -3f, -3L, 0.0, "学生状况恶化，家长不满")
                 )
             )
@@ -788,7 +788,7 @@ class PressureSystemManager @Inject constructor() {
 
         val classroom = facilities.find { it.type == FacilityType.CLASSROOM }
         if (classroom == null && totalStudents > 30) {
-            penalties.add(FacilityPenalty("教室不足，部分班级过度拥挤", 4f, totalStudents))
+            penalties.add(FacilityPenalty("教室不足，部编入教学班级过度拥挤", 4f, totalStudents))
         }
 
         return penalties

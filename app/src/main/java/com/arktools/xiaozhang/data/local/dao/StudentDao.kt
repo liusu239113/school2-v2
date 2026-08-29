@@ -332,7 +332,7 @@ interface StudentDao {
     )
     suspend fun resetSemesterMastery(schoolId: String): Int
 
-    // 仅允许给仍在读且年级符合预期的学生分班
+    // 仅允许给仍在读且年级符合预期的学生编入教学班
     @Query(
         "UPDATE students SET classId = :classId " +
             "WHERE schoolId = :schoolId AND id = :studentId " +

@@ -8,7 +8,7 @@ import java.util.UUID
  * 层级关系: 学校 → 年级(GradeLevel) → 班级(SchoolClass) → 学生(Student)
  *
  * 班级是学生管理的核心组织单元:
- * - 每个班级有一个班主任(headTeacher)
+ * - 每个班级有一个学业导师(headTeacher)
  * - 班级有容量上限(maxCapacity)
  * - 班级整体指标由学生五维属性聚合
  * - 班级之间有排名竞争
@@ -18,8 +18,8 @@ data class SchoolClass(
     val schoolId: String,
     var gradeLevel: GradeLevel,
     val classNumber: Int,               // 班号 1,2,3...
-    val classTier: ClassTier = ClassTier.NORMAL,  // 班型（火箭/重点/普通/特长）
-    var headTeacherId: String? = null,   // 班主任教师ID
+    val classTier: ClassTier = ClassTier.NORMAL,  // 班型（精英/重点/普通/特长）
+    var headTeacherId: String? = null,   // 学业导师教师ID
     val maxCapacity: Int = classTier.maxSize,     // 班级最大容量，由班型决定
 
     // ======= 班级整体指标（由学生聚合计算）=======
@@ -33,7 +33,7 @@ data class SchoolClass(
     var avgSatisfaction: Float = 70f,   // 班均满意度
 
     // ======= 班级特有属性 =======
-    var classSpirit: Float = 50f,       // 班风 (0~100) — 由 social+morality 聚合 + 班主任加成
+    var classSpirit: Float = 50f,       // 班风 (0~100) — 由 social+morality 聚合 + 学业导师加成
     var disciplineScore: Float = 70f,   // 纪律分 (0~100) — morality聚合 + 事件影响
     var cohesion: Float = 50f,          // 凝聚力 (0~100) — social聚合 + 活动加成
     var gradeRanking: Int = 0,          // 年级内排名 (1-based, 按avgAcademicScore)
@@ -66,31 +66,33 @@ data class SchoolClass(
     val overallScore: Float
         get() = avgAcademicScore * 0.4f + classSpirit * 0.2f + disciplineScore * 0.2f + cohesion * 0.2f
 
-    /** 班主任效果描述 */
+    /** 学业导师效果描述 */
     val hasHeadTeacher: Boolean get() = headTeacherId != null
 }
 
 /**
  * 年级枚举
  *
- * 目前设计为高中三年制（高一/高二/高三）
- * 每年9月新高一入学，每年6月高三毕业
+ * 四年制本科（大一/大二/大三/大四）
+ * 每年9月新生入学，每年6月大四毕业
  */
 enum class GradeLevel(
     val displayName: String,
-    val order: Int,          // 排序用 (1=高一, 2=高二, 3=高三)
+    val order: Int,          // 排序用 (1=大一, 2=大二, 3=大三, 4=大四)
     val isGraduating: Boolean // 是否为毕业年级
 ) {
     GRADE_1("大一", 1, false),
     GRADE_2("大二", 2, false),
-    GRADE_3("大三", 3, true);
+    GRADE_3("大三", 3, false),
+    GRADE_4("大四", 4, true);
 
-    /** 升入下一年级 (高三无法再升) */
+    /** 升入下一年级 (大四无法再升) */
     val nextGrade: GradeLevel?
         get() = when (this) {
             GRADE_1 -> GRADE_2
             GRADE_2 -> GRADE_3
-            GRADE_3 -> null
+            GRADE_3 -> GRADE_4
+            GRADE_4 -> null
         }
 
     companion object {
@@ -99,13 +101,13 @@ enum class GradeLevel(
 }
 
 /**
- * 分班策略
+ * 编入教学班策略
  */
 enum class ClassStrategy(val displayName: String, val description: String) {
-    RANDOM("随机分班", "完全随机分配，公平但差异大"),
-    BALANCED("均衡分班", "五维均值接近，班级实力均衡"),
-    STREAMED("分层分班", "按智力分重点班/普通班，尖子生集中但影响公平"),
-    SUBJECT_BASED("选科分班", "按学生强项维度分班，利于特长培养")
+    RANDOM("随机编入教学班", "完全随机分配，公平但差异大"),
+    BALANCED("均衡编入教学班", "五维均值接近，班级实力均衡"),
+    STREAMED("分层编入教学班", "按智力分重点班/普通班，尖子生集中但影响公平"),
+    SUBJECT_BASED("选科编入教学班", "按学生强项维度编入教学班，利于特长培养")
 }
 
 /**
@@ -168,12 +170,12 @@ sealed class ClassEvent(
 data class PromotionResult(
     val promotedStudents: List<String>,       // 正常升级的学生ID
     val heldBackStudents: List<String>,       // 留级的学生ID（成绩太差）
-    val graduatedStudents: List<String>,      // 毕业的学生ID（高三结束）
-    val newGrade1Capacity: Int                // 新高一需要多少容量
+    val graduatedStudents: List<String>,      // 毕业的学生ID（大四结束）
+    val newGrade1Capacity: Int                // 新大一需要多少容量
 )
 
 /**
- * 班主任效果（根据教师属性计算）
+ * 学业导师效果（根据教师属性计算）
  */
 data class HeadTeacherEffect(
     val intelligenceBoost: Float = 0f,    // 智力成长加成
@@ -186,7 +188,7 @@ data class HeadTeacherEffect(
 ) {
     companion object {
         /**
-         * 根据教师四维能力计算班主任效果
+         * 根据教师四维能力计算学业导师效果
          * teaching → 智力加成
          * management → 品德+纪律加成
          * psychology → 社交+满意度加成

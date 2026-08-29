@@ -52,6 +52,21 @@ import com.arktools.xiaozhang.R
  */
 
 /**
+ * 旧二级页统一标题条（深蓝底白字），与四主区视觉一致。
+ */
+@Composable
+fun LegacyPageHeader(title: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(com.arktools.xiaozhang.ui.theme.PrimaryDark)
+            .padding(horizontal = 14.dp, vertical = 9.dp)
+    ) {
+        Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/**
  * Pixel art game page background wrapper.
  * Wraps entire screen content with bg_game_page as background.
  * Use this as the root container for all in-game screens.

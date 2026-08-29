@@ -118,10 +118,10 @@ class MiniGameViewModel @Inject constructor(
         val allEvents = SportsEvent.entries.toList()
         // 每个对手班级有随机擅长项目
         val classes = listOf(
-            CompetingClass("高一(1)班", Random.nextInt(65, 85), isPlayerClass = true),
-            CompetingClass("高一(2)班", Random.nextInt(60, 90), speciality = allEvents.random()),
-            CompetingClass("高二(1)班", Random.nextInt(70, 95), speciality = allEvents.random()),
-            CompetingClass("高二(3)班", Random.nextInt(55, 80), speciality = allEvents.random()),
+            CompetingClass("大一(1)班", Random.nextInt(65, 85), isPlayerClass = true),
+            CompetingClass("大一(2)班", Random.nextInt(60, 90), speciality = allEvents.random()),
+            CompetingClass("大二(1)班", Random.nextInt(70, 95), speciality = allEvents.random()),
+            CompetingClass("大二(3)班", Random.nextInt(55, 80), speciality = allEvents.random()),
         )
         _sportsDayState.value = SportsDayGameState(
             phase = SportsDayPhase.SELECT_EVENTS,

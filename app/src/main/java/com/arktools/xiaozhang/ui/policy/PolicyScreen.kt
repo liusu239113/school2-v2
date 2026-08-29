@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiaozhang.domain.policy.*
+import com.arktools.xiaozhang.ui.components.LegacyPageHeader
 import com.arktools.xiaozhang.ui.components.PixelGameBackground
 import com.arktools.xiaozhang.ui.components.PixelIcon
 
@@ -36,6 +37,7 @@ fun PolicyScreen(
     val effects = viewModel.getPolicyEffects()
 
     PixelGameBackground {
+        LegacyPageHeader("学校政策")
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),

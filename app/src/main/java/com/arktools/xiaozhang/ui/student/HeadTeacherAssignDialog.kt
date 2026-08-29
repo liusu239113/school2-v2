@@ -49,7 +49,7 @@ fun HeadTeacherAssignDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("任命班主任") },
+        title = { Text("任命学业导师") },
         text = {
             Column {
                 if (currentTeacherId != null) {
@@ -72,7 +72,7 @@ fun HeadTeacherAssignDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "撤销当前班主任",
+                                text = "撤销当前学业导师",
                                 color = AccentRed,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium
@@ -83,7 +83,7 @@ fun HeadTeacherAssignDialog(
                 }
 
                 Text(
-                    text = "选择一位教师担任班主任:",
+                    text = "选择一位教师担任学业导师:",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

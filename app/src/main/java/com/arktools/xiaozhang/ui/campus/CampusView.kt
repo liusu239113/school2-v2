@@ -348,6 +348,7 @@ fun CampusView(
                         onUpgradeFacility = { viewModel.upgradeFacility(building.facility?.id ?: "") },
                         onUpgradeCampus = { viewModel.upgradeCampus() },
                         onOpenTeaching = { onNavigateTo(40) },
+                        chainSummary = viewModel.libraryChainSummary(),
                         onMove = {
                             state.selectedPlaced?.let { placed ->
                                 viewModel.clearSelection()
@@ -406,7 +407,7 @@ fun CampusView(
             }
         }
 
-        // 新手引导（四步，随存档记忆）
+        // 新手引导（五步，随存档记忆）
         if (!state.tutorialDone) {
             CampusTutorialOverlay(onDone = { viewModel.markTutorialDone() })
         }
@@ -419,7 +420,7 @@ private fun LaunchedEffect2(key: Any?, block: suspend () -> Unit) {
     androidx.compose.runtime.LaunchedEffect(key) { block() }
 }
 
-/** 新手引导遮罩（四步，文案即说明） */
+/** 新手引导遮罩（五步，文案即说明） */
 @Composable
 private fun CampusTutorialOverlay(onDone: () -> Unit) {
     var step by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -427,7 +428,8 @@ private fun CampusTutorialOverlay(onDone: () -> Unit) {
         "欢迎来到你的大学！\n\n点击校园里的建筑（如行政楼）可以查看与管理。",
         "点右下角「建造」按钮：\n\n可以建造学院楼、图书馆、宿舍，也可以铺设道路、摆放树木长椅，装扮你的校园。",
         "底部「人事」：发布招聘后，从三名候选人中挑选一位入职。",
-        "底部「治院」：把 10 点预算分给教学、科研、校园生活或社会合作，6 月按年度目标考核。"
+        "底部「治院」：把 10 点预算分给教学、科研、校园生活或社会合作，6 月按年度目标考核。",
+        "底部「外联」：查看大学排名榜，报名校际学科竞赛为学校赢取声誉与奖金。"
     )
     Box(
         modifier = Modifier
@@ -444,7 +446,7 @@ private fun CampusTutorialOverlay(onDone: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "新手引导 ${step + 1}/4",
+                "新手引导 ${step + 1}/5",
                 color = Color(0xFFFFD54F),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
@@ -496,6 +498,7 @@ private fun BuildingPanelContent(
     onUpgradeFacility: () -> Unit,
     onUpgradeCampus: () -> Unit,
     onOpenTeaching: () -> Unit,
+    chainSummary: String = "",
     onMove: () -> Unit,
     onRemove: () -> Unit
 ) {
@@ -554,6 +557,13 @@ private fun BuildingPanelContent(
                         color = Color(0xFF182635)
                     )
                     Text(facility.type.description, fontSize = 13.sp, color = Color(0xFF617386))
+                    if (facility.type == FacilityType.LIBRARY && chainSummary.isNotEmpty()) {
+                        Text(
+                            chainSummary,
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                    }
                     Text(
                         "月维护 ${facility.type.baseMaintenance}万",
                         fontSize = 13.sp,

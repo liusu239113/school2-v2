@@ -100,7 +100,7 @@ class TimetableManager @Inject constructor() {
      * 一次性重排全校班级课表。
      *
      * 所有课表在同一个排课状态中生成：同一教师在同一星期/节次只会出现在一个班级。
-     * 同科教师按当前已分配课时与班主任工作量选择，避免总是使用列表中的第一位教师。
+     * 同科教师按当前已分配课时与学业导师工作量选择，避免总是使用列表中的第一位教师。
      *
      * @return 新生成的全部课表快照
      */
@@ -248,7 +248,7 @@ class TimetableManager @Inject constructor() {
 
     /**
      * 根据年级和班型获取标准课时分配
-     * PE 课时使用教学配置中的 configuredPEHours，高三减少1节
+     * PE 课时使用教学配置中的 configuredPEHours，大四减少1节
      * 特长班会强化对应科目并适度减少部分文化课
      */
     private fun getSubjectHoursForGrade(gradeLevel: GradeLevel, classTier: ClassTier): Map<Subject, Int> {
@@ -278,7 +278,7 @@ class TimetableManager @Inject constructor() {
             )
         }
 
-        // 根据班型调整课时：特长班强化对应特长科目，火箭/重点班强化主科
+        // 根据班型调整课时：特长班强化对应特长科目，精英/重点班强化主科
         when (classTier) {
             ClassTier.ART -> {
                 base[Subject.ART] = (base.getOrDefault(Subject.ART, 0) + 3).coerceAtMost(6)
@@ -354,7 +354,7 @@ class TimetableManager @Inject constructor() {
     private val teacherAssignments: MutableMap<String, MutableMap<LessonTime, String>> = mutableMapOf()
 
     /**
-     * 班主任每带一个班，排课时视为额外承担四节常规课的工作量。
+     * 学业导师每带一个班，排课时视为额外承担四节常规课的工作量。
      * 这是优先级折减而非硬上限：师资紧缺时仍会安排其授课，并不会无故产生“待聘”。
      */
     private val HEAD_TEACHER_LOAD_PENALTY = 4
@@ -426,7 +426,7 @@ class TimetableManager @Inject constructor() {
 
     /**
      * 仅从在岗且未休假的同科教师中选择候选人。
-     * 先比较实际已排课时，再叠加班主任折减，最后按 ID 固定排序以保证平局时的稳定结果。
+     * 先比较实际已排课时，再叠加学业导师折减，最后按 ID 固定排序以保证平局时的稳定结果。
      */
     private fun chooseTeacher(
         subject: Subject,

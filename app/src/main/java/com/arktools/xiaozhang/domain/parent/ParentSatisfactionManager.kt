@@ -491,7 +491,7 @@ class ParentSatisfactionManager @Inject constructor() {
                 "家长群里老师从来不回复消息"
             ).random()
             ComplaintType.UNFAIR_TREATMENT -> listOf(
-                "班主任对我家孩子有偏见，经常无故批评",
+                "学业导师对我家孩子有偏见，经常无故批评",
                 "评奖评优不透明，怀疑有暗箱操作",
                 "座位安排不合理，孩子视力不好却坐在后排"
             ).random()

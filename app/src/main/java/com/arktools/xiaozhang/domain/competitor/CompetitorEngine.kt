@@ -218,7 +218,7 @@ class CompetitorEngine @Inject constructor() {
     /**
      * 获取排行榜数据 (玩家+AI)
      */
-    fun getRankings(school: School): List<RankingEntry> {
+    fun getRankings(school: School, playerStudentCount: Int = 0): List<RankingEntry> {
         val entries = mutableListOf<RankingEntry>()
 
         // 添加玩家
@@ -226,7 +226,7 @@ class CompetitorEngine @Inject constructor() {
             RankingEntry(
                 name = school.name,
                 reputation = school.reputation,
-                studentCount = 0, // 由外部填充
+                studentCount = playerStudentCount,
                 starRating = school.starRating,
                 isPlayer = true,
                 isActive = true

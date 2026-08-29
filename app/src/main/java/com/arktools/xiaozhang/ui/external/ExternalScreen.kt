@@ -49,8 +49,16 @@ class ExternalViewModel @Inject constructor(
     private val competitorEngine: CompetitorEngine,
     private val gameEngine: GameEngine,
     private val audioManager: AudioManager,
-    private val studentRepository: com.arktools.xiaozhang.domain.repository.StudentRepository
+    private val studentRepository: com.arktools.xiaozhang.domain.repository.StudentRepository,
+    private val alumniNetwork: com.arktools.xiaozhang.domain.alumni.AlumniNetwork
 ) : ViewModel() {
+
+    data class AlumniDigest(
+        val total: Int = 0,
+        val networkLevel: Int = 1,
+        val avgSatisfaction: Float = 0f,
+        val notable: List<String> = emptyList()
+    )
 
     data class RankRow(
         val name: String,
@@ -61,6 +69,7 @@ class ExternalViewModel @Inject constructor(
     )
 
     data class CompetitionUiState(
+        val alumniDigest: AlumniDigest = AlumniDigest(),
         val ranks: List<RankRow> = emptyList(),
         val playerRank: Int = 0,
         val catalog: List<UniversityCompetitionManager.CatalogEntry> = emptyList(),
@@ -83,10 +92,21 @@ class ExternalViewModel @Inject constructor(
             }.collect { (school, competitors, policies) ->
                 if (school == null) return@collect
                 val manager = policyManager.competitionManager
+                val snap = alumniNetwork.snapshotState()
+                val digest = AlumniDigest(
+                    total = snap.stats.totalAlumni,
+                    networkLevel = snap.networkLevel,
+                    avgSatisfaction = snap.stats.averageSatisfaction,
+                    notable = snap.alumni
+                        .sortedByDescending { it.successPotential }
+                        .take(3)
+                        .map { a -> a.name + "（" + a.career.displayName + "·" + a.careerLevel.displayName + "）" }
+                )
+                val alumniDigest = digest
                 val playerStudents = runCatching {
                     studentRepository.getActiveStudentCount()
                 }.getOrDefault(0)
-                val rankRows = competitorEngine.getRankings(school).map {
+                val rankRows = competitorEngine.getRankings(school, playerStudents).map {
                     RankRow(
                         it.name, it.reputation, it.isPlayer, it.isActive,
                         if (it.isPlayer) playerStudents else 0
@@ -97,7 +117,8 @@ class ExternalViewModel @Inject constructor(
                     playerRank = competitorEngine.getPlayerRank(school),
                     catalog = manager.getCatalog(school.campusLevel, policies.collegeDevelopment.founded),
                     active = manager.snapshotState().active,
-                    lastSummary = manager.snapshotState().lastResultSummary
+                    lastSummary = manager.snapshotState().lastResultSummary,
+                    alumniDigest = alumniDigest
                 )
             }
         }
@@ -190,6 +211,42 @@ fun ExternalScreen(
                         fontSize = 12.sp,
                         color = Color(0xFF1E96C8)
                     )
+                }
+            }
+        }
+
+        // ===== 校友动态 =====
+        item {
+            Text("校友动态", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (state.alumniDigest.total == 0) {
+                    Text(
+                        "还没有毕业生。学生毕业后将进入校友网络，优秀校友会在这里亮相。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF617386)
+                    )
+                } else {
+                    Text(
+                        "校友 " + state.alumniDigest.total + " 人 · 校友网络 Lv." + state.alumniDigest.networkLevel + " · 平均满意度 " + state.alumniDigest.avgSatisfaction.toInt() + "%",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF182635)
+                    )
+                    state.alumniDigest.notable.forEach { name ->
+                        Text(
+                            "· " + name,
+                            fontSize = 12.sp,
+                            color = Color(0xFF617386)
+                        )
+                    }
                 }
             }
         }

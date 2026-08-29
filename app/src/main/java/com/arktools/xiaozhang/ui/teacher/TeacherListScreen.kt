@@ -753,7 +753,7 @@ private fun CandidateCard(
     onHire: () -> Unit,
     schoolLevel: Int = 1
 ) {
-    // 高中模式：所有科目均已解锁，无需检查
+    // 大学模式：所有科目均已解锁，无需检查
     val isSubjectUnlocked = true
 
     Box(modifier = Modifier.fillMaxWidth()) {

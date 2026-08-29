@@ -290,6 +290,9 @@ class CampusViewModel @Inject constructor(
         _state.value = _state.value.copy(message = null)
     }
 
+    fun libraryChainSummary(): String =
+        policyManager.researchChainManager.progressSummary()
+
     // ===== 建造：学院 =====
 
     fun foundCollege(spec: BT.Spec) {

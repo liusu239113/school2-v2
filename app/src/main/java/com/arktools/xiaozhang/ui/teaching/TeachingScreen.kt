@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiaozhang.domain.model.*
 import com.arktools.xiaozhang.domain.teaching.TeachingState
+import com.arktools.xiaozhang.ui.components.LegacyPageHeader
 import com.arktools.xiaozhang.ui.components.PixelGameBackground
 
 /**
@@ -49,6 +50,7 @@ fun TeachingScreen(
     val isOverCapacity = totalClasses > classroomCapacity && classroomCapacity > 0
 
     PixelGameBackground {
+        LegacyPageHeader("教学配置")
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -474,7 +476,7 @@ private fun OtherConfigSection(viewModel: TeachingViewModel, state: TeachingStat
                 }
             }
 
-            // 每月考试频率
+            // 每阶段考核试频率
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,

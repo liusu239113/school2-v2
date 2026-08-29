@@ -68,7 +68,9 @@ object CampusBuildTypes {
         Spec("F_LIBRARY", "图书馆", 2, 2, 30.0, 1, R.drawable.bld_library, facility = FacilityType.LIBRARY),
         Spec("F_DORMITORY", "宿舍楼", 2, 3, 80.0, 1, R.drawable.bld_dorm, facility = FacilityType.DORMITORY),
         Spec("F_CANTEEN", "食堂", 2, 2, 20.0, 1, R.drawable.bld_generic, facility = FacilityType.CANTEEN),
-        Spec("F_SPORTS_FIELD", "体育馆", 3, 2, 45.0, 2, R.drawable.bld_generic, facility = FacilityType.SPORTS_FIELD)
+        Spec("F_SPORTS_FIELD", "体育馆", 3, 2, 45.0, 2, R.drawable.bld_generic, facility = FacilityType.SPORTS_FIELD),
+        Spec("F_CONFERENCE", "会议中心", 2, 2, 60.0, 3, R.drawable.bld_conference, facility = FacilityType.CONFERENCE_CENTER),
+        Spec("F_EMPLOYMENT", "就业指导中心", 2, 2, 45.0, 2, R.drawable.bld_employment, facility = FacilityType.EMPLOYMENT_CENTER)
     )
     val HOSPITAL = Spec(
         "HOSPITAL", "附属医院", 3, 3, 0.0, 4,

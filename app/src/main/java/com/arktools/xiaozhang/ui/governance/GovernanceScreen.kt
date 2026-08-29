@@ -105,7 +105,7 @@ fun GovernanceScreen(
         }
 
         // ===== 年度目标 =====
-        Panel(title = "年度目标（6月考核）") {
+        Panel(title = "年度目标（6阶段考核核）") {
             AnnualGoal.entries.forEach { goal ->
                 val selected = policies.collegeDevelopment.annualGoal == goal
                 Row(

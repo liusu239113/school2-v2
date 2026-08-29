@@ -2,7 +2,7 @@ package com.arktools.xiaozhang.domain.model
 
 import java.util.UUID
 
-// ==================== 高中教学管理系统 ====================
+// ==================== 大学教学管理系统 ====================
 
 /**
  * 班型 - 学校的核心分层机制
@@ -25,7 +25,7 @@ enum class ClassTier(
 
 /**
  * 文理方向 / 选科组合
- * 高一统一学习，高二开始分科
+ * 大一统一学习，大二开始分科
  */
 enum class SubjectTrack(
     val displayName: String,
@@ -123,11 +123,11 @@ enum class ProgramBonusType {
 data class TeachingConfig(
     val id: String = UUID.randomUUID().toString(),
     val classDistribution: Map<ClassTier, Int> = emptyMap(),  // 默认为空，要求玩家主动配置
-    val subjectTrack: SubjectTrack = SubjectTrack.DEFAULT,  // 高二后生效
+    val subjectTrack: SubjectTrack = SubjectTrack.DEFAULT,  // 大二后生效
     val intensity: TeachingIntensity = TeachingIntensity.DEFAULT,
     val schedulePolicies: Set<SchedulePolicy> = setOf(SchedulePolicy.EVENING_STUDY),
     val specialPrograms: Set<SpecialProgram> = emptySet(),
-    val scienceToArtsRatio: Float = 0.6f,  // 理科班占比（高二分科后）
+    val scienceToArtsRatio: Float = 0.6f,  // 理科班占比（大二分科后）
     val weeklyPEHours: Int = 2,            // 每周体育课时
     val monthlyExamFrequency: Int = 1      // 每月统考次数(0-4)
 ) {

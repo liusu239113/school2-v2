@@ -17,7 +17,7 @@ import kotlin.random.Random
  * 考试/成绩管理器
  *
  * 自动在每学期中期和期末组织考试，根据学生属性和教师质量生成成绩。
- * 考试类型：月考(3/4/5/9/10/11月)、期中(4/10月)、期末(1/7月)
+ * 考试类型：阶段考核(3/4/5/9/10/11月)、期中(4/10月)、期末(1/7月)
  */
 @Singleton
 class ExamManager @Inject constructor() {
@@ -37,7 +37,7 @@ class ExamManager @Inject constructor() {
 
     /**
      * 月度推进：判断是否需要组织考试
-     * @param monthlyExamFrequency 每月额外统考次数(0-4)，影响月考是否触发
+     * @param monthlyExamFrequency 每月额外统考次数(0-4)，影响阶段考核是否触发
      * @param intensityScoreMultiplier 教学强度对成绩的倍率
      */
     fun advanceMonth(
@@ -180,11 +180,11 @@ class ExamManager @Inject constructor() {
             7 -> ExamType.FINAL_EXAM      // 下学期期末
             10 -> ExamType.MIDTERM         // 上学期期中
             3, 5, 9, 11 -> {
-                // 月考频率控制：frequency=0不考, 1=正常月考月才考, 2+=每月都考
+                // 阶段考核频率控制：frequency=0不考, 1=正常阶段考核月才考, 2+=每月都考
                 if (monthlyExamFrequency >= 1) ExamType.MONTHLY_TEST else null
             }
             2, 6, 8, 12 -> {
-                // 非传统月考月份：仅当频率>=2时才加考
+                // 非传统阶段考核月份：仅当频率>=2时才加考
                 if (monthlyExamFrequency >= 2) ExamType.MONTHLY_TEST else null
             }
             else -> null
@@ -417,7 +417,7 @@ class ExamManager @Inject constructor() {
 // ======= 数据模型 =======
 
 enum class ExamType(val displayName: String) {
-    MONTHLY_TEST("月考"),
+    MONTHLY_TEST("阶段考核"),
     MIDTERM("期中考试"),
     FINAL_EXAM("期末考试")
 }

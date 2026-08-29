@@ -460,7 +460,7 @@ class EventGenerator @Inject constructor() {
                         choices = listOf(
                             EventChoice("聘请心理咨询师（花费5万/年，声誉+500）",
                                 EventConsequence(cashChange = -5.0, reputationChange = 500)),
-                            EventChoice("由班主任兼任（声誉+100）",
+                            EventChoice("由学业导师兼任（声誉+100）",
                                 EventConsequence(reputationChange = 100))
                         )
                     ))
@@ -1384,7 +1384,7 @@ class EventGenerator @Inject constructor() {
             ))
             events.add(GameEvent.NegativeEvent(
                 title = "学生丢失物品",
-                message = "近期多位学生反映丢失文具和零花钱，班主任正在调查中。",
+                message = "近期多位学生反映丢失文具和零花钱，学业导师正在调查中。",
                 penaltyCash = 0.0,
                 penaltyReputation = 2
             ))

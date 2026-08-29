@@ -43,6 +43,8 @@ enum class FacilityType(
 
     // Prestige facilities
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),
+    CONFERENCE_CENTER("会议中心", "学术声誉+8%/级，事件奖励加成+10%/级", 60.0, 1.8, 3, FacilityCategory.PRESTIGE),
+    EMPLOYMENT_CENTER("就业指导中心", "毕业就业率+6%/级，学生社交+", 45.0, 1.5, 3, FacilityCategory.SUPPORT),
     GARDEN("校园花园", "教师忠诚度衰减-20%/级，学生品德+", 12.0, 0.4, 3, FacilityCategory.PRESTIGE),
     GATE("校门/门面", "学校形象，声誉增长+10%/级", 8.0, 0.2, 3, FacilityCategory.PRESTIGE)
 }

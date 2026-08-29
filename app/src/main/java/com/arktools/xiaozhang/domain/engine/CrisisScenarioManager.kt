@@ -587,7 +587,7 @@ class CrisisScenarioManager @Inject constructor() {
                         consequence = EventConsequence(cashChange = -10.0, reputationChange = 500)
                     ),
                     CrisisChoice(
-                        text = "增加班级管理力度，班主任加强监督",
+                        text = "增加班级管理力度，学业导师加强监督",
                         consequence = EventConsequence(cashChange = -2.0, reputationChange = 100)
                     ),
                     CrisisChoice(
