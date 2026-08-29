@@ -3047,6 +3047,77 @@ class GameEngine @Inject constructor(
 
         // 每月1号执行尚未完成的月结；仅月结内部失败才会触发重试标记。
         if (isMonthlySettlementDue(school) || pendingMonthlySettlementRetry) {
+            if (!runMonthlySettlement(school)) return
+        }
+
+        val event = eventGenerator.generateEvent(school, _principal.value, studentRepository.getActiveStudentCount())
+        if (event != null) {
+            emitEvent(event, school)
+        }
+
+        // 突发危机剧本系统每日检查
+        val daysSinceStart = (school.currentYear - school.foundedYear) * 360 +
+            (school.currentMonth - 1) * 30 + school.currentDay
+        val crisisEvent = crisisScenarioManager.dailyCheck(school, daysSinceStart)
+        if (crisisEvent != null) {
+            emitEvent(crisisEvent, school)
+        }
+
+        // Check achievements monthly (day 1) to reduce overhead
+        if (school.currentDay == 1) {
+            achievementManager.checkAchievements(school)
+        }
+
+        // 发射游戏日推进信号，供各 ViewModel 监听刷新
+        try {
+            _gameDaySignal.tryEmit(Unit)
+        } catch (_: Exception) { }
+    }
+    /**
+     * 月度结算跨阶段共享状态。
+     * 原月结 try 体约 2000 行，编译后的协程状态机超 JVM 单方法 64KB 上限，
+     * 因此拆为 runMonthlySettlement + msStage1..5；跨阶段变量集中到本类。
+     */
+    private class MonthlySettlementState {
+        var isRetrySettlement: Boolean = false
+        var expLifeExpenses = 0.0
+        var expMaintenance = 0.0
+        var expConference = 0.0
+        var expClubActivity = 0.0
+        var expTeacherDev = 0.0
+        var expScholarship = 0.0
+        var expClubMonthly = 0.0
+        var expCareerProgram = 0.0
+        var incAlumniDonation = 0.0
+        var incGovSubsidy = 0.0
+        var incCompetitionPrize = 0.0
+        var incResearchGrant = 0.0
+        var incHospitalRevenue = 0.0
+        var incGradGrant = 0.0
+        var expGovFine = 0.0
+        var expMarketing = 0.0
+        var expHospitalOp = 0.0
+        var monthlyRevenue = 0.0
+        var monthlyExpenses = 0.0
+        var seasonalExpenses = 0.0
+        var totalMonthlyIncome = 0.0
+        var revenue = 0.0
+        var teacherAvgSkill = 0.0
+        var expenseBreakdown = MonthlyExpenseBreakdown(0.0, 0.0, 0.0, 0.0)
+        var allTeachersCache: List<Teacher> = emptyList()
+        var allCurrentStudents: List<Student> = emptyList()
+        var teachers: List<Teacher> = emptyList()
+        var cachedTeachersForMonth: List<Teacher> = emptyList()
+        var cachedActiveStudentsForMonth: List<Student> = emptyList()
+        var currentClasses: MutableList<SchoolClass> = mutableListOf()
+        var studentCount: Int = 0
+    }
+
+    /**
+     * 月度结算主入口。返回 false 表示本 tick 应直接结束（失败重试或暂停）。
+     */
+    private suspend fun runMonthlySettlement(school: School): Boolean {
+        val st = MonthlySettlementState()
             if (!managerStatesReadyForSave || managerRestoreFailedFields.isNotEmpty()) {
                 throw IllegalStateException(
                     "Monthly settlement blocked: manager restore is incomplete; " +
@@ -3054,73 +3125,78 @@ class GameEngine @Inject constructor(
                 )
             }
             // 重试发生在非1日（月结在1日推进日期后执行），此时跳过收入/支出避免重复扣费。
-            val isRetrySettlement =
+            st.isRetrySettlement =
                 pendingMonthlySettlementRetry && school.currentDay != 1
             pendingMonthlySettlementRetry = false
             try {
             // 首次进入1日时，日常推进已在月结前完成。先持久化这个稳定基线，
             // 使月结失败并立即重启时不会重复或漏掉当日 Manager 推进。
             flushAllManagerStatesLocked()
-            // ======= 支出追踪（用于财务报表明细）=======
-            var expLifeExpenses = 0.0
-            var expMaintenance = 0.0
-            var expConference = 0.0
-            var expClubActivity = 0.0
-            var expTeacherDev = 0.0
-            var expScholarship = 0.0
-            var expClubMonthly = 0.0     // 社团月运营费
-            var expCareerProgram = 0.0   // 就业辅导费
-            var incAlumniDonation = 0.0  // 校友捐赠收入
-            var incGovSubsidy = 0.0      // 政府补贴收入
-            var incCompetitionPrize = 0.0 // 校际竞赛奖金收入
-            var incResearchGrant = 0.0   // 课题链科研到账
-            var incHospitalRevenue = 0.0 // 附属医院诊疗收入
-            var incGradGrant = 0.0       // 硕博点导师经费
-            var expGovFine = 0.0         // 政府罚款支出
-            var expMarketing = 0.0       // 招生宣传费（每日累计近似）
-            var expHospitalOp = 0.0      // 附属医院运营补贴
+            msStage1(school, st)
+            msStage2(school, st)
+            msStage3(school, st)
+            msStage4(school, st)
+            msStage5(school, st)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                android.util.Log.e(
+                    "GameEngine",
+                    "Monthly settlement failed; will retry on next tick",
+                    e
+                )
+                pendingMonthlySettlementRetry = true
+                _gameDaySignal.tryEmit(Unit)
+                return false
+            }
+            if (isPaused) {
+                _gameDaySignal.tryEmit(Unit)
+                return false
+            }
+            return true
+    }
 
-            val monthlyRevenue: Double
-            val expenseBreakdown: MonthlyExpenseBreakdown
-            if (!isRetrySettlement) {
-                monthlyRevenue = updateReleasedCourses(school)
-                expenseBreakdown = deductMonthlyExpenses(school)
+    private suspend fun msStage1(school: School, st: MonthlySettlementState) {
+            // ======= 支出追踪（用于财务报表明细）=======
+
+            if (!st.isRetrySettlement) {
+                st.monthlyRevenue = updateReleasedCourses(school)
+                st.expenseBreakdown = deductMonthlyExpenses(school)
             } else {
                 // 重试路径：费用已在上次尝试中扣除，跳过避免重复扣费
                 android.util.Log.w(
                     "GameEngine",
                     "Monthly settlement retry: skipping expense deduction to prevent double-charge"
                 )
-                monthlyRevenue = 0.0
-                expenseBreakdown = MonthlyExpenseBreakdown(0.0, 0.0, 0.0, 0.0)
+                st.monthlyRevenue = 0.0
+                st.expenseBreakdown = MonthlyExpenseBreakdown(0.0, 0.0, 0.0, 0.0)
             }
-            var monthlyExpenses = expenseBreakdown.total
+            st.monthlyExpenses = st.expenseBreakdown.total
 
             // 月结算统一缓存：避免同一次 tick 内重复查询数据库
-            val allTeachersCache = teacherRepository.getTeachers()
-            val allCurrentStudents = studentRepository.getCurrentStudents()
+            st.allTeachersCache = teacherRepository.getTeachers()
+            st.allCurrentStudents = studentRepository.getCurrentStudents()
 
             // === 班级系统月度更新（必须在招生前更新班级容量指标）===
-            if (allCurrentStudents.isNotEmpty()) {
-                val currentClasses = _classes.value.toMutableList()
-                val allTeachersForClass = allTeachersCache
+            if (st.allCurrentStudents.isNotEmpty()) {
+                st.currentClasses = _classes.value.toMutableList()
+                val allTeachersForClass = st.allTeachersCache
 
                 // 更新班级聚合指标（平均五维、满意度、人数等）——在招生前确保容量准确
-                classManager.updateClassMetrics(currentClasses, allCurrentStudents, allTeachersForClass)
+                classManager.updateClassMetrics(st.currentClasses, st.allCurrentStudents, allTeachersForClass)
 
                 // 清除已禁用班型的空班（用户把某班型数量设为0后，对应的无学生班级应被移除）
                 val activeDistribution = teachingManager.config.classDistribution
-                val disabledTierClasses = currentClasses.filter { cls ->
+                val disabledTierClasses = st.currentClasses.filter { cls ->
                     val configuredCount = activeDistribution[cls.classTier] ?: 0
                     configuredCount == 0 && cls.studentCount == 0
                 }
                 if (disabledTierClasses.isNotEmpty()) {
-                    currentClasses.removeAll(disabledTierClasses)
+                    st.currentClasses.removeAll(disabledTierClasses)
                     android.util.Log.i("GameEngine", "Removed ${disabledTierClasses.size} classes of disabled tiers")
                 }
 
                 // 触发班级事件（比赛获奖、纪律问题、班级活动等）—— 延迟投递避免堆积
-                val classEvents = classManager.monthlyEvents(currentClasses)
+                val classEvents = classManager.monthlyEvents(st.currentClasses)
                 classEvents.forEach { event ->
                     when (event) {
                         is ClassEvent.AwardEvent -> {
@@ -3168,17 +3244,17 @@ class GameEngine @Inject constructor(
                     }
                 }
 
-                _classes.value = currentClasses
+                _classes.value = st.currentClasses
             }
 
             // 学生年结失败时中断整个月结；月结会在下个 tick 重试，避免部分晋级/毕业。
             try {
                 val processedClasses = processStudentYearEnd(
                     school = school,
-                    currentClasses = _classes.value
+                    st.currentClasses = _classes.value
                         .map { it.copy() }
                         .toMutableList(),
-                    currentStudents = allCurrentStudents,
+                    currentStudents = st.allCurrentStudents,
                     emitNotifications = true
                 )
                 _classes.value = processedClasses
@@ -3216,7 +3292,7 @@ class GameEngine @Inject constructor(
                 // 同步教学配置的PE课时到课表系统，并全校统一重排
                 timetableManager.configuredPEHours = teachingManager.config.weeklyPEHours
                 val allClasses = _classes.value
-                timetableManager.regenerateAllTimetables(allClasses, allTeachersCache)
+                timetableManager.regenerateAllTimetables(allClasses, st.allTeachersCache)
                 // 新学期开始，重置所有学生的学期掌握度
                 resetSemesterMastery()
             }
@@ -3224,14 +3300,14 @@ class GameEngine @Inject constructor(
             // === 考试系统月度推进（成绩会回写到 student.academicScore）===
             val activeStudentsForExam = studentRepository.getActiveStudents()
             if (activeStudentsForExam.isNotEmpty()) {
-                val teacherAvgSkill = if (allTeachersCache.isNotEmpty()) {
-                    allTeachersCache.map { it.averageSkill.toFloat() }.average().toFloat()
+                st.teacherAvgSkill = if (st.allTeachersCache.isNotEmpty()) {
+                    st.allTeachersCache.map { it.averageSkill.toFloat() }.average().toFloat()
                 } else 30f
                 val examResult = examManager.advanceMonth(
-                    school.currentYear, school.currentMonth, activeStudentsForExam, teacherAvgSkill,
+                    school.currentYear, school.currentMonth, activeStudentsForExam, st.teacherAvgSkill,
                     monthlyExamFrequency = teachingManager.config.monthlyExamFrequency,
                     intensityScoreMultiplier = teachingManager.config.intensity.scoreMultiplier,
-                    teachers = allTeachersCache
+                    teachers = st.allTeachersCache
                 )
                 // 考试结束后，将更新后的 academicScore 持久化
                 if (examResult.examHeld) {
@@ -3300,7 +3376,7 @@ class GameEngine @Inject constructor(
                 // 捐赠金额单位是元，school.cash单位是万元，需要 /10000 转换
                 val donationWan = alumniResult.totalDonation / 10000.0
                 schoolRepository.addCash(donationWan)
-                incAlumniDonation += donationWan
+                st.incAlumniDonation += donationWan
             }
             if (alumniResult.referralCount > 0) {
                 // 校友推荐的学生在下个月自动入学（加到声誉中吸引更多学生）
@@ -3344,7 +3420,7 @@ class GameEngine @Inject constructor(
                 if (clubResult.monthlyExpense > 0) {
                     // monthlyCost已改为万元单位（0.3-2.0），直接扣除
                     schoolRepository.deductCash(clubResult.monthlyExpense)
-                    expClubMonthly += clubResult.monthlyExpense
+                    st.expClubMonthly += clubResult.monthlyExpense
                 }
                 if (clubResult.reputationBonus > 0) {
                     schoolRepository.addReputation(clubResult.reputationBonus.toLong())
@@ -3431,7 +3507,7 @@ class GameEngine @Inject constructor(
             val programCost = employmentMarket.getProgramMonthlyCost()
             if (programCost > 0) {
                 schoolRepository.deductCash(programCost)
-                expCareerProgram += programCost
+                st.expCareerProgram += programCost
             }
             if (employmentResult.reputationBonus > 0) {
                 schoolRepository.addReputation(employmentResult.reputationBonus.toLong())
@@ -3458,10 +3534,13 @@ class GameEngine @Inject constructor(
                 }
             }
 
+    }
+
+    private suspend fun msStage2(school: School, st: MonthlySettlementState) {
             // 多维声誉月度推进（传入就业率和政府评级实现联动）
-            val teachers = teacherRepository.getTeachers().filter { it.isWorking }
-            val avgTeacherQuality = if (teachers.isNotEmpty()) {
-                (teachers.sumOf { it.averageSkill } / teachers.size.toFloat() / 10f).coerceIn(0f, 100f)
+            st.teachers = teacherRepository.getTeachers().filter { it.isWorking }
+            val avgTeacherQuality = if (st.teachers.isNotEmpty()) {
+                (st.teachers.sumOf { it.averageSkill } / st.teachers.size.toFloat() / 10f).coerceIn(0f, 100f)
             } else 0f
             // 设施等级：综合考虑 campusLevel + 实际设施数量 + 平均 condition
             val facilityConditionFactor = if (school.facilities.isNotEmpty()) {
@@ -3513,8 +3592,8 @@ class GameEngine @Inject constructor(
             }
 
             // 学生生活系统月度推进：现金与月结后 JSON 同事务提交。
-            val studentCount = studentRepository.getActiveStudents().size
-            if (studentCount > 0 &&
+            st.studentCount = studentRepository.getActiveStudents().size
+            if (st.studentCount > 0 &&
                 GameBalanceConfig.isModuleUnlocked(GameModule.STUDENT_LIFE, school.campusLevel) &&
                 !studentLifeManager.hasProcessedMonth(
                     school.currentYear,
@@ -3524,9 +3603,9 @@ class GameEngine @Inject constructor(
                 var committedLifeResult:
                     com.arktools.xiaozhang.domain.studentlife.LifeMonthlyResult? = null
                 val operationResult = commitStudentLifeOperationLocked { latest ->
-                    studentLifeManager.updateStudentCount(studentCount)
+                    studentLifeManager.updateStudentCount(st.studentCount)
                     val lifeResult = studentLifeManager.advanceMonth(
-                        studentCount,
+                        st.studentCount,
                         school.currentYear,
                         school.currentMonth
                     )
@@ -3544,7 +3623,7 @@ class GameEngine @Inject constructor(
                     throw IllegalStateException(operationResult.message)
                 }
                 committedLifeResult?.let { lifeResult ->
-                    expLifeExpenses += lifeResult.totalExpenses.toDouble()
+                    st.expLifeExpenses += lifeResult.totalExpenses.toDouble()
                     lifeResult.newIssues.forEach { issue ->
                         emitEvent(GameEvent.NegativeEvent(
                             title = "生活问题: ${issue.title}",
@@ -3599,7 +3678,7 @@ class GameEngine @Inject constructor(
                     val expansionResult = campusExpansionManager.advanceMonth(
                         school.currentYear,
                         school.currentMonth,
-                        studentCount
+                        st.studentCount
                     )
                     latest.cash = (
                         latest.cash - expansionResult.maintenanceCost
@@ -3616,7 +3695,7 @@ class GameEngine @Inject constructor(
                 }
             }
             committedExpansionResult?.let { expansionResult ->
-                expMaintenance += expansionResult.maintenanceCost
+                st.expMaintenance += expansionResult.maintenanceCost
                 expansionResult.newCompletions.forEach { zone ->
                     emitEvent(GameEvent.PositiveEvent(
                         title = "${zone.name}竣工！",
@@ -3641,7 +3720,7 @@ class GameEngine @Inject constructor(
             }
             if (confResult.expenses > 0) {
                 schoolRepository.deductCash(confResult.expenses)
-                expConference += confResult.expenses
+                st.expConference += confResult.expenses
             }
             if (confResult.reputationGain > 0) {
                 schoolRepository.addReputation(confResult.reputationGain.toLong())
@@ -3680,7 +3759,7 @@ class GameEngine @Inject constructor(
             }
 
             // 社团活动系统月度推进（需要有学生才运作）
-            if (studentCount > 0) {
+            if (st.studentCount > 0) {
                 val clubActResult = clubActivityManager.advanceMonth(
                     school.currentYear, school.currentMonth, school.reputation
                 )
@@ -3688,7 +3767,7 @@ class GameEngine @Inject constructor(
                     // clubActResult.expenses 单位是元（来自UI输入"预算(元)"），需转换为万元
                     val clubActExpenseWan = clubActResult.expenses.toDouble() / 10000.0
                     schoolRepository.deductCash(clubActExpenseWan)
-                    expClubActivity += clubActExpenseWan
+                    st.expClubActivity += clubActExpenseWan
                 }
                 if (clubActResult.reputationGain > 0) {
                     schoolRepository.addReputation(clubActResult.reputationGain.toLong())
@@ -3704,7 +3783,7 @@ class GameEngine @Inject constructor(
             }
 
             // 教师职业发展月度推进：Manager、教师表、现金和 JSON 单事务提交
-            val workingTeachersForDevelopment = allTeachersCache.filter { it.isWorking }
+            val workingTeachersForDevelopment = st.allTeachersCache.filter { it.isWorking }
             val teachersById = workingTeachersForDevelopment.associateBy { it.id }
             val teacherDevUnavailable =
                 com.arktools.xiaozhang.domain.teacherdev.TeacherDevMonthlyResult()
@@ -3787,7 +3866,7 @@ class GameEngine @Inject constructor(
                     "教师职业发展月结状态未能安全提交"
                 )
             }
-            expTeacherDev += teacherDevResult.expenses
+            st.expTeacherDev += teacherDevResult.expenses
             teacherDevResult.departures.forEach { departure ->
                 val departedTeacher = teachersById[departure.teacherId]
                 val display = formatTeacherWithSubject(
@@ -3812,70 +3891,73 @@ class GameEngine @Inject constructor(
 
             // 财务报表系统月度结算
             financialReportManager.recordIncome(
-                com.arktools.xiaozhang.domain.finance.IncomeCategory.TUITION, monthlyRevenue
+                com.arktools.xiaozhang.domain.finance.IncomeCategory.TUITION, st.monthlyRevenue
             )
             financialReportManager.recordExpense(
-                com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHER_SALARY, expenseBreakdown.salary
+                com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHER_SALARY, st.expenseBreakdown.salary
             )
-            if (expenseBreakdown.facilities > 0) {
+            if (st.expenseBreakdown.facilities > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.UTILITIES, expenseBreakdown.facilities
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.UTILITIES, st.expenseBreakdown.facilities
                 )
             }
-            if (expenseBreakdown.teaching > 0) {
+            if (st.expenseBreakdown.teaching > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHING_OPERATION, expenseBreakdown.teaching
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHING_OPERATION, st.expenseBreakdown.teaching
                 )
             }
-            if (expMaintenance > 0) {
+            if (st.expMaintenance > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE, expMaintenance
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE, st.expMaintenance
                 )
             }
-            if (expConference + expClubActivity + expClubMonthly > 0) {
+            if (st.expConference + st.expClubActivity + st.expClubMonthly > 0) {
                 financialReportManager.recordExpense(
                     com.arktools.xiaozhang.domain.finance.ExpenseCategory.ACTIVITY_COST,
-                    expConference + expClubActivity + expClubMonthly
+                    st.expConference + st.expClubActivity + st.expClubMonthly
                 )
             }
-            if (expTeacherDev + expCareerProgram > 0) {
+            if (st.expTeacherDev + st.expCareerProgram > 0) {
                 financialReportManager.recordExpense(
                     com.arktools.xiaozhang.domain.finance.ExpenseCategory.TRAINING_COST,
-                    expTeacherDev + expCareerProgram
+                    st.expTeacherDev + st.expCareerProgram
                 )
             }
-            if (expLifeExpenses > 0) {
+            if (st.expLifeExpenses > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.UTILITIES, expLifeExpenses
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.UTILITIES, st.expLifeExpenses
                 )
             }
             // 校友捐赠收入（已在本月确定）
-            if (incAlumniDonation > 0) {
+            if (st.incAlumniDonation > 0) {
                 financialReportManager.recordIncome(
-                    com.arktools.xiaozhang.domain.finance.IncomeCategory.ALUMNI_CONTRIBUTION, incAlumniDonation
+                    com.arktools.xiaozhang.domain.finance.IncomeCategory.ALUMNI_CONTRIBUTION, st.incAlumniDonation
                 )
             }
             // 注：govSubsidy/govFine/scholarship 在后续子系统计算后再录入（closeMonth前）
             // Bug 23: 招生宣传费（每日扣款的月度近似）
-            expMarketing = com.arktools.xiaozhang.domain.model.MarketingCalculator.getDailyCost(school.marketingCampaigns) * 30.0
-            if (expMarketing > 0) {
+            st.expMarketing = com.arktools.xiaozhang.domain.model.MarketingCalculator.getDailyCost(school.marketingCampaigns) * 30.0
+            if (st.expMarketing > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.MARKETING, expMarketing
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.MARKETING, st.expMarketing
                 )
             }
             // Bug 29: 季节活动费（每日结算的月度累计）
-            val seasonalExpenses = seasonalActivityManager.consumeMonthlyExpenses().toDouble() / 10000.0
-            if (seasonalExpenses > 0) {
+            st.seasonalExpenses = seasonalActivityManager.consumeMonthlyExpenses().toDouble() / 10000.0
+            if (st.seasonalExpenses > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.ACTIVITY_COST, seasonalExpenses
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.ACTIVITY_COST, st.seasonalExpenses
                 )
             }
             // closeMonth 延迟到政府补贴和奖学金计算之后（见下方）
 
+    }
+
+    private suspend fun msStage3(school: School, st: MonthlySettlementState) {
             // 家长满意度系统月度推进（需要有学生才运作——没学生就没家长）
             // 复用月结算顶部的缓存教师数据
-            val cachedTeachersForMonth = allTeachersCache
-            val cachedActiveStudentsForMonth = studentRepository.getActiveStudents()
+            st.cachedTeachersForMonth = st.allTeachersCache
+            st.cachedActiveStudentsForMonth = studentRepository.getActiveStudents()
 
             val avgSatisfaction: Float
             // 设施安全评分：综合旧设施 condition、新校区建筑维护度、校区等级，修理后会真实提升
@@ -3890,17 +3972,17 @@ class GameEngine @Inject constructor(
                 val baseScore = (school.campusLevel * 10f).coerceAtMost(100f)
                 (oldFacilityAvg * 0.30f + zoneMaintAvg * 0.35f + baseScore * 0.35f).coerceIn(0f, 100f)
             }
-            if (studentCount > 0) {
-                avgSatisfaction = if (cachedActiveStudentsForMonth.isNotEmpty()) {
-                    cachedActiveStudentsForMonth.map { it.satisfaction.toFloat() }.average().toFloat()
+            if (st.studentCount > 0) {
+                avgSatisfaction = if (st.cachedActiveStudentsForMonth.isNotEmpty()) {
+                    st.cachedActiveStudentsForMonth.map { it.satisfaction.toFloat() }.average().toFloat()
                 } else 70f
-                val teacherAvgLoyalty = if (cachedTeachersForMonth.isNotEmpty()) {
-                    cachedTeachersForMonth.map { it.loyalty.toFloat() }.average().toFloat()
+                val teacherAvgLoyalty = if (st.cachedTeachersForMonth.isNotEmpty()) {
+                    st.cachedTeachersForMonth.map { it.loyalty.toFloat() }.average().toFloat()
                 } else 60f
                 // 计算学业成绩指标（学生平均学业分，反映教学质量）
-                val avgAcademicPerformance = if (cachedActiveStudentsForMonth.isNotEmpty()) {
+                val avgAcademicPerformance = if (st.cachedActiveStudentsForMonth.isNotEmpty()) {
                     // 使用 semesterMastery（实时掌握度）和 academicScore（考试成绩）综合
-                    cachedActiveStudentsForMonth.map { s ->
+                    st.cachedActiveStudentsForMonth.map { s ->
                         val mastery = s.semesterMastery.coerceIn(0f, 100f)
                         val exam = s.academicScore.coerceIn(0f, 100f)
                         // 有考试成绩时侧重考试分，否则用掌握度
@@ -3950,15 +4032,15 @@ class GameEngine @Inject constructor(
             }
 
             // 意见箱月度推进：根据实际学校状态生成建议
-            val teacherAvgLoyaltyForSuggestion = if (cachedTeachersForMonth.isNotEmpty()) {
-                cachedTeachersForMonth.map { it.loyalty }.average().toFloat()
+            val teacherAvgLoyaltyForSuggestion = if (st.cachedTeachersForMonth.isNotEmpty()) {
+                st.cachedTeachersForMonth.map { it.loyalty }.average().toFloat()
             } else 75f
             suggestionBoxManager.advanceMonth(
-                students = cachedActiveStudentsForMonth,
-                teachers = cachedTeachersForMonth,
+                students = st.cachedActiveStudentsForMonth,
+                teachers = st.cachedTeachersForMonth,
                 facilities = school.facilities,
-                teacherAvgSkill = if (cachedTeachersForMonth.isNotEmpty()) {
-                    cachedTeachersForMonth.map { it.teaching }.average().toFloat()
+                teacherAvgSkill = if (st.cachedTeachersForMonth.isNotEmpty()) {
+                    st.cachedTeachersForMonth.map { it.teaching }.average().toFloat()
                 } else 50f,
                 avgStudentSatisfaction = avgSatisfaction,
                 avgTeacherLoyalty = teacherAvgLoyaltyForSuggestion,
@@ -4003,10 +4085,10 @@ class GameEngine @Inject constructor(
 
             // 大四学年事件：毕业设计（9月）/ 春季招聘会（3月）/ 论文答辩（5月）
             runCatching {
-                val seniorCount = cachedActiveStudentsForMonth.count {
+                val seniorCount = st.cachedActiveStudentsForMonth.count {
                     it.gradeLevel == GradeLevel.GRADE_4
                 }
-                if (seniorCount > 0 && !isRetrySettlement) {
+                if (seniorCount > 0 && !st.isRetrySettlement) {
                     when (school.currentMonth) {
                         9 -> emitEvent(GameEvent.PositiveEvent(
                             title = "毕业设计启动",
@@ -4043,21 +4125,21 @@ class GameEngine @Inject constructor(
             }
 
             // 政府评估督导月度推进
-            val teacherAvgSkill = if (cachedTeachersForMonth.isNotEmpty()) {
-                cachedTeachersForMonth.map { it.averageSkill }.average().toFloat()
+            val teacherAvgSkill = if (st.cachedTeachersForMonth.isNotEmpty()) {
+                st.cachedTeachersForMonth.map { it.averageSkill }.average().toFloat()
             } else 50f
             val govResult = if (
                 GameBalanceConfig.isModuleUnlocked(GameModule.GOVERNMENT, school.campusLevel)
             ) {
                 governmentInspectionManager.advanceMonth(
                     school.currentYear, school.currentMonth,
-                    school.reputation.toLong(), cachedTeachersForMonth.size, teacherAvgSkill,
-                    cachedActiveStudentsForMonth.size, avgSatisfaction, facilityCondition,
-                    school.cash, monthlyRevenue,
+                    school.reputation.toLong(), st.cachedTeachersForMonth.size, st.teacherAvgSkill,
+                    st.cachedActiveStudentsForMonth.size, avgSatisfaction, facilityCondition,
+                    school.cash, st.monthlyRevenue,
                     employmentRate = employmentResult.currentEmploymentRate,
                     schoolLevel = school.campusLevel,
                     teachingQualityScore = (
-                        teachingManager.config.overallQuality(teacherAvgSkill) +
+                        teachingManager.config.overallQuality(st.teacherAvgSkill) +
                             academicConferenceManager.getResearchScore() / 20f
                         ).coerceAtMost(100f),
                     weeklyPEHours = teachingManager.config.weeklyPEHours
@@ -4067,7 +4149,7 @@ class GameEngine @Inject constructor(
             }
             if (govResult.subsidy > 0) {
                 schoolRepository.addCash(govResult.subsidy)
-                incGovSubsidy += govResult.subsidy
+                st.incGovSubsidy += govResult.subsidy
                 emitEvent(GameEvent.PositiveEvent(
                     title = "政府补贴",
                     message = "获得年度补贴 ¥${String.format("%,.0f", govResult.subsidy)}",
@@ -4077,7 +4159,7 @@ class GameEngine @Inject constructor(
             }
             if (govResult.fine > 0) {
                 schoolRepository.deductCash(govResult.fine)
-                expGovFine += govResult.fine
+                st.expGovFine += govResult.fine
                 emitEvent(GameEvent.NegativeEvent(
                     title = "政府罚款",
                     message = "因评估不达标被罚款 ¥${String.format("%,.0f", govResult.fine)}",
@@ -4109,19 +4191,19 @@ class GameEngine @Inject constructor(
             }
 
             // 奖学金制度月度推进（需要有学生才运作）
-            if (studentCount > 0 &&
+            if (st.studentCount > 0 &&
                 GameBalanceConfig.isModuleUnlocked(GameModule.SCHOLARSHIP, school.campusLevel)
             ) {
-                val avgGpa = if (cachedActiveStudentsForMonth.isNotEmpty()) {
-                    (cachedActiveStudentsForMonth.map { it.satisfaction.toFloat() / 25f }.average().toFloat()).coerceIn(1.0f, 4.0f)
+                val avgGpa = if (st.cachedActiveStudentsForMonth.isNotEmpty()) {
+                    (st.cachedActiveStudentsForMonth.map { it.satisfaction.toFloat() / 25f }.average().toFloat()).coerceIn(1.0f, 4.0f)
                 } else 2.5f
                 val scholarshipResult = scholarshipManager.advanceMonth(
                     school.currentYear, school.currentMonth,
-                    studentCount, avgGpa, school.reputation.toLong()
+                    st.studentCount, avgGpa, school.reputation.toLong()
                 )
                 if (scholarshipResult.expenses > 0) {
                     schoolRepository.deductCash(scholarshipResult.expenses)
-                    expScholarship += scholarshipResult.expenses
+                    st.expScholarship += scholarshipResult.expenses
                 }
                 if (scholarshipResult.newRecipients > 0) {
                     emitEvent(GameEvent.PositiveEvent(
@@ -4134,30 +4216,30 @@ class GameEngine @Inject constructor(
             }
 
             // === 财务报表结算（在所有收支计算完成后关闭月报）===
-            if (incGovSubsidy > 0) {
+            if (st.incGovSubsidy > 0) {
                 financialReportManager.recordIncome(
-                    com.arktools.xiaozhang.domain.finance.IncomeCategory.GOVERNMENT_SUBSIDY, incGovSubsidy
+                    com.arktools.xiaozhang.domain.finance.IncomeCategory.GOVERNMENT_SUBSIDY, st.incGovSubsidy
                 )
             }
-            if (expGovFine > 0) {
+            if (st.expGovFine > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.OTHER_EXPENSE, expGovFine
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.OTHER_EXPENSE, st.expGovFine
                 )
             }
-            if (expScholarship > 0) {
+            if (st.expScholarship > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.OTHER_EXPENSE, expScholarship
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.OTHER_EXPENSE, st.expScholarship
                 )
             }
             // Bug fix: 将所有额外支出累加到 monthlyExpenses，使 netProfit 反映真实总支出
             // （之前 monthlyExpenses 只包含薪资+租金+教学，导致净利润虚高）
-            monthlyExpenses += expClubMonthly + expCareerProgram + expLifeExpenses +
-                    expMaintenance + expConference + expClubActivity + expTeacherDev +
-                    expMarketing + expScholarship + expGovFine + seasonalExpenses + expHospitalOp
+            st.monthlyExpenses += st.expClubMonthly + st.expCareerProgram + st.expLifeExpenses +
+                    st.expMaintenance + st.expConference + st.expClubActivity + st.expTeacherDev +
+                    st.expMarketing + st.expScholarship + st.expGovFine + st.seasonalExpenses + st.expHospitalOp
 
             // 校友捐赠计入收入
-            val totalMonthlyIncome = monthlyRevenue + incAlumniDonation + incGovSubsidy +
-                incCompetitionPrize + incResearchGrant + incHospitalRevenue + incGradGrant
+            st.totalMonthlyIncome = st.monthlyRevenue + st.incAlumniDonation + st.incGovSubsidy +
+                st.incCompetitionPrize + st.incResearchGrant + st.incHospitalRevenue + st.incGradGrant
 
             // 课题链阶段奖励入账 + 教师个人故事线月度推进
             runCatching {
@@ -4165,11 +4247,11 @@ class GameEngine @Inject constructor(
                 if (chainCash > 0 || chainRep > 0) {
                     if (chainCash > 0) {
                         schoolRepository.addCash(chainCash)
-                        incResearchGrant += chainCash
+                        st.incResearchGrant += chainCash
                     }
                     if (chainRep > 0) schoolRepository.addReputation(chainRep)
                 }
-                val snapshots = cachedTeachersForMonth.map {
+                val snapshots = st.cachedTeachersForMonth.map {
                     com.arktools.xiaozhang.domain.teacherdev.TeacherStoryManager.TeacherSnapshot(
                         id = it.id,
                         name = it.name,
@@ -4255,18 +4337,18 @@ class GameEngine @Inject constructor(
                 val collegeDev = policyManager.policies.value.collegeDevelopment
                 if (collegeDev.founded.contains(
                         com.arktools.xiaozhang.domain.policy.CollegeType.MEDICINE
-                    ) && collegeDev.affiliatedHospital && !isRetrySettlement
+                    ) && collegeDev.affiliatedHospital && !st.isRetrySettlement
                 ) {
-                    val medStudents = cachedActiveStudentsForMonth.count { student ->
+                    val medStudents = st.cachedActiveStudentsForMonth.count { student ->
                         com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
                             .parseTrack(student.courseId) ==
                             com.arktools.xiaozhang.domain.model.AdmissionTrack.MEDICINE
                     }
-                    val revenue = 15.0 + medStudents * 0.2
-                    schoolRepository.addCash(revenue)
-                    incHospitalRevenue += revenue
+                    st.revenue = 15.0 + medStudents * 0.2
+                    schoolRepository.addCash(st.revenue)
+                    st.incHospitalRevenue += st.revenue
                     schoolRepository.addReputation(2)
-                    expHospitalOp += 8.0
+                    st.expHospitalOp += 8.0
                     if (medStudents > 0 && kotlin.random.Random.nextFloat() < 0.18f) {
                         if (kotlin.random.Random.nextBoolean()) {
                             emitEvent(GameEvent.PositiveEvent(
@@ -4290,12 +4372,12 @@ class GameEngine @Inject constructor(
 
                 // 硕博点：导师经费 + 声誉 + 每月额外科研日 + 研究生事件
                 if (policyManager.policies.value.collegeDevelopment.graduateProgram &&
-                    !isRetrySettlement
+                    !st.isRetrySettlement
                 ) {
-                    val gradsIncome = cachedActiveStudentsForMonth.size * 0.06
+                    val gradsIncome = st.cachedActiveStudentsForMonth.size * 0.06
                     if (gradsIncome > 0) {
                         schoolRepository.addCash(gradsIncome)
-                        incGradGrant += gradsIncome
+                        st.incGradGrant += gradsIncome
                     }
                     schoolRepository.addReputation(3)
                     runCatching { researchRepository.advanceResearchDay() }
@@ -4330,7 +4412,7 @@ class GameEngine @Inject constructor(
                 val artsFounded = collegeDev.founded.contains(
                     com.arktools.xiaozhang.domain.policy.CollegeType.ARTS
                 )
-                if (artsFounded && school.currentMonth % 3 == 0 && !isRetrySettlement &&
+                if (artsFounded && school.currentMonth % 3 == 0 && !st.isRetrySettlement &&
                     kotlin.random.Random.nextFloat() < 0.4f
                 ) {
                     emitEvent(GameEvent.ChoiceEvent(
@@ -4361,11 +4443,11 @@ class GameEngine @Inject constructor(
                 val founded = policyManager.policies.value.collegeDevelopment.founded
                 if (founded.isNotEmpty()) {
                     val coverage = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog
-                        .facultyCoverage(founded, cachedTeachersForMonth)
+                        .facultyCoverage(founded, st.cachedTeachersForMonth)
                     val coverageByCollege = coverage.lines.associate {
                         it.college to (it.covered.toFloat() / it.required.coerceAtLeast(1))
                     }
-                    if (school.currentMonth == 9 && !isRetrySettlement) {
+                    if (school.currentMonth == 9 && !st.isRetrySettlement) {
                         policyManager.competitionManager.newYearReset(school.currentYear)
                     }
                     val topRival = competitorEngine.competitorState.value
@@ -4379,12 +4461,12 @@ class GameEngine @Inject constructor(
                         rivalEdge = rivalEdge,
                         rivalName = topRival?.name ?: ""
                     )
-                    if (results.isNotEmpty() && !isRetrySettlement) {
+                    if (results.isNotEmpty() && !st.isRetrySettlement) {
                         results.forEach { (comp, win) ->
                             if (win) {
                                 schoolRepository.addCash(comp.prize)
                                 schoolRepository.addReputation(comp.reputationReward)
-                                incCompetitionPrize += comp.prize
+                                st.incCompetitionPrize += comp.prize
                                 emitEvent(GameEvent.PositiveEvent(
                                     title = "校际竞赛夺冠",
                                     message = "${comp.name}夺得冠军！奖金${comp.prize.toInt()}万入账，声誉+${comp.reputationReward}。师资覆盖越全，竞赛胜率越高。",
@@ -4422,6 +4504,9 @@ class GameEngine @Inject constructor(
                 true
             }
 
+    }
+
+    private suspend fun msStage4(school: School, st: MonthlySettlementState) {
             // === 校长个人系统月度更新 ===
             val principalForMonth = _principal.value
 
@@ -4432,7 +4517,7 @@ class GameEngine @Inject constructor(
                 principalForMonth.personalFunds += principalSalary
                 // 校长薪资从学校公款支出
                 schoolRepository.deductCash(principalSalary)
-                monthlyExpenses += principalSalary
+                st.monthlyExpenses += principalSalary
                 financialReportManager.recordExpense(
                     com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHER_SALARY, principalSalary
                 )
@@ -4445,7 +4530,7 @@ class GameEngine @Inject constructor(
                     val investigationEvent = investigation.event
                     val schoolFine = investigation.schoolFine
                     val latestSchool = investigation.school
-                    monthlyExpenses += schoolFine
+                    st.monthlyExpenses += schoolFine
 
                     val gameEvent = when (investigationEvent.result) {
                         InvestigationResult.ARRESTED -> GameEvent.NegativeEvent(
@@ -4569,8 +4654,8 @@ class GameEngine @Inject constructor(
             // ══════════════════════════════════════════════
             val absMonth = (school.currentYear - school.foundedYear) * 12 + school.currentMonth
             // 复用月度缓存的教师和学生数据（压力系统不需要实时最新数据）
-            val allTeachersForPressure = cachedTeachersForMonth.filter { it.isWorking }
-            val activeStudentsForPressure = cachedActiveStudentsForMonth
+            val allTeachersForPressure = st.cachedTeachersForMonth.filter { it.isWorking }
+            val activeStudentsForPressure = st.cachedActiveStudentsForMonth
 
             // P0-1: 教师涨薪需求检查
             val raiseRequests = pressureSystemManager.checkRaiseRequests(
@@ -4614,11 +4699,11 @@ class GameEngine @Inject constructor(
 
             // P0-3: 季度税费（3/6/9/12月扣缴）—— 重试时跳过
             try {
-            if (!isRetrySettlement && pressureSystemManager.isQuarterEnd(school.currentMonth)) {
-                val quarterlyTax = pressureSystemManager.calculateQuarterlyTax(monthlyRevenue * 3, school.campusLevel)
+            if (!st.isRetrySettlement && pressureSystemManager.isQuarterEnd(school.currentMonth)) {
+                val quarterlyTax = pressureSystemManager.calculateQuarterlyTax(st.monthlyRevenue * 3, school.campusLevel)
                 if (quarterlyTax > 0) {
                     schoolRepository.deductCash(quarterlyTax)
-                    monthlyExpenses += quarterlyTax  // Bug fix: 计入月度总支出
+                    st.monthlyExpenses += quarterlyTax  // Bug fix: 计入月度总支出
                     financialReportManager.recordExpense(
                         com.arktools.xiaozhang.domain.finance.ExpenseCategory.OTHER_EXPENSE, quarterlyTax
                     )
@@ -4637,7 +4722,7 @@ class GameEngine @Inject constructor(
 
             // P0-4: 学生退费检查
             val withdrawals = try {
-                val tuitionPerStudent = monthlyRevenue / (activeStudentsForPressure.size.coerceAtLeast(1))
+                val tuitionPerStudent = st.monthlyRevenue / (activeStudentsForPressure.size.coerceAtLeast(1))
                 val ws = pressureSystemManager.checkStudentWithdrawals(activeStudentsForPressure, tuitionPerStudent)
                 val completedWithdrawals = mutableListOf<PressureSystemManager.StudentWithdrawal>()
                 for (w in ws) {
@@ -4652,7 +4737,7 @@ class GameEngine @Inject constructor(
                         continue
                     }
                     completedWithdrawals.add(w)
-                    monthlyExpenses += w.refundAmount  // Bug fix: 退费计入月度总支出
+                    st.monthlyExpenses += w.refundAmount  // Bug fix: 退费计入月度总支出
                     deferEvent(GameEvent.NegativeEvent(
                         title = "学生退学",
                         message = "${w.studentName}退学退费。${w.reason}\n退费金额：${String.format("%.2f", w.refundAmount)}万元",
@@ -4840,7 +4925,7 @@ class GameEngine @Inject constructor(
             }
 
             // P3-2: 财务健康检查（netProfit 使用包含所有收支的完整计算）
-            val netProfit = totalMonthlyIncome - monthlyExpenses
+            val netProfit = st.totalMonthlyIncome - st.monthlyExpenses
             val financialWarning = try {
                 val fw = pressureSystemManager.checkFinancialHealth(school.cash, netProfit)
                 if (fw.level != PressureSystemManager.WarningLevel.NONE) {
@@ -4868,8 +4953,8 @@ class GameEngine @Inject constructor(
                 val pressureBrief = PressureSystemManager.MonthlyBrief(
                     year = school.currentYear,
                     month = school.currentMonth,
-                    revenue = totalMonthlyIncome,
-                    expenses = monthlyExpenses,
+                    revenue = st.totalMonthlyIncome,
+                    expenses = st.monthlyExpenses,
                     netProfit = netProfit,
                     studentChange = -(withdrawals.size),
                     teacherChange = -(burnouts.size),
@@ -4887,7 +4972,7 @@ class GameEngine @Inject constructor(
                 throw e
             }
 
-            recordMonthlyStats(school, totalMonthlyIncome, monthlyExpenses)
+            recordMonthlyStats(school, st.totalMonthlyIncome, st.monthlyExpenses)
 
             // 统计数据记录后立即持久化（修复：之前toJson在recordMonth之前导致当月数据丢失）
             try {
@@ -4914,6 +4999,9 @@ class GameEngine @Inject constructor(
                 }
             }
 
+    }
+
+    private suspend fun msStage5(school: School, st: MonthlySettlementState) {
             // 里程碑检查
             val updatedSchool = schoolRepository.getSchool() ?: school
             try {
@@ -4974,9 +5062,9 @@ class GameEngine @Inject constructor(
             } else {
                 org.json.JSONObject(finalTierMap).toString()
             }
-            if (school.currentMonth == 6 && !isRetrySettlement) {
+            if (school.currentMonth == 6 && !st.isRetrySettlement) {
                 val effects = policyManager.getPolicyEffects()
-                val profit = monthlyRevenue - monthlyExpenses
+                val profit = st.monthlyRevenue - st.monthlyExpenses
                 val studentCount = studentRepository.getActiveStudentCount()
                 val researchCount = researchRepository.getUnlockedMethods().size
                 val satisfaction = studentRepository.getAverageSatisfaction()
@@ -5002,12 +5090,12 @@ class GameEngine @Inject constructor(
                 }
                 val facultyCoverage = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.facultyCoverage(
                     founded = policyManager.policies.value.collegeDevelopment.founded,
-                    teachers = cachedTeachersForMonth
+                    teachers = st.cachedTeachersForMonth
                 )
                 emitEvent(
                     GameEvent.PositiveEvent(
                         title = "学年办学评估",
-                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。师资覆盖${(facultyCoverage.coverageRatio * 100).toInt()}%。${facultyCoverage.missingSummary}。在校生${studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
+                        message = "本学年方针「${effects.strategyName}」，目标「${effects.annualGoalName}」，专项预算偏向「${strongestLine.first}」。$collegeText。师资覆盖${(facultyCoverage.coverageRatio * 100).toInt()}%。${facultyCoverage.missingSummary}。在校生${st.studentCount}人，科研项目${researchCount}项，学期净结余${"%.1f".format(profit)}万。专项预算每月约${"%.1f".format(effects.monthlySpecialBudgetCost)}万。",
                         bonusCash = 0.0,
                         bonusReputation = reviewBonus
                     ),
@@ -5029,7 +5117,7 @@ class GameEngine @Inject constructor(
                 val goalResult = policyManager.evaluateAnnualGoal(
                     year = school.currentYear,
                     campusLevel = school.campusLevel,
-                    students = studentCount,
+                    students = st.studentCount,
                     research = researchCount,
                     reputation = school.reputation,
                     satisfaction = satisfaction,
@@ -5079,46 +5167,8 @@ class GameEngine @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("GameEngine", "Crisis detection failed", e)
             }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                android.util.Log.e(
-                    "GameEngine",
-                    "Monthly settlement failed; will retry on next tick",
-                    e
-                )
-                pendingMonthlySettlementRetry = true
-                _gameDaySignal.tryEmit(Unit)
-                return
-            }
-            if (isPaused) {
-                _gameDaySignal.tryEmit(Unit)
-                return
-            }
-        }
-
-        val event = eventGenerator.generateEvent(school, _principal.value, studentRepository.getActiveStudentCount())
-        if (event != null) {
-            emitEvent(event, school)
-        }
-
-        // 突发危机剧本系统每日检查
-        val daysSinceStart = (school.currentYear - school.foundedYear) * 360 +
-            (school.currentMonth - 1) * 30 + school.currentDay
-        val crisisEvent = crisisScenarioManager.dailyCheck(school, daysSinceStart)
-        if (crisisEvent != null) {
-            emitEvent(crisisEvent, school)
-        }
-
-        // Check achievements monthly (day 1) to reduce overhead
-        if (school.currentDay == 1) {
-            achievementManager.checkAchievements(school)
-        }
-
-        // 发射游戏日推进信号，供各 ViewModel 监听刷新
-        try {
-            _gameDaySignal.tryEmit(Unit)
-        } catch (_: Exception) { }
     }
+
 
     /**
      * 生成并应用股票市场事件，同时通过 GameEvent 通知玩家
