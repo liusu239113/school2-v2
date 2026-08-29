@@ -4,6 +4,7 @@ import com.arktools.xiaozhang.domain.model.School
 import com.arktools.xiaozhang.domain.model.SchoolOwnership
 import com.arktools.xiaozhang.domain.model.Teacher
 import com.arktools.xiaozhang.domain.model.schoolOwnership
+import com.arktools.xiaozhang.domain.model.schoolTier
 import com.arktools.xiaozhang.domain.repository.SchoolRepository
 import com.arktools.xiaozhang.domain.repository.StudentRepository
 import com.arktools.xiaozhang.domain.repository.TeacherRepository
@@ -164,7 +165,9 @@ class GameOverDetector @Inject constructor(
                     totalYearsPlayed = school.currentYear - school.foundedYear,
                     totalStudentsGraduated = 0,
                     peakReputation = school.reputation,
-                    peakCash = school.cash
+                    peakCash = school.cash,
+                    schoolTypeName = school.schoolTier().displayName + "·" +
+                        school.schoolOwnership().displayName
                 )
                 confirmGameOver(reason)
                 return CrisisCheckResult.ENTERED_CRITICAL(conditions)
@@ -366,7 +369,8 @@ data class GameOverReason(
     val totalYearsPlayed: Int,
     val totalStudentsGraduated: Int,
     val peakReputation: Long,
-    val peakCash: Double
+    val peakCash: Double,
+    val schoolTypeName: String = ""
 ) {
     val primaryReason: String
         get() = when {

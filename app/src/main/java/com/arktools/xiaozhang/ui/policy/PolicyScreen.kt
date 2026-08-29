@@ -389,7 +389,7 @@ fun PolicyScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text("硕博点", fontWeight = FontWeight.SemiBold)
                             Text(
-                                "投入200万启动（校园5级）：每月导师经费、声誉+3、科研+1天，并触发研究生事件",
+                                "投入200万启动（研究型大学校园3级，其他层次校园5级）：每月导师经费、声誉+3、科研+1天，并触发研究生事件",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

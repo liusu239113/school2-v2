@@ -612,8 +612,10 @@ class GameEngine @Inject constructor(
             }
             val school0 = schoolRepository.getSchool()
                 ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
-            if (school0.campusLevel < 5) {
-                return@withLock ManagedOperationResult(false, "硕博点需要校园5级")
+            // 研究型大学学术底蕴深厚：硕博点校园3级即可启动，其余层次需校园5级
+            val requiredCampusLevel = if (school0.schoolTier() == SchoolTier.RESEARCH) 3 else 5
+            if (school0.campusLevel < requiredCampusLevel) {
+                return@withLock ManagedOperationResult(false, "硕博点需要校园${requiredCampusLevel}级")
             }
             val cost = 200.0
             if (school0.cash < cost) {
@@ -2881,7 +2883,9 @@ class GameEngine @Inject constructor(
                 totalYearsPlayed = currentSchool.currentYear - currentSchool.foundedYear,
                 totalStudentsGraduated = graduateCount,
                 peakReputation = currentSchool.reputation,
-                peakCash = currentSchool.totalRevenue
+                peakCash = currentSchool.totalRevenue,
+                schoolTypeName = currentSchool.schoolTier().displayName + "·" +
+                    currentSchool.schoolOwnership().displayName
             )
         )
         isPaused = true
@@ -2904,7 +2908,9 @@ class GameEngine @Inject constructor(
                             totalYearsPlayed = school.currentYear - school.foundedYear,
                             totalStudentsGraduated = graduateCount,
                             peakReputation = school.reputation, // 简化：当前即为记录
-                            peakCash = school.totalRevenue
+                            peakCash = school.totalRevenue,
+                            schoolTypeName = school.schoolTier().displayName + "·" +
+                                school.schoolOwnership().displayName
                         )
                     )
                 }
@@ -4233,6 +4239,21 @@ class GameEngine @Inject constructor(
                 }
             }
 
+            // 研究型大学：科研经费按月到账（已解锁科研方法越多，纵向课题经费越足）
+            if (school.schoolTier() == SchoolTier.RESEARCH && !st.isRetrySettlement) {
+                val researchGrant = researchRepository.getUnlockedMethods().size * 0.45
+                if (researchGrant > 0) {
+                    schoolRepository.addCash(researchGrant)
+                    st.incResearchGrant += researchGrant
+                    deferEvent(GameEvent.PositiveEvent(
+                        title = "科研经费到账",
+                        message = "本校在研科研项目获得纵向经费拨款 ¥${String.format("%,.0f", researchGrant * 10000)}（研究型大学按月拨付）。",
+                        bonusCash = 0.0,  // 效果已在上方直接应用，事件仅作通知
+                        bonusReputation = 0
+                    ))
+                }
+            }
+
             // 公办院校生均财政拨款：按月拨付（民办为 0），重试月结不重复发放
             if (school.schoolOwnership() == SchoolOwnership.PUBLIC && !st.isRetrySettlement) {
                 val grant = st.cachedActiveStudentsForMonth.size *
@@ -4549,12 +4570,17 @@ class GameEngine @Inject constructor(
             if (!principalForMonth.isSuspended && !principalForMonth.isArrested) {
                 val principalSalary = GameBalanceConfig.getPrincipalMonthlySalary(school.campusLevel)
                 principalForMonth.personalFunds += principalSalary
-                // 校长薪资从学校公款支出
-                schoolRepository.deductCash(principalSalary)
-                st.monthlyExpenses += principalSalary
-                financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHER_SALARY, principalSalary
-                )
+                if (school.schoolOwnership() == SchoolOwnership.PUBLIC) {
+                    // 公办编制：校长月薪由财政代发，不占用学校经费（从拨款净额中扣除）
+                    st.incGovSubsidy -= principalSalary
+                } else {
+                    // 民办：校长薪资从学校公款支出
+                    schoolRepository.deductCash(principalSalary)
+                    st.monthlyExpenses += principalSalary
+                    financialReportManager.recordExpense(
+                        com.arktools.xiaozhang.domain.finance.ExpenseCategory.TEACHER_SALARY, principalSalary
+                    )
+                }
             }
 
             // 腐败系统月度风险检查：School/Principal/罚款/声誉同行持久化。

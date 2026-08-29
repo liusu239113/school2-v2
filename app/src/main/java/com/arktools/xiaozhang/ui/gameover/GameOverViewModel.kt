@@ -9,6 +9,8 @@ import com.arktools.xiaozhang.domain.engine.GameEngine
 import com.arktools.xiaozhang.domain.engine.GameOverDetector
 import com.arktools.xiaozhang.domain.engine.GameOverReason
 import com.arktools.xiaozhang.domain.engine.HealthReport
+import com.arktools.xiaozhang.domain.model.schoolOwnership
+import com.arktools.xiaozhang.domain.model.schoolTier
 import com.arktools.xiaozhang.domain.repository.SchoolRepository
 import com.arktools.xiaozhang.domain.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -81,7 +83,10 @@ class GameOverViewModel @Inject constructor(
                 totalYearsPlayed = (school?.currentYear ?: 1) - (school?.foundedYear ?: 1),
                 totalStudentsGraduated = graduateCount,
                 peakReputation = school?.reputation ?: 0L,
-                peakCash = school?.totalRevenue ?: 0.0
+                peakCash = school?.totalRevenue ?: 0.0,
+                schoolTypeName = school?.let {
+                    it.schoolTier().displayName + "·" + it.schoolOwnership().displayName
+                } ?: ""
             )
             gameOverDetector.confirmGameOver(reason)
             gameEngine.confirmGameOver()

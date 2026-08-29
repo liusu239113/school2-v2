@@ -288,6 +288,9 @@ fun GameOverScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             StatRow("经营年限", "${reason.totalYearsPlayed}年")
+                            if (reason.schoolTypeName.isNotEmpty()) {
+                                StatRow("办学类型", reason.schoolTypeName)
+                            }
                             StatRow("培养毕业生", "${reason.totalStudentsGraduated}人")
                             StatRow("巅峰声誉", "${reason.peakReputation}")
                             StatRow("巅峰资金", FormatUtils.formatCash(reason.peakCash))

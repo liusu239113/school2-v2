@@ -62,6 +62,13 @@ enum class SchoolTier(
         4, GradeLevel.GRADE_4, 430, 520,
         1.0, 1.0, 1.0f, 500.0, 1.0f, false,
         setOf("LIBERAL_ARTS", "SCIENCE", "ENGINEERING", "MEDICINE", "BUSINESS", "ARTS")
+    ),
+    RESEARCH(
+        "RESEARCH", "研究型大学",
+        "4年制 · 高分严选 · 生源精而少 · 学费低 · 科研经费是收入大头 · 硕博点校园3级即可启动 · 目标：学术巅峰",
+        4, GradeLevel.GRADE_4, 560, 650,
+        0.7, 0.75, 1.25f, 650.0, 1.15f, false,
+        setOf("LIBERAL_ARTS", "SCIENCE", "ENGINEERING", "MEDICINE", "BUSINESS", "ARTS")
     );
 
     /** 入学到毕业的完整学年跨度（大四毕业 = 3 年跨度） */
