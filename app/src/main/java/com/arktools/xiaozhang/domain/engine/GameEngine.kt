@@ -9,6 +9,7 @@ import com.arktools.xiaozhang.domain.model.SchoolTier
 import com.arktools.xiaozhang.domain.model.schoolOwnership
 import com.arktools.xiaozhang.domain.model.schoolTier
 import com.arktools.xiaozhang.domain.model.promotionHistory
+import com.arktools.xiaozhang.domain.model.promotionHistoryText
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
 import com.arktools.xiaozhang.domain.model.FacilityType
