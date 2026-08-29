@@ -65,10 +65,10 @@ object CampusBuildTypes {
         Spec("C_MEDICINE", "医学院", 2, 2, 110.0, 4, R.drawable.bld_medicine, college = CollegeType.MEDICINE, removable = false)
     )
     val FACILITY_SPECS = listOf(
-        Spec("F_CLASSROOM", "标准教室", 2, 2, 15.0, 1, R.drawable.facility_classroom, facility = FacilityType.CLASSROOM),
+        Spec("F_CLASSROOM", "标准教室", 2, 2, 18.0, 1, R.drawable.facility_classroom, facility = FacilityType.CLASSROOM),
         Spec("F_LIBRARY", "图书馆", 2, 2, 30.0, 1, R.drawable.bld_library, facility = FacilityType.LIBRARY),
-        Spec("F_DORMITORY", "宿舍楼", 2, 3, 80.0, 1, R.drawable.bld_dorm, facility = FacilityType.DORMITORY),
-        Spec("F_CANTEEN", "食堂", 2, 2, 20.0, 1, R.drawable.facility_canteen, facility = FacilityType.CANTEEN),
+        Spec("F_DORMITORY", "宿舍楼", 2, 3, 95.0, 1, R.drawable.bld_dorm, facility = FacilityType.DORMITORY),
+        Spec("F_CANTEEN", "食堂", 2, 2, 28.0, 1, R.drawable.facility_canteen, facility = FacilityType.CANTEEN),
         Spec("F_MULTIMEDIA", "多媒体教室", 2, 2, 35.0, 1, R.drawable.facility_multimedia_room, facility = FacilityType.MULTIMEDIA_ROOM),
         Spec("F_GARDEN", "校园花园", 2, 2, 12.0, 1, R.drawable.facility_garden, facility = FacilityType.GARDEN),
         Spec("F_GATE", "校门", 2, 1, 8.0, 1, R.drawable.facility_gate, facility = FacilityType.GATE),

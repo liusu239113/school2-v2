@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arktools.xiaozhang.audio.AudioManager
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
+import com.arktools.xiaozhang.domain.model.FacilityCapacity
 import com.arktools.xiaozhang.domain.model.FacilityCategory
 import com.arktools.xiaozhang.domain.model.FacilityType
 import com.arktools.xiaozhang.domain.model.School
@@ -62,8 +63,9 @@ class FacilityViewModel @Inject constructor(
         val available = if (atCapacity) {
             emptyList()
         } else {
-            // 允许所有设施类型购买（包括已拥有的类型，如教室可以购买多间）
-            FacilityType.values().toList()
+            FacilityType.values().filter { type ->
+                type.repeatable || owned.none { it.type == type }
+            }
         }
 
         _uiState.value = FacilityUiState(
@@ -88,9 +90,14 @@ class FacilityViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(message = "设施数量已达当前等级上限（${maxFacilities}/${maxFacilities}），请到「社会」页面升级大学校园以解锁更多设施位")
                     return@mutateSchool false
                 }
-                val cost = type.baseCost
+                val existingCount = school.facilities.count { it.type == type }
+                if (existingCount > 0 && !type.repeatable) {
+                    _uiState.value = _uiState.value.copy(message = "${type.displayName} 已建成（该类型只需一座）")
+                    return@mutateSchool false
+                }
+                val cost = FacilityCapacity.repeatCost(type, existingCount)
                 if (school.cash < cost) {
-                    _uiState.value = _uiState.value.copy(message = "资金不足！需要 ${cost} 万元")
+                    _uiState.value = _uiState.value.copy(message = "资金不足！需要 ${cost.toInt()} 万元")
                     return@mutateSchool false
                 }
                 school.cash -= cost

@@ -473,13 +473,13 @@ fun CampusView(
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Text(
-                    "满意度 ${state.avgSatisfaction.toInt()}  住宿 ${state.avgDormSatisfaction.toInt()}  餐标 ${state.avgMealQuality.toInt()}",
+                    "满意度 ${state.avgSatisfaction.toInt()}  床位 ${state.studentCount}/${state.dormBeds.coerceAtLeast(0)}  餐位 ${state.canteenSeats}",
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "装扮 ${state.decorCount}件 · 建筑 ${state.facilities.size}/${state.maxFacilities} · 点建筑进入系统",
+                    "班槽 ${state.classSlots} · 装扮 ${state.decorCount}件 · 建筑 ${state.facilities.size}/${state.maxFacilities}",
                     color = Color(0xFFB8C7D6),
                     fontSize = 10.sp
                 )
@@ -549,12 +549,18 @@ fun CampusView(
         if (inPlacementMode && ghost != null) {
             val (gx, gy) = ghost!!
             val spec = pendingSpec
+            val placeCost = spec?.facility?.let { type ->
+                com.arktools.xiaozhang.domain.model.FacilityCapacity.repeatCost(
+                    type,
+                    state.facilities.count { it.type == type }
+                )
+            } ?: spec?.costWan ?: 0.0
             val costText = when {
-                spec != null -> "${spec.costWan.toInt()}万"
+                spec != null -> "${placeCost.toInt()}万"
                 pendingTile != null -> "${pendingTile?.costWan}万"
                 else -> ""
             }
-            val insufficient = spec != null && state.cash < spec.costWan
+            val insufficient = spec != null && moveTarget == null && state.cash < placeCost
             val positionInvalid = spec != null && !canPlaceGhostAt(gx, gy, spec)
             val blocked = insufficient || positionInvalid
             val verb = when {
@@ -827,8 +833,8 @@ private fun BuildingPanelContent(
                     color = Color(0xFF14648C)
                 )
                 val seasonHint = when (state.currentMonth) {
-                    8 -> "8月建校窗口：先铺路、建教室和宿舍，9月迎新前把基础配齐。"
-                    9 -> "9月迎新季：招生看宿舍、食堂和声誉。缺宿舍会压低报到率。"
+                    8 -> "8月建校窗口：教室、宿舍、食堂都要落在地图上。没有宿舍，9月招不到人。"
+                    9 -> "9月迎新季：床位满了就招不进来。扩招 = 再盖一栋宿舍，不是点一次升级完事。"
                     6, 7 -> "毕业与就业季：就业中心、竞赛和校友网络会决定这一年的口碑。"
                     1, 2 -> "寒假窗口：适合维修、扩建设施，少处理突发事件。"
                     else -> "日常经营：点建筑进入对应系统，月底会出校园周报。"
@@ -881,21 +887,21 @@ private fun BuildingPanelContent(
                     when (facility.type) {
                         FacilityType.DORMITORY -> {
                             Text(
-                                "住宿满意度 ${state.avgDormSatisfaction.toInt()} / 100 · 在校 ${state.studentCount} 人",
+                                "床位 ${state.dormBeds} · 在校 ${state.studentCount} 人 · 住宿满意度 ${state.avgDormSatisfaction.toInt()}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("宿舍等级越高，招生加成和学生恢复越强。", fontSize = 12.sp, color = Color(0xFF617386))
+                            Text("床位不够会直接卡招生，超员每天扣满意度和住宿分。可再建造一栋宿舍扩容。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("学生生活") { onOpenStudentLife() }
                             PanelButton("奖学金/助学金") { onOpenScholarship() }
                         }
                         FacilityType.CANTEEN -> {
                             Text(
-                                "餐标 ${state.avgMealQuality.toInt()} / 100 · 全校满意度 ${state.avgSatisfaction.toInt()}",
+                                "餐位 ${state.canteenSeats} · 在校 ${state.studentCount} 人 · 餐标 ${state.avgMealQuality.toInt()}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("食堂状态差会提高生病风险，升级后能稳住体力与社交。", fontSize = 12.sp, color = Color(0xFF617386))
+                            Text("餐位不够会扣餐标和满意度。可再建造一栋食堂扩容。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         FacilityType.SPORTS_FIELD -> {
@@ -939,7 +945,7 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.CLASSROOM -> {
                             Text(
-                                "招生加成 +${(state.enrollmentBonus * 100).toInt()}% · 教室等级决定班容量",
+                                "班槽 ${state.classSlots} · 在校 ${state.studentCount} 人 · 可重复建造扩班",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
@@ -1073,26 +1079,34 @@ private fun BuildMenuContent(
         )
         BT.FACILITY_SPECS.forEach { spec ->
             val type = spec.facility ?: return@forEach
-            val built = state.facilities.any { it.type == type }
-            val shortOfCash = !built && state.cash < spec.costWan
-            val levelLocked = !built && state.campusLevel < spec.unlockLevel
-            val capLocked = !built && state.facilities.size >= state.maxFacilities
-            val locked = shortOfCash || levelLocked || capLocked
+            val owned = state.facilities.count { it.type == type }
+            val uniqueDone = owned > 0 && !type.repeatable
+            val nextCost = com.arktools.xiaozhang.domain.model.FacilityCapacity.repeatCost(type, owned)
+            val shortOfCash = !uniqueDone && state.cash < nextCost
+            val levelLocked = owned == 0 && state.campusLevel < spec.unlockLevel
+            val capLocked = !uniqueDone && state.facilities.size >= state.maxFacilities
+            val locked = uniqueDone || shortOfCash || levelLocked || capLocked
             val lockedText = when {
-                built -> null
+                uniqueDone -> "已建成"
                 levelLocked -> "校园 Lv.${spec.unlockLevel}"
                 capLocked -> "建筑已满"
                 shortOfCash -> "钱不够"
                 else -> null
             }
+            val capacityHint = when (type) {
+                FacilityType.CLASSROOM -> "班槽 ${state.classSlots} · 已建 ${owned} 栋"
+                FacilityType.DORMITORY -> "在校 ${state.studentCount}/${state.dormBeds} 床 · 已建 ${owned} 栋"
+                FacilityType.CANTEEN -> "餐位 ${state.canteenSeats} · 已建 ${owned} 栋"
+                else -> type.description
+            }
             BuildRow(
                 title = spec.displayName,
-                subtitle = type.description,
-                rightText = "${spec.costWan.toInt()}万",
+                subtitle = capacityHint,
+                rightText = if (type.repeatable && owned > 0) "再建 ${nextCost.toInt()}万" else "${nextCost.toInt()}万",
                 locked = locked,
                 lockedText = lockedText,
-                done = built,
-                onClick = { if (!built && !locked) onBuyFacility(spec) }
+                done = uniqueDone,
+                onClick = { if (!locked) onBuyFacility(spec) }
             )
         }
 

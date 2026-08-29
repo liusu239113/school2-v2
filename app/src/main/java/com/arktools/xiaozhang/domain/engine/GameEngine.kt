@@ -12,6 +12,7 @@ import com.arktools.xiaozhang.domain.model.promotionHistory
 import com.arktools.xiaozhang.domain.model.promotionHistoryText
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
+import com.arktools.xiaozhang.domain.model.FacilityCapacity
 import com.arktools.xiaozhang.domain.model.FacilityType
 import com.arktools.xiaozhang.domain.model.ActivityAction
 import com.arktools.xiaozhang.domain.model.ClubAction
@@ -6388,7 +6389,25 @@ class GameEngine @Inject constructor(
             // 政策 + 教学配置对满意度的每日微调
             val policySatisfactionDaily = policyEffects.satisfactionModifier / 30f
             val teachingSatisfactionDaily = teachingConfig.monthlySatisfactionImpact() / 30f
-            student.satisfaction = (student.satisfaction + satisfactionDelta + policySatisfactionDaily + teachingSatisfactionDaily).coerceIn(0f, 100f)
+            val dormRatio = FacilityCapacity.occupancyRatio(
+                activeStudents.size,
+                FacilityCapacity.totalBeds(school.facilities)
+            )
+            val canteenRatio = FacilityCapacity.occupancyRatio(
+                activeStudents.size,
+                FacilityCapacity.totalCanteenSeats(school.facilities)
+            )
+            val crowdingDaily = (
+                FacilityCapacity.overcrowdingPenalty(dormRatio) +
+                    FacilityCapacity.overcrowdingPenalty(canteenRatio)
+                ) / 30f
+            student.satisfaction = (student.satisfaction + satisfactionDelta + policySatisfactionDaily + teachingSatisfactionDaily - crowdingDaily).coerceIn(0f, 100f)
+            if (dormRatio > 1f) {
+                student.dormSatisfaction = (student.dormSatisfaction - crowdingDaily * 2f).coerceAtLeast(5f)
+            }
+            if (canteenRatio > 1f) {
+                student.mealQuality = (student.mealQuality - crowdingDaily * 2f).coerceAtLeast(5f)
+            }
 
             // 检查退学（含特质效果 + 政策修正 + 奖学金留存加成）
             val baseDropout = StudentSatisfactionCalculator.calculateDropoutProbability(student.satisfaction, student.traits)
@@ -6456,20 +6475,16 @@ class GameEngine @Inject constructor(
         // 1. 教室硬性约束：教室有效容量 * 3 = 最大班级总数
         //    升级教室增加有效容量：1级=1, 2级=1.5, 3级=2, 4级=2.5, 5级=3
         //    v2.8 修复：先乘3再取整，避免单间教室升级到偶数级时截断无效
-        val classroomCount = school.facilities.filter {
-            it.type == FacilityType.CLASSROOM && it.isOperational
-        }.sumOf { ((it.level + 1) / 2.0).coerceAtLeast(1.0) * 3.0 }.toInt().coerceAtLeast(0)
+        val classroomCount = FacilityCapacity.totalClassSlots(school.facilities)
         if (classroomCount <= 0) {
-            // 没有教室，无法招生
             emitEvent(GameEvent.NegativeEvent(
                 title = "招生失败",
-                message = "学校没有可用的教室，无法招收新生！请先到「校园设施」建造教室。",
+                message = "学校没有可用的教室，无法招收新生！请先到校园地图建造教室。",
                 penaltyCash = 0.0,
                 penaltyReputation = 0
             ), school)
             return
         }
-        // v2.8: classroomCount 现在直接是"最大总班级数"（已包含等级加成×3）
         val maxTotalClassesByRoom = classroomCount
 
         // 2. 按班型配置计算每年级的班级分布（全校配置 / 3 个年级，向上取整避免截断）
@@ -6542,11 +6557,36 @@ class GameEngine @Inject constructor(
                 * pressureEnrollMultiplier * connectionEnrollBonus * facilityEnrollMultiplier
                 * school.schoolTier().enrollmentMultiplier * school.schoolOwnership().enrollmentMultiplier
                 + employmentBonus).toInt()
-        val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(1, gradeCapacity)
-        // 大一可能因转入/异常流程提前出现少量学生；九月招生按当前真实大一人数补齐。
-        // 不能只看某月是否已有1条入学记录，否则会把整批招生永久跳过。
         val existingGradeOneCount = studentRepository.getGradeStudentCount(GradeLevel.GRADE_1)
+        val dormBeds = FacilityCapacity.totalBeds(school.facilities)
+        val existingStudents = studentRepository.getActiveStudentCount()
+        val bedHeadroom = if (dormBeds <= 0) {
+            0
+        } else {
+            (dormBeds - existingStudents).coerceAtLeast(0)
+        }
+        val capacityCap = if (dormBeds <= 0) {
+            0
+        } else {
+            minOf(gradeCapacity, existingGradeOneCount + bedHeadroom)
+        }
+        val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(0, capacityCap)
         val enrollCount = (targetEnrollCount - existingGradeOneCount).coerceAtLeast(0)
+        if (dormBeds <= 0 && rawEnroll > 0) {
+            emitEvent(GameEvent.NegativeEvent(
+                title = "没有宿舍，报到率骤降",
+                message = "校园里还没有宿舍楼。没有床位，本季招不到人。先在地图上建一栋宿舍。",
+                penaltyCash = 0.0,
+                penaltyReputation = 8
+            ), school)
+        } else if (dormBeds > 0 && bedHeadroom <= 0 && rawEnroll > 0) {
+            emitEvent(GameEvent.NegativeEvent(
+                title = "宿舍住满了",
+                message = "现有 ${dormBeds} 个床位已经住满。扩招必须先再建一栋宿舍楼或升级现有宿舍。",
+                penaltyCash = 0.0,
+                penaltyReputation = 4
+            ), school)
+        }
 
         val plan = policyManager.policies.value.enrollmentPlan
         val planName = plan.displayName
@@ -7456,10 +7496,17 @@ class GameEngine @Inject constructor(
         val types = school.facilities.filter { it.isOperational }.map { it.type }.toSet()
         val students = studentRepository.getActiveStudents()
         val teachers = teacherRepository.getTeachers()
+        val studentCount = students.size
+        val beds = FacilityCapacity.totalBeds(school.facilities)
+        val seats = FacilityCapacity.totalCanteenSeats(school.facilities)
+        val slots = FacilityCapacity.totalClassSlots(school.facilities)
         val missing = buildList {
             if (FacilityType.CLASSROOM !in types) add("标准教室")
+            else if (slots > 0 && studentCount > slots * 40) add("加建教室（班槽不足）")
             if (FacilityType.DORMITORY !in types) add("宿舍")
+            else if (beds > 0 && studentCount > beds) add("加建宿舍（床位 ${studentCount}/${beds}）")
             if (FacilityType.CANTEEN !in types) add("食堂")
+            else if (seats > 0 && studentCount > seats) add("加建食堂（餐位 ${studentCount}/${seats}）")
             if (FacilityType.LIBRARY !in types) add("图书馆")
             if (school.currentMonth in 5..7 && FacilityType.EMPLOYMENT_CENTER !in types) add("就业指导中心")
         }

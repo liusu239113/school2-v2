@@ -20,16 +20,68 @@ data class Facility(
         get() = condition > 20f
 }
 
+/**
+ * 自由建造容量：同一类型可重复落座，规模扩张必须靠多栋楼，而不是每种只建一座。
+ * 宿舍/食堂按床位和餐位卡住体验；教室按班槽卡住招生。
+ */
+object FacilityCapacity {
+    fun bedsPerDorm(level: Int): Int = 80 + (level - 1).coerceAtLeast(0) * 40
+
+    fun seatsPerCanteen(level: Int): Int = 120 + (level - 1).coerceAtLeast(0) * 60
+
+    fun classSlots(level: Int): Int = when (level.coerceAtLeast(1)) {
+        1 -> 3
+        2 -> 4
+        3 -> 6
+        4 -> 7
+        else -> 9
+    }
+
+    fun totalBeds(facilities: List<Facility>): Int =
+        facilities.filter { it.type == FacilityType.DORMITORY && it.isOperational }
+            .sumOf { bedsPerDorm(it.level) }
+
+    fun totalCanteenSeats(facilities: List<Facility>): Int =
+        facilities.filter { it.type == FacilityType.CANTEEN && it.isOperational }
+            .sumOf { seatsPerCanteen(it.level) }
+
+    fun totalClassSlots(facilities: List<Facility>): Int =
+        facilities.filter { it.type == FacilityType.CLASSROOM && it.isOperational }
+            .sumOf { classSlots(it.level) }
+
+    fun occupancyRatio(students: Int, capacity: Int): Float {
+        if (capacity <= 0) return if (students <= 0) 0f else 2f
+        return students.toFloat() / capacity.toFloat()
+    }
+
+    fun overcrowdingPenalty(ratio: Float): Float = when {
+        ratio <= 1f -> 0f
+        ratio <= 1.25f -> 8f
+        ratio <= 1.6f -> 16f
+        else -> 28f
+    }
+
+    /** 同类型第 n 栋（从 0 起）的造价递增，避免开局一次买齐。 */
+    fun repeatCost(type: FacilityType, existingCount: Int): Double {
+        if (!type.repeatable) return type.baseCost
+        val bump = 1.0 + existingCount * 0.35
+        return type.baseCost * bump
+    }
+
+    fun canRepeat(type: FacilityType): Boolean = type.repeatable
+}
+
 enum class FacilityType(
     val displayName: String,
     val description: String,
     val baseCost: Double,       // 建设成本（万元）
     val baseMaintenance: Double, // 月维护费（万元）
     val maxLevel: Int,
-    val category: FacilityCategory
+    val category: FacilityCategory,
+    val repeatable: Boolean = false
 ) {
     // Teaching facilities — 建设成本适中，维护费合理（占学费收入10-20%为宜）
-    CLASSROOM("标准教室", "提供班级槽位(Lv1:3班,Lv2:4班,Lv3:6班,Lv4:7班,Lv5:9班)，招生加成+5%/级", 15.0, 0.5, 5, FacilityCategory.TEACHING),
+    CLASSROOM("标准教室", "提供班级槽位(Lv1:3班,Lv2:4班,Lv3:6班,Lv4:7班,Lv5:9班)，可重复建造扩容", 18.0, 0.6, 5, FacilityCategory.TEACHING, repeatable = true),
     MULTIMEDIA_ROOM("多媒体教室", "现代化教学设备，教学质量+10%/级", 35.0, 1.2, 3, FacilityCategory.TEACHING),
     LABORATORY("实验室", "理科实验设施，理科课程评分+15%/级，教学质量+5%/级", 50.0, 1.8, 3, FacilityCategory.TEACHING),
     COMPUTER_LAB("计算机房", "信息技术设施，理科课程评分+10%/级，教学质量+5%/级，学生智力/创造力+", 40.0, 1.5, 3, FacilityCategory.TEACHING),
@@ -38,8 +90,8 @@ enum class FacilityType(
     // Support facilities
     LIBRARY("图书馆", "课程研发效率+10%/级，学生智力+", 30.0, 1.0, 5, FacilityCategory.SUPPORT),
     SPORTS_FIELD("运动场", "体育设施，招生加成+5%/级，学生体质+", 45.0, 1.2, 3, FacilityCategory.SUPPORT),
-    CANTEEN("食堂", "降低教师疲劳积累-15%/级，学生体质+", 20.0, 0.8, 3, FacilityCategory.SUPPORT),
-    DORMITORY("宿舍楼", "住宿条件，招生加成+20%/级，学生社交+", 80.0, 2.0, 3, FacilityCategory.SUPPORT),
+    CANTEEN("食堂", "餐位决定饮食质量。可重复建造扩容", 28.0, 1.0, 3, FacilityCategory.SUPPORT, repeatable = true),
+    DORMITORY("宿舍楼", "床位决定住宿体验。可重复建造扩容", 95.0, 2.4, 3, FacilityCategory.SUPPORT, repeatable = true),
 
     // Prestige facilities
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),
@@ -88,7 +140,7 @@ object FacilityBonusCalculator {
         facilities.filter { it.isOperational }.forEach { facility ->
             val levelMultiplier = facility.level.toFloat()
             when (facility.type) {
-                FacilityType.CLASSROOM -> enrollment += 0.05f * levelMultiplier
+                FacilityType.CLASSROOM -> enrollment += 0.02f * levelMultiplier
                 FacilityType.MULTIMEDIA_ROOM -> teachingQuality += 0.10f * levelMultiplier
                 FacilityType.LABORATORY -> {
                     teachingQuality += 0.05f * levelMultiplier
@@ -105,7 +157,7 @@ object FacilityBonusCalculator {
                 FacilityType.LIBRARY -> research += 0.10f * levelMultiplier
                 FacilityType.SPORTS_FIELD -> enrollment += 0.05f * levelMultiplier
                 FacilityType.CANTEEN -> fatigueReduction += 0.15f * levelMultiplier
-                FacilityType.DORMITORY -> enrollment += 0.20f * levelMultiplier
+                FacilityType.DORMITORY -> enrollment += 0.06f * levelMultiplier
                 FacilityType.AUDITORIUM -> {
                     eventReward += 0.20f * levelMultiplier
                     reputationGrowth += 0.05f * levelMultiplier

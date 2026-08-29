@@ -84,7 +84,10 @@ class CampusViewModel @Inject constructor(
         val researchBonus: Float = 0f,
         val enrollmentBonus: Float = 0f,
         val currentMonth: Int = 8,
-        val currentDay: Int = 1
+        val currentDay: Int = 1,
+        val dormBeds: Int = 0,
+        val canteenSeats: Int = 0,
+        val classSlots: Int = 0
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -144,7 +147,10 @@ class CampusViewModel @Inject constructor(
                     researchBonus = bonuses.researchBonus,
                     enrollmentBonus = bonuses.enrollmentBonus,
                     currentMonth = school.currentMonth,
-                    currentDay = school.currentDay
+                    currentDay = school.currentDay,
+                    dormBeds = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalBeds(school.facilities),
+                    canteenSeats = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalCanteenSeats(school.facilities),
+                    classSlots = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
                 )
             }
         }
@@ -389,15 +395,17 @@ class CampusViewModel @Inject constructor(
                     _state.value = _state.value.copy(message = "建筑数量已达当前等级上限（${max}），先升级校园")
                     return@mutateSchool false
                 }
-                if (school.facilities.any { it.type == type }) {
-                    _state.value = _state.value.copy(message = "${type.displayName} 已建成")
+                val existingCount = school.facilities.count { it.type == type }
+                if (existingCount > 0 && !type.repeatable) {
+                    _state.value = _state.value.copy(message = "${type.displayName} 已建成（该类型只需一座）")
                     return@mutateSchool false
                 }
-                if (school.cash < type.baseCost) {
-                    _state.value = _state.value.copy(message = "资金不足！需要 ${type.baseCost.toInt()} 万元")
+                val cost = com.arktools.xiaozhang.domain.model.FacilityCapacity.repeatCost(type, existingCount)
+                if (school.cash < cost) {
+                    _state.value = _state.value.copy(message = "资金不足！需要 ${cost.toInt()} 万元")
                     return@mutateSchool false
                 }
-                school.cash -= type.baseCost
+                school.cash -= cost
                 val f = Facility(type = type, level = 1, condition = 100f)
                 school.facilities.add(f)
                 newFacility = f
