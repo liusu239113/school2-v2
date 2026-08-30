@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.arktools.xiaozhang.domain.international.InternationalProgramManager
 
 /**
  * 国际交流（Lv5 解锁）：海外合作院校、留学生培养、交换外派。
@@ -118,8 +120,7 @@ fun InternationalScreen(
                 Text("合作院校", color = Color(0xFF1E96C8), fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
             items(state.signedIds.size) { i ->
-                val def = InternationalProgramManager.byId(state.signedIds[i])
-                if (def != null) {
+                InternationalProgramManager.byId(state.signedIds[i])?.let { def ->
                     PartnerCard(def, signed = true, canSign = false) { }
                 }
             }
