@@ -2,6 +2,7 @@ package com.arktools.xiaozhang.ui.campus
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -16,9 +17,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -234,41 +241,36 @@ fun CampusView(
                 .fillMaxSize()
                 .clipToBounds()
                 .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
-                    if (inPlacementMode) {
-                        // 摆放/铺装/搬移：单指拖动幽灵（累计像素再吸附格子），双指捏合缩放
-                        detectTransformGestures { centroid, pan, zoomChange, _ ->
-                            if (zoomChange != 1f) zoomBy(zoomChange, centroid)
-                            if (pan != Offset.Zero) {
-                                val current = ghost ?: return@detectTransformGestures
-                                ghostDragRemain += pan
-                                val dx = kotlin.math.truncate(ghostDragRemain.x / cell).toInt()
-                                val dy = kotlin.math.truncate(ghostDragRemain.y / cell).toInt()
-                                if (dx != 0 || dy != 0) {
-                                    ghostDragRemain = Offset(
-                                        ghostDragRemain.x - dx * cell,
-                                        ghostDragRemain.y - dy * cell
-                                    )
-                                    val rect = BT.unlockedRect(state.campusLevel)
-                                    val spec = pendingSpec
-                                    val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
-                                    val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
-                                    ghost = (current.first + dx).coerceIn(rect.x0, maxX) to
-                                        (current.second + dy).coerceIn(rect.y0, maxY)
-                                }
+                    detectTransformGestures { centroid, _, zoomChange, _ ->
+                        if (zoomChange != 1f) zoomBy(zoomChange, centroid)
+                    }
+                }
+                .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
+                    detectDragGestures { _, dragAmount ->
+                        if (inPlacementMode) {
+                            val current = ghost ?: return@detectDragGestures
+                            ghostDragRemain += dragAmount
+                            val dx = kotlin.math.truncate(ghostDragRemain.x / cell).toInt()
+                            val dy = kotlin.math.truncate(ghostDragRemain.y / cell).toInt()
+                            if (dx != 0 || dy != 0) {
+                                ghostDragRemain = Offset(
+                                    ghostDragRemain.x - dx * cell,
+                                    ghostDragRemain.y - dy * cell
+                                )
+                                val rect = BT.unlockedRect(state.campusLevel)
+                                val spec = pendingSpec
+                                val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
+                                val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
+                                ghost = (current.first + dx).coerceIn(rect.x0, maxX) to
+                                    (current.second + dy).coerceIn(rect.y0, maxY)
                             }
-                        }
-                    } else {
-                        // 浏览模式：拖动平移地图（内容跟随手指），双指捏合缩放
-                        detectTransformGestures { centroid, pan, zoomChange, _ ->
-                            if (zoomChange != 1f) zoomBy(zoomChange, centroid)
-                            if (pan != Offset.Zero) {
-                                camera = Offset(camera.x + pan.x, camera.y + pan.y)
-                                clampCamera()
-                            }
+                        } else {
+                            camera = Offset(camera.x + dragAmount.x, camera.y + dragAmount.y)
+                            clampCamera()
                         }
                     }
                 }
-                .pointerInput(inPlacementMode, pendingSpec) {
+                .pointerInput(inPlacementMode, pendingSpec, cell) {
                     detectTapGestures { tap ->
                         val world = tap + camera
                         val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
@@ -387,26 +389,20 @@ fun CampusView(
                     }
                 }
 
-                // 建筑（保持贴图原始宽高比，底边对齐地块，避免拉伸压扁）
+                // 建筑：贴图铺满占地格子，和瓦片边界对齐
                 state.placed.forEach { placed ->
                     val spec = BT.specByKey(placed.key) ?: return@forEach
                     val bmp = bitmaps[spec.drawableRes] ?: return@forEach
                     val footW = spec.w * cell
                     val footH = spec.h * cell
-                    // 足迹描边：建筑占用了哪些瓦片一目了然
-                    drawRect(Color(0x2EFFFFFF), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(1.5f))
-                    val scale = minOf(footW / bmp.width, (footH * 0.92f) / bmp.height)
-                    val dstW = bmp.width * scale
-                    val dstH = bmp.height * scale
+                    drawRect(Color(0x330B2038), Offset(placed.x * cell, placed.y * cell), Size(footW, footH))
+                    drawRect(Color(0x66FFFFFF), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(1.5f))
                     drawImage(
                         image = bmp,
                         srcOffset = IntOffset.Zero,
                         srcSize = IntSize(bmp.width, bmp.height),
-                        dstOffset = IntOffset(
-                            (placed.x * cell + (footW - dstW) / 2f).toInt(),
-                            (placed.y * cell + (footH - dstH)).toInt()
-                        ),
-                        dstSize = IntSize(dstW.toInt(), dstH.toInt()),
+                        dstOffset = IntOffset((placed.x * cell).toInt(), (placed.y * cell).toInt()),
+                        dstSize = IntSize(footW.toInt(), footH.toInt()),
                         filterQuality = FilterQuality.None
                     )
                     if (placed.level >= 2) {
@@ -446,19 +442,13 @@ fun CampusView(
                     spec?.let { s ->
                         val bmp = bitmaps[s.drawableRes]
                         if (bmp != null) {
-                            val gs = minOf(gw / bmp.width, (gh * 0.92f) / bmp.height)
-                            val dw = bmp.width * gs
-                            val dh = bmp.height * gs
                             drawImage(
                                 image = bmp,
                                 srcOffset = IntOffset.Zero,
                                 srcSize = IntSize(bmp.width, bmp.height),
-                                dstOffset = IntOffset(
-                                    (gx * cell + (gw - dw) / 2f).toInt(),
-                                    (gy * cell + (gh - dh)).toInt()
-                                ),
-                                dstSize = IntSize(dw.toInt(), dh.toInt()),
-                                alpha = 0.65f,
+                                dstOffset = IntOffset((gx * cell).toInt(), (gy * cell).toInt()),
+                                dstSize = IntSize(gw.toInt(), gh.toInt()),
+                                alpha = 0.72f,
                                 filterQuality = FilterQuality.None
                             )
                         }
@@ -653,7 +643,13 @@ fun CampusView(
                 sheetState = sheetState,
                 containerColor = Color.White
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 520.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
                     state.message?.let { msg ->
                         Text(
                             msg,
@@ -706,7 +702,13 @@ fun CampusView(
                 sheetState = sheetState,
                 containerColor = Color.White
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 560.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
                     state.message?.let { msg ->
                         Text(
                             msg,
@@ -723,14 +725,17 @@ fun CampusView(
                     BuildMenuContent(
                         state = state,
                         onFoundCollege = { spec ->
+                            viewModel.closeBuildMenu()
                             viewModel.startPlace(spec)
                             pendingSpec = spec
                         },
                         onBuyFacility = { spec ->
+                            viewModel.closeBuildMenu()
                             viewModel.startPlace(spec)
                             pendingSpec = spec
                         },
                         onPaintTile = { tile ->
+                            viewModel.closeBuildMenu()
                             viewModel.startPaint(tile)
                             pendingTile = tile
                         }
@@ -1101,11 +1106,12 @@ private fun BuildMenuContent(
             }
             BuildRow(
                 title = spec.displayName,
-                subtitle = college.description,
+                subtitle = "${college.description} · 占地 ${spec.w}×${spec.h}",
                 rightText = "${spec.costWan.toInt()}万",
                 locked = locked,
                 lockedText = lockedText,
                 done = founded,
+                previewRes = spec.drawableRes,
                 onClick = { if (!founded && !locked) onFoundCollege(spec) }
             )
         }
@@ -1145,11 +1151,12 @@ private fun BuildMenuContent(
             }
             BuildRow(
                 title = spec.displayName,
-                subtitle = capacityHint,
+                subtitle = "$capacityHint · 占地 ${spec.w}×${spec.h}",
                 rightText = if (type.repeatable && owned > 0) "再建 ${nextCost.toInt()}万" else "${nextCost.toInt()}万",
                 locked = locked,
                 lockedText = lockedText,
                 done = uniqueDone,
+                previewRes = spec.drawableRes,
                 onClick = { if (!locked) onBuyFacility(spec) }
             )
         }
@@ -1160,7 +1167,7 @@ private fun BuildMenuContent(
             val levelLocked = state.campusLevel < tile.unlockLevel
             BuildRow(
                 title = tile.displayName,
-                subtitle = if (levelLocked) "校园 Lv.${tile.unlockLevel} 解锁" else "点击后到地图上点格铺设",
+                subtitle = if (levelLocked) "校园 Lv.${tile.unlockLevel} 解锁" else "1×1 格铺设",
                 rightText = "${tile.costWan}万",
                 locked = levelLocked || shortOfCash,
                 lockedText = if (!levelLocked && shortOfCash) "钱不够" else null,
@@ -1180,7 +1187,8 @@ private fun BuildRow(
     locked: Boolean,
     done: Boolean,
     onClick: () -> Unit,
-    lockedText: String? = null
+    lockedText: String? = null,
+    previewRes: Int? = null
 ) {
     Row(
         modifier = Modifier
@@ -1190,6 +1198,16 @@ private fun BuildRow(
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (previewRes != null) {
+            Image(
+                painter = painterResource(id = previewRes),
+                contentDescription = title,
+                modifier = Modifier
+                    .size(48.dp)
+                    .padding(end = 8.dp),
+                contentScale = ContentScale.Crop
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
             Text(subtitle, fontSize = 11.sp, color = Color(0xFF617386), maxLines = 2)

@@ -242,29 +242,69 @@ class CampusViewModel @Inject constructor(
         return null
     }
 
+    private fun defaultRoads(campusLevel: Int): Map<Long, BT.TileKind> {
+        val rect = BT.unlockedRect(campusLevel)
+        val roadY = (rect.y1 - 3).coerceAtLeast(rect.y0 + 1)
+        val roadX = rect.x0 + 1
+        val cells = mutableMapOf<Long, BT.TileKind>()
+        for (x in rect.x0 until rect.x1) cells[roadY * 1000L + x] = BT.TileKind.ROAD
+        for (y in rect.y0 until rect.y1) cells[y * 1000L + roadX] = BT.TileKind.ROAD
+        return cells
+    }
+
+    private fun relayoutOverlaps(
+        placed: List<BT.PlacedBuilding>,
+        terrain: Map<Long, BT.TileKind>,
+        campusLevel: Int
+    ): List<BT.PlacedBuilding> {
+        val result = mutableListOf<BT.PlacedBuilding>()
+        var changed = false
+        placed.forEach { b ->
+            val spec = BT.specByKey(b.key) ?: return@forEach
+            val err = canPlaceAt(spec, b.x, b.y, result, terrain, campusLevel, b.facilityId.ifBlank { b.key })
+            if (err == null) {
+                result.add(b)
+            } else {
+                val spot = firstFree(spec, result, terrain, campusLevel)
+                if (spot != null) {
+                    result.add(b.copy(x = spot.first, y = spot.second))
+                    changed = true
+                } else {
+                    result.add(b)
+                }
+            }
+        }
+        return if (changed) result else placed
+    }
+
     private fun migrateIfNeeded(school: com.arktools.xiaozhang.domain.model.School, placedRaw: String, terrainRaw: String) {
-        if (placedRaw.isNotBlank()) return
+        if (placedRaw.isNotBlank()) {
+            val existing = BT.decodeBuildings(placedRaw)
+            val terrain = BT.decodeTerrain(terrainRaw)
+                .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) }
+            val fixed = relayoutOverlaps(existing, terrain, school.campusLevel)
+            if (fixed !== existing) persistLayout(fixed, terrain)
+            return
+        }
+        val terrainMap = defaultRoads(school.campusLevel)
+        val placed = mutableListOf<BT.PlacedBuilding>()
+        val adminSpot = firstFree(BT.ADMIN, placed, terrainMap, school.campusLevel) ?: (10 to 4)
+        placed.add(BT.PlacedBuilding("ADMIN", adminSpot.first, adminSpot.second, school.campusLevel))
         val founded = policyManager.policies.value.collegeDevelopment.founded
-        val placed = mutableListOf(BT.PlacedBuilding("ADMIN", 9, 3, school.campusLevel))
         founded.forEach { college ->
             val spec = BT.collegeSpec(college) ?: return@forEach
-            val spot = firstFree(spec, placed, emptyMap(), school.campusLevel)
+            val spot = firstFree(spec, placed, terrainMap, school.campusLevel)
             if (spot != null) placed.add(BT.PlacedBuilding(spec.key, spot.first, spot.second))
         }
         school.facilities.forEach { f ->
             val spec = BT.facilitySpec(f.type) ?: return@forEach
-            val spot = firstFree(spec, placed, emptyMap(), school.campusLevel)
+            val spot = firstFree(spec, placed, terrainMap, school.campusLevel)
             if (spot != null) placed.add(BT.PlacedBuilding(spec.key, spot.first, spot.second, f.level, f.id))
         }
         if (policyManager.policies.value.collegeDevelopment.affiliatedHospital) {
-            val spot = firstFree(BT.HOSPITAL, placed, emptyMap(), school.campusLevel)
+            val spot = firstFree(BT.HOSPITAL, placed, terrainMap, school.campusLevel)
             if (spot != null) placed.add(BT.PlacedBuilding("HOSPITAL", spot.first, spot.second))
         }
-        // 默认道路网：横 y=9 全宽 + 纵 x=2
-        val terrainCells = mutableListOf<BT.TerrainCell>()
-        for (x in 0 until BT.GRID_W) terrainCells.add(BT.TerrainCell(x, 9, "ROAD"))
-        for (y in 3 until 10) terrainCells.add(BT.TerrainCell(2, y, "ROAD"))
-        val terrainMap = terrainCells.associate { (it.y * 1000L + it.x) to BT.TileKind.ROAD }
         persistLayout(placed, terrainMap)
     }
 

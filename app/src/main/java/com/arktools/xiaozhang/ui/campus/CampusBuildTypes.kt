@@ -78,32 +78,32 @@ object CampusBuildTypes {
     )
 
     val ADMIN = Spec(
-        "ADMIN", "行政楼", 3, 2, 0.0, 1,
+        "ADMIN", "行政楼", 4, 3, 0.0, 1,
         R.drawable.bld_admin, movable = false, removable = false
     )
     val COLLEGE_SPECS = listOf(
-        Spec("C_LIBERAL", "人文学院", 2, 2, 18.0, 1, R.drawable.bld_liberal, college = CollegeType.LIBERAL_ARTS, removable = false),
-        Spec("C_SCIENCE", "理学院", 2, 2, 36.0, 2, R.drawable.bld_generic, college = CollegeType.SCIENCE, removable = false),
-        Spec("C_ENGINEERING", "工学院", 2, 2, 58.0, 3, R.drawable.bld_generic, college = CollegeType.ENGINEERING, removable = false),
-        Spec("C_BUSINESS", "商学院", 2, 2, 72.0, 4, R.drawable.bld_generic, college = CollegeType.BUSINESS, removable = false),
-        Spec("C_ART", "艺术学院", 2, 2, 65.0, 3, R.drawable.bld_art, college = CollegeType.ARTS, removable = false),
-        Spec("C_MEDICINE", "医学院", 2, 2, 110.0, 4, R.drawable.bld_medicine, college = CollegeType.MEDICINE, removable = false)
+        Spec("C_LIBERAL", "人文学院", 3, 2, 18.0, 1, R.drawable.bld_liberal, college = CollegeType.LIBERAL_ARTS, removable = false),
+        Spec("C_SCIENCE", "理学院", 3, 3, 36.0, 2, R.drawable.bld_generic, college = CollegeType.SCIENCE, removable = false),
+        Spec("C_ENGINEERING", "工学院", 4, 3, 58.0, 3, R.drawable.bld_generic, college = CollegeType.ENGINEERING, removable = false),
+        Spec("C_BUSINESS", "商学院", 3, 3, 72.0, 4, R.drawable.bld_generic, college = CollegeType.BUSINESS, removable = false),
+        Spec("C_ART", "艺术学院", 3, 2, 65.0, 3, R.drawable.bld_art, college = CollegeType.ARTS, removable = false),
+        Spec("C_MEDICINE", "医学院", 4, 3, 110.0, 4, R.drawable.bld_medicine, college = CollegeType.MEDICINE, removable = false)
     )
     val FACILITY_SPECS = listOf(
         Spec("F_CLASSROOM", "标准教室", 2, 2, 18.0, 1, R.drawable.facility_classroom, facility = FacilityType.CLASSROOM),
-        Spec("F_LIBRARY", "图书馆", 2, 2, 30.0, 1, R.drawable.bld_library, facility = FacilityType.LIBRARY),
-        Spec("F_DORMITORY", "宿舍楼", 2, 3, 95.0, 1, R.drawable.bld_dorm, facility = FacilityType.DORMITORY),
-        Spec("F_CANTEEN", "食堂", 2, 2, 28.0, 1, R.drawable.facility_canteen, facility = FacilityType.CANTEEN),
+        Spec("F_LIBRARY", "图书馆", 3, 3, 30.0, 1, R.drawable.bld_library, facility = FacilityType.LIBRARY),
+        Spec("F_DORMITORY", "宿舍楼", 3, 4, 95.0, 1, R.drawable.bld_dorm, facility = FacilityType.DORMITORY),
+        Spec("F_CANTEEN", "食堂", 3, 2, 28.0, 1, R.drawable.facility_canteen, facility = FacilityType.CANTEEN),
         Spec("F_MULTIMEDIA", "多媒体教室", 2, 2, 35.0, 1, R.drawable.facility_multimedia_room, facility = FacilityType.MULTIMEDIA_ROOM),
         Spec("F_GARDEN", "校园花园", 2, 2, 12.0, 1, R.drawable.facility_garden, facility = FacilityType.GARDEN),
-        Spec("F_GATE", "校门", 2, 1, 8.0, 1, R.drawable.facility_gate, facility = FacilityType.GATE),
-        Spec("F_SPORTS_FIELD", "体育馆", 3, 2, 45.0, 2, R.drawable.facility_sports_field, facility = FacilityType.SPORTS_FIELD),
-        Spec("F_LABORATORY", "实验室", 2, 2, 50.0, 2, R.drawable.facility_laboratory, facility = FacilityType.LABORATORY),
-        Spec("F_COMPUTER_LAB", "计算机房", 2, 2, 40.0, 2, R.drawable.facility_computer_lab, facility = FacilityType.COMPUTER_LAB),
+        Spec("F_GATE", "校门", 3, 1, 8.0, 1, R.drawable.facility_gate, facility = FacilityType.GATE),
+        Spec("F_SPORTS_FIELD", "体育馆", 4, 3, 45.0, 2, R.drawable.facility_sports_field, facility = FacilityType.SPORTS_FIELD),
+        Spec("F_LABORATORY", "实验室", 3, 2, 50.0, 2, R.drawable.facility_laboratory, facility = FacilityType.LABORATORY),
+        Spec("F_COMPUTER_LAB", "计算机房", 3, 2, 40.0, 2, R.drawable.facility_computer_lab, facility = FacilityType.COMPUTER_LAB),
         Spec("F_ART_STUDIO", "艺术工作室", 2, 2, 25.0, 2, R.drawable.facility_art_studio, facility = FacilityType.ART_STUDIO),
-        Spec("F_EMPLOYMENT", "就业指导中心", 2, 2, 45.0, 2, R.drawable.bld_employment, facility = FacilityType.EMPLOYMENT_CENTER),
-        Spec("F_CONFERENCE", "会议中心", 2, 2, 60.0, 3, R.drawable.bld_conference, facility = FacilityType.CONFERENCE_CENTER),
-        Spec("F_AUDITORIUM", "大礼堂", 3, 2, 100.0, 3, R.drawable.facility_auditorium, facility = FacilityType.AUDITORIUM)
+        Spec("F_EMPLOYMENT", "就业指导中心", 3, 2, 45.0, 2, R.drawable.bld_employment, facility = FacilityType.EMPLOYMENT_CENTER),
+        Spec("F_CONFERENCE", "会议中心", 3, 3, 60.0, 3, R.drawable.bld_conference, facility = FacilityType.CONFERENCE_CENTER),
+        Spec("F_AUDITORIUM", "大礼堂", 4, 3, 100.0, 3, R.drawable.facility_auditorium, facility = FacilityType.AUDITORIUM)
     )
     val HOSPITAL = Spec(
         "HOSPITAL", "附属医院", 3, 3, 0.0, 4,
