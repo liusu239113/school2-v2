@@ -198,7 +198,7 @@ fun CampusView(
         // 以 focus 点为锚缩放（focus 指向的世界点保持不动）
         fun zoomBy(factor: Float, focus: Offset) {
             val oldCell = baseCell * zoom
-            zoom = (zoom * factor).coerceIn(0.55f, 2.4f)
+            zoom = (zoom * factor).coerceIn(0.35f, 4.0f)
             val newCell = baseCell * zoom
             if (newCell != oldCell) {
                 camera = Offset(
@@ -246,7 +246,7 @@ fun CampusView(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
+                .pointerInput(inPlacementMode, state.campusLevel, pendingSpec) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var totalDrag = Offset.Zero
@@ -261,16 +261,18 @@ fun CampusView(
                                 pressed.map { it.position.y }.average().toFloat()
                             )
                             if (pressed.size >= 2) {
+                                val dist = (pressed[0].position - pressed[1].position).getDistance()
                                 val prev = event.changes.mapNotNull { ch ->
                                     if (ch.previousPressed) ch.previousPosition else null
                                 }
-                                if (prev.size >= 2) {
-                                    val oldDist = (prev[0] - prev[1]).getDistance()
-                                    val newDist = (pressed[0].position - pressed[1].position).getDistance()
-                                    if (oldDist > 8f && newDist > 8f) {
-                                        zoomBy(newDist / oldDist, centroid)
-                                        dragged = true
-                                    }
+                                val oldDist = if (prev.size >= 2) {
+                                    (prev[0] - prev[1]).getDistance()
+                                } else 0f
+                                if (oldDist > 12f && dist > 12f) {
+                                    val raw = dist / oldDist
+                                    val boosted = 1f + (raw - 1f) * 1.8f
+                                    zoomBy(boosted, centroid)
+                                    dragged = true
                                 }
                             } else {
                                 val delta = centroid - lastCentroid
@@ -552,7 +554,7 @@ fun CampusView(
                         .background(Color(0xCC0B2038))
                         .clickable {
                             val focus = Offset(screenW / 2f, screenH / 2f)
-                            zoomBy(0.8f, focus)
+                            zoomBy(0.7f, focus)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("－", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
@@ -561,7 +563,7 @@ fun CampusView(
                         .background(Color(0xCC0B2038))
                         .clickable {
                             val focus = Offset(screenW / 2f, screenH / 2f)
-                            zoomBy(1.25f, focus)
+                            zoomBy(1.4f, focus)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("＋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
