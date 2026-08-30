@@ -778,7 +778,9 @@ class CampusViewModel @Inject constructor(
                 return@safeLaunch
             }
             val req = GameBalanceConfig.getUpgradeRequirements(school.campusLevel + 1)
-            val teacherCount = teacherRepository.getTeachers().size
+            val teachers = teacherRepository.getTeachers()
+            val teacherCount = teachers.size
+            val avgSkill = if (teachers.isNotEmpty()) teachers.map { it.averageSkill }.average() else 0.0
             val classCount = teachingManager.config.totalClasses
             val studentCount = studentRepository.getActiveStudentCount()
             val yearsAtLevel = school.currentYear - school.levelUpYear
@@ -789,6 +791,12 @@ class CampusViewModel @Inject constructor(
                 if (classCount < req.minClasses) add("班级 ${req.minClasses}个")
                 if (studentCount < req.minStudents) add("学生 ${req.minStudents}人")
                 if (yearsAtLevel < req.minYearsAtCurrentLevel) add("运营满 ${req.minYearsAtCurrentLevel}年")
+                if (req.minAverageTeacherSkill > 0 && avgSkill < req.minAverageTeacherSkill)
+                    add("师资均分 ${req.minAverageTeacherSkill}")
+                if (req.requiresResearch && !policyManager.researchChainManager.anyCompletedRound())
+                    add("需结题科研课题")
+                if (req.requiresInternational && !policyManager.internationalManager.hasAnyPartner)
+                    add("需国际合作院校")
             }
             if (failures.isNotEmpty()) {
                 _state.value = _state.value.copy(message = "升级条件不足：${failures.joinToString("、")}")

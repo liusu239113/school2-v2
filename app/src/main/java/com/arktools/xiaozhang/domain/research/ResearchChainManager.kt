@@ -221,6 +221,9 @@ class ResearchChainManager @Inject constructor() {
 
     private fun completedRoundCountAll(): Int = DEFS.sumOf { completedRoundCount(it.id) }
 
+    /** 是否至少结题过一轮（用于校园 Lv6 升级门槛） */
+    fun anyCompletedRound(): Boolean = completedRoundCountAll() > 0
+
     companion object {
         val CHAIN_UNLOCK_LEVEL = mapOf("TEACHING" to 1, "APPLIED" to 2, "INDUSTRY" to 3)
 

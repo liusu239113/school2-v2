@@ -171,7 +171,8 @@ fun GovernanceScreen(
                 Entry("办学报表", com.arktools.xiaozhang.R.drawable.ic_chart, 11),
                 Entry("大学政策（学费/考试等）", com.arktools.xiaozhang.R.drawable.ic_balance, 16),
                 Entry("学科建设（评估定级）", com.arktools.xiaozhang.R.drawable.ic_graduate_program, 45),
-                Entry("研究生院（硕博培养）", com.arktools.xiaozhang.R.drawable.ic_research_chain, 46)
+                Entry("研究生院（硕博培养）", com.arktools.xiaozhang.R.drawable.ic_research_chain, 46),
+                Entry("国际交流（世界一流）", com.arktools.xiaozhang.R.drawable.ic_globe, 47)
             )
             entries.forEach { entry ->
                 Row(

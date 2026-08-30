@@ -18,7 +18,8 @@ class SchoolPolicyManager @Inject constructor(
     val competitionManager: com.arktools.xiaozhang.domain.competition.UniversityCompetitionManager,
     val researchChainManager: com.arktools.xiaozhang.domain.research.ResearchChainManager,
     val teacherStoryManager: com.arktools.xiaozhang.domain.teacherdev.TeacherStoryManager,
-    val graduateManager: com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager
+    val graduateManager: com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager,
+    val internationalManager: com.arktools.xiaozhang.domain.international.InternationalProgramManager
 ) {
 
     private val _policies = MutableStateFlow(SchoolPolicies())
@@ -351,6 +352,7 @@ class SchoolPolicyManager @Inject constructor(
         researchChainManager.reset()
         teacherStoryManager.reset()
         graduateManager.reset()
+        internationalManager.reset()
     }
 
     fun toJson(): String {
@@ -385,6 +387,7 @@ class SchoolPolicyManager @Inject constructor(
                 researchChainStateJson = researchChainManager.toJson(),
                 storyStateJson = teacherStoryManager.toJson(),
                 graduateStateJson = graduateManager.toJson(),
+                internationalStateJson = internationalManager.toJson(),
                 affiliatedHospital = p.collegeDevelopment.affiliatedHospital,
                 coreCourses = p.collegeDevelopment.coreCourses,
                 graduateProgram = p.collegeDevelopment.graduateProgram,
@@ -453,6 +456,7 @@ class SchoolPolicyManager @Inject constructor(
             researchChainManager.restoreFromJson(data.researchChainStateJson)
             teacherStoryManager.restoreFromJson(data.storyStateJson)
             graduateManager.restoreFromJson(data.graduateStateJson)
+            internationalManager.restoreFromJson(data.internationalStateJson)
         } catch (e: Exception) {
             throw IllegalArgumentException("SchoolPolicyManager.restoreFromJson failed", e)
         }
@@ -767,6 +771,7 @@ data class PolicyPersistData(
     val researchChainStateJson: String = "",
     val storyStateJson: String = "",
     val graduateStateJson: String = "",
+    val internationalStateJson: String = "",
     val affiliatedHospital: Boolean = false,
     val coreCourses: Map<String, Int> = emptyMap(),
     val graduateProgram: Boolean = false,

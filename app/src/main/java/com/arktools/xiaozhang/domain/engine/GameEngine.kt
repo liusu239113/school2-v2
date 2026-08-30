@@ -3150,6 +3150,7 @@ class GameEngine @Inject constructor(
         emitCampusWeeklyBrief(school)
         maybeRunDisciplineEvaluation(school)
         runGraduateSchoolMonth(school)
+        runInternationalMonth(school)
 
         // 每月1号执行尚未完成的月结；仅月结内部失败才会触发重试标记。
         if (isMonthlySettlementDue(school) || pendingMonthlySettlementRetry) {
@@ -7686,6 +7687,74 @@ class GameEngine @Inject constructor(
             emitEvent(GameEvent.PositiveEvent(
                 title = "学位授予仪式",
                 message = "本届授予硕士学位 $m 人、博士学位 $phd 人。毕业生进入校友网络，母校声誉随之上涨。",
+                bonusCash = 0.0,
+                bonusReputation = 0
+            ), school)
+        }
+    }
+
+    /**
+     * 国际交流：每月 1 日结算——9 月留学生入学，月度学费与进度，毕业/归国加声誉。
+     */
+    private suspend fun runInternationalMonth(school: School) {
+        if (school.currentDay != 1) return
+        val im = policyManager.internationalManager
+
+        // 年度声誉（合作院校）
+        val annualRep = im.annualReputation()
+        if (annualRep > 0 && school.currentMonth == 1 && school.currentDay == 1) {
+            schoolRepository.mutateSchool { s ->
+                s.reputation += annualRep
+                true
+            }
+            emitEvent(GameEvent.PositiveEvent(
+                title = "国际合作年报",
+                message = "海外合作院校年度联合评估通过，母校国际声誉上升。",
+                bonusCash = 0.0,
+                bonusReputation = annualRep
+            ), school)
+        }
+
+        // 留学生招生（每年 9 月）
+        if (school.currentMonth == 9 && im.state.value.lastIntakeYear != school.currentYear && school.campusLevel >= 5) {
+            val quota = im.intlQuota()
+            if (quota > 0) {
+                val rng = kotlin.random.Random
+                val countries = im.state.value.signedPartnerIds
+                    .mapNotNull { com.arktools.xiaozhang.domain.international.InternationalProgramManager.byId(it)?.country }
+                val fresh = (1..quota).map {
+                    com.arktools.xiaozhang.domain.international.IntlStudent(
+                        id = java.util.UUID.randomUUID().toString(),
+                        name = com.arktools.xiaozhang.domain.international.InternationalProgramManager.randomForeignName(rng),
+                        country = if (countries.isEmpty()) "国际" else countries[rng.nextInt(countries.size)],
+                        yearsLeft = 4.0
+                    )
+                }
+                im.intakeIntl(fresh, school.currentYear)
+                emitEvent(GameEvent.PositiveEvent(
+                    title = "国际生报到",
+                    message = "来自合作院校的 $quota 名国际学生入学。留学生学费高昂，将在「国际交流」页跟踪培养进度。",
+                    bonusCash = 0.0,
+                    bonusReputation = 20
+                ), school)
+            }
+        }
+
+        // 月度推进 + 学费
+        val (intlGrad, outBack) = im.advanceMonth()
+        val income = im.monthlyIncomeWan()
+        if (income > 0 || intlGrad > 0 || outBack > 0) {
+            val rep = intlGrad * 80L + outBack * 25L
+            schoolRepository.mutateSchool { s ->
+                s.cash += income
+                s.reputation += rep
+                true
+            }
+        }
+        if (intlGrad > 0 || outBack > 0) {
+            emitEvent(GameEvent.PositiveEvent(
+                title = "国际交流简报",
+                message = "本届国际学生毕业 $intlGrad 人（学位授予），外派交换生 $outBack 人学成归国。",
                 bonusCash = 0.0,
                 bonusReputation = 0
             ), school)
