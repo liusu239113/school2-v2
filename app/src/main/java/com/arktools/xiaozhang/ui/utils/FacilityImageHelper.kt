@@ -14,18 +14,18 @@ object FacilityImageHelper {
      */
     fun getImageResId(facilityType: FacilityType): Int {
         return when (facilityType) {
-            FacilityType.CLASSROOM -> R.drawable.facility_classroom
-            FacilityType.MULTIMEDIA_ROOM -> R.drawable.facility_multimedia_room
-            FacilityType.LABORATORY -> R.drawable.facility_laboratory
-            FacilityType.COMPUTER_LAB -> R.drawable.facility_computer_lab
-            FacilityType.ART_STUDIO -> R.drawable.facility_art_studio
-            FacilityType.LIBRARY -> R.drawable.facility_library
-            FacilityType.SPORTS_FIELD -> R.drawable.facility_sports_field
-            FacilityType.CANTEEN -> R.drawable.facility_canteen
-            FacilityType.DORMITORY -> R.drawable.facility_dormitory
-            FacilityType.AUDITORIUM -> R.drawable.facility_auditorium
-            FacilityType.GARDEN -> R.drawable.facility_garden
-            FacilityType.GATE -> R.drawable.facility_gate
+            FacilityType.CLASSROOM -> R.drawable.bld_classroom
+            FacilityType.MULTIMEDIA_ROOM -> R.drawable.bld_multimedia
+            FacilityType.LABORATORY -> R.drawable.bld_lab
+            FacilityType.COMPUTER_LAB -> R.drawable.bld_computer
+            FacilityType.ART_STUDIO -> R.drawable.bld_studio
+            FacilityType.LIBRARY -> R.drawable.bld_library
+            FacilityType.SPORTS_FIELD -> R.drawable.bld_sports
+            FacilityType.CANTEEN -> R.drawable.bld_canteen
+            FacilityType.DORMITORY -> R.drawable.bld_dorm
+            FacilityType.AUDITORIUM -> R.drawable.bld_auditorium
+            FacilityType.GARDEN -> R.drawable.bld_garden
+            FacilityType.GATE -> R.drawable.bld_gate
             FacilityType.CONFERENCE_CENTER -> R.drawable.bld_conference
             FacilityType.EMPLOYMENT_CENTER -> R.drawable.bld_employment
         }

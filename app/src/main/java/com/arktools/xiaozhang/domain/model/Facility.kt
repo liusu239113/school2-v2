@@ -11,13 +11,17 @@ data class Facility(
     val type: FacilityType,
     var level: Int = 1,
     var condition: Float = 100f,  // deteriorates over time, needs maintenance
-    val id: String = java.util.UUID.randomUUID().toString()  // 唯一标识，防止同类型设施操作错位
+    val id: String = java.util.UUID.randomUUID().toString(),  // 唯一标识，防止同类型设施操作错位
+    var constructionDaysLeft: Int = 0
 ) {
     val maintenanceCost: Double
         get() = type.baseMaintenance * level
 
     val isOperational: Boolean
-        get() = condition > 20f
+        get() = condition > 20f && constructionDaysLeft <= 0
+
+    val isConstructing: Boolean
+        get() = constructionDaysLeft > 0
 }
 
 /**

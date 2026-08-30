@@ -54,7 +54,6 @@ import com.arktools.xiaozhang.ui.theme.Primary
 fun SettingsScreen(
     mainViewModel: MainViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
-    campusViewModel: com.arktools.xiaozhang.ui.campus.CampusViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val school by mainViewModel.school.collectAsState()
@@ -183,18 +182,8 @@ fun SettingsScreen(
                     Text("重玩剧情教程")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        campusViewModel.replayCampusTutorial()
-                        onBack()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("重玩校园建造引导")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "剧情教程会暂停时间并高亮底部四主区；校园引导只覆盖建造地图。",
+                    "剧情教程会暂停时间并高亮底部四主区。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

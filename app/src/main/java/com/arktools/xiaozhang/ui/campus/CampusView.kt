@@ -138,16 +138,22 @@ fun CampusView(
             R.drawable.bld_hospital,
             R.drawable.bld_conference,
             R.drawable.bld_employment,
-            R.drawable.facility_classroom,
-            R.drawable.facility_canteen,
-            R.drawable.facility_multimedia_room,
-            R.drawable.facility_garden,
-            R.drawable.facility_gate,
-            R.drawable.facility_sports_field,
-            R.drawable.facility_laboratory,
-            R.drawable.facility_computer_lab,
-            R.drawable.facility_art_studio,
-            R.drawable.facility_auditorium
+            R.drawable.bld_classroom,
+            R.drawable.bld_canteen,
+            R.drawable.bld_multimedia,
+            R.drawable.bld_garden,
+            R.drawable.bld_gate,
+            R.drawable.bld_sports,
+            R.drawable.bld_lab,
+            R.drawable.bld_computer,
+            R.drawable.bld_studio,
+            R.drawable.bld_auditorium,
+            R.drawable.deco_flowerbed,
+            R.drawable.deco_tree,
+            R.drawable.deco_lantern,
+            R.drawable.deco_bench,
+            R.drawable.deco_statue,
+            R.drawable.deco_water
         )
         ids.associateWith { res ->
             BitmapFactory.decodeResource(context.resources, res).asImageBitmap()
@@ -247,27 +253,9 @@ fun CampusView(
                 }
                 .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
                     detectDragGestures { _, dragAmount ->
-                        if (inPlacementMode) {
-                            val current = ghost ?: return@detectDragGestures
-                            ghostDragRemain += dragAmount
-                            val dx = kotlin.math.truncate(ghostDragRemain.x / cell).toInt()
-                            val dy = kotlin.math.truncate(ghostDragRemain.y / cell).toInt()
-                            if (dx != 0 || dy != 0) {
-                                ghostDragRemain = Offset(
-                                    ghostDragRemain.x - dx * cell,
-                                    ghostDragRemain.y - dy * cell
-                                )
-                                val rect = BT.unlockedRect(state.campusLevel)
-                                val spec = pendingSpec
-                                val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
-                                val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
-                                ghost = (current.first + dx).coerceIn(rect.x0, maxX) to
-                                    (current.second + dy).coerceIn(rect.y0, maxY)
-                            }
-                        } else {
-                            camera = Offset(camera.x + dragAmount.x, camera.y + dragAmount.y)
-                            clampCamera()
-                        }
+                        // 浏览和幽灵预览都能拖地图，点格子才移动幽灵
+                        camera = Offset(camera.x + dragAmount.x, camera.y + dragAmount.y)
+                        clampCamera()
                     }
                 }
                 .pointerInput(inPlacementMode, pendingSpec, cell) {
@@ -329,36 +317,19 @@ fun CampusView(
                             dstSize = IntSize(cell.toInt(), cell.toInt()),
                             filterQuality = FilterQuality.None
                         )
-                        BT.TileKind.PLAZA -> {
-                            drawRect(Color(0xFFD9DDE3), Offset(tx, ty), Size(cell, cell))
-                            drawRect(Color(0xFFB9BFC7), Offset(tx, ty), Size(cell, cell), style = Stroke(2f))
+                        else -> {
+                            val deco = bitmaps[kind.drawableRes]
+                            if (deco != null) {
+                                drawImage(
+                                    image = deco,
+                                    srcOffset = IntOffset.Zero,
+                                    srcSize = IntSize(deco.width, deco.height),
+                                    dstOffset = IntOffset(tx.toInt(), ty.toInt()),
+                                    dstSize = IntSize(cell.toInt(), cell.toInt()),
+                                    filterQuality = FilterQuality.None
+                                )
+                            }
                         }
-                        BT.TileKind.WATER -> {
-                            drawRect(Color(0xFF3D9BD1), Offset(tx, ty), Size(cell, cell))
-                            drawRect(Color(0xFF6FC0E8), Offset(tx + 6, ty + 14), Size(cell - 24, 4f))
-                        }
-                        BT.TileKind.FLOWERBED -> {
-                            drawRect(Color(0xFF7A5230), Offset(tx + 4, ty + 4), Size(cell - 8, cell - 8))
-                            drawCircle(Color(0xFFE1597B), 5f, Offset(tx + cell / 2, ty + cell / 2))
-                        }
-                        BT.TileKind.TREE -> {
-                            drawRect(Color(0xFF6B4A2B), Offset(tx + cell / 2 - 3, ty + cell * 0.6f), Size(6f, cell * 0.3f))
-                            drawCircle(Color(0xFF2E7D46), cell * 0.28f, Offset(tx + cell / 2, ty + cell * 0.4f))
-                        }
-                        BT.TileKind.LANTERN -> {
-                            drawRect(Color(0xFFB0413E), Offset(tx + cell / 2 - 4, ty + cell * 0.35f), Size(8f, cell * 0.45f))
-                            drawRect(Color(0xFFFFD54F), Offset(tx + cell / 2 - 6, ty + cell * 0.18f), Size(12f, 10f))
-                        }
-                        BT.TileKind.BENCH -> {
-                            drawRect(Color(0xFF8A5A33), Offset(tx + 6, ty + cell * 0.5f), Size(cell - 12, 8f))
-                            drawRect(Color(0xFF6B4A2B), Offset(tx + 8, ty + cell * 0.62f), Size(4f, 8f))
-                            drawRect(Color(0xFF6B4A2B), Offset(tx + cell - 12, ty + cell * 0.62f), Size(4f, 8f))
-                        }
-                        BT.TileKind.STATUE -> {
-                            drawRect(Color(0xFFB9BFC7), Offset(tx + cell / 2 - 6, ty + cell * 0.3f), Size(12f, cell * 0.5f))
-                            drawCircle(Color(0xFFD9DDE3), 7f, Offset(tx + cell / 2, ty + cell * 0.22f))
-                        }
-                        else -> {}
                     }
                 }
 
@@ -415,6 +386,10 @@ fun CampusView(
                         drawRect(Color(0xFF9AA8B5), Offset(poleX, poleY), Size(2f, footH * 0.12f))
                         drawRect(Color(0xFF1E96C8), Offset(poleX + 2f, poleY + 2f), Size(12f, 7f))
                     }
+                    if (placed.isConstructing) {
+                        drawRect(Color(0x990B2038), Offset(placed.x * cell, placed.y * cell), Size(footW, footH))
+                        drawRect(Color(0xFFFFD54F), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(3f))
+                    }
                 }
 
                 // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放（粗描边+四角标记，醒目）
@@ -458,7 +433,9 @@ fun CampusView(
                 // 楼名标签：世界坐标系内绘制，与地图绝对同步（拖动/缩放零漂移）
                 state.placed.forEach { placed ->
                     val spec = BT.specByKey(placed.key) ?: return@forEach
-                    val text = spec.displayName
+                    val text = if (placed.isConstructing) {
+                        "${spec.displayName} · 施工${placed.constructionDaysLeft}天"
+                    } else spec.displayName
                     val tw = labelTextPaint.measureText(text)
                     val centerX = placed.x * cell + spec.w * cell / 2f
                     val bottomY = placed.y * cell + spec.h * cell
@@ -744,10 +721,6 @@ fun CampusView(
             }
         }
 
-        // 新手引导（五步，随存档记忆）
-        if (!state.tutorialDone) {
-            CampusTutorialOverlay(onDone = { viewModel.markTutorialDone() })
-        }
     }
 }
 
@@ -755,75 +728,6 @@ fun CampusView(
 @Composable
 private fun LaunchedEffect2(key: Any?, block: suspend () -> Unit) {
     androidx.compose.runtime.LaunchedEffect(key) { block() }
-}
-
-/** 新手引导遮罩（五步，文案即说明） */
-@Composable
-private fun CampusTutorialOverlay(onDone: () -> Unit) {
-    var step by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val steps = listOf(
-        "欢迎来到你的大学！\n\n点击行政楼查看资金、师生和校园等级。建筑不是摆设——点开就能进入对应系统。",
-        "点右下角「建造」：先摆教室、宿舍、食堂。升级校园会向外开地；教室/宿舍/图书馆/实验室都能连盖，不是每种一座。",
-        "底部「人事」：发布招聘，从三名候选人中录用第一位教师。没有教师就开不了课。",
-        "底部「治院」：把 10 点预算分给教学、科研、校园生活或社会合作。6 月学年评估按此考核。",
-        "底部「外联」：看大学排名、报名校际竞赛、跟踪校友。就业中心建成后会直接影响毕业去向。"
-    )
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0x99000000))
-            .clickable(enabled = false, onClick = {})
-    ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(24.dp)
-                .background(Color(0xFF0B2038))
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "新手引导 ${step + 1}/5",
-                color = Color(0xFFFFD54F),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                steps[step],
-                color = Color.White,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "跳过",
-                    color = Color(0xFFB8C7D6),
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable(onClick = onDone)
-                        .padding(6.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .background(Color(0xFF1E96C8))
-                        .clickable {
-                            if (step >= steps.size - 1) onDone() else step += 1
-                        }
-                        .padding(horizontal = 22.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        if (step >= steps.size - 1) "开始经营" else "知道了",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
 }
 
 /** 建筑面板内容（实底白卡 + 搬移/拆除） */
@@ -852,6 +756,13 @@ private fun BuildingPanelContent(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(building.displayName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF182635))
+        if (placed?.isConstructing == true) {
+            Text(
+                "施工中，还需 ${placed.constructionDaysLeft} 天竣工。竣工前不提供容量和加成。",
+                fontSize = 13.sp,
+                color = Color(0xFFB0413E)
+            )
+        }
 
         when (building.kind) {
             CampusViewModel.CampusBuilding.Kind.ADMIN -> {
@@ -1172,6 +1083,7 @@ private fun BuildMenuContent(
                 locked = levelLocked || shortOfCash,
                 lockedText = if (!levelLocked && shortOfCash) "钱不够" else null,
                 done = false,
+                previewRes = tile.drawableRes.takeIf { it != 0 },
                 onClick = { if (!levelLocked && !shortOfCash) onPaintTile(tile) }
             )
         }

@@ -506,7 +506,7 @@ private fun UniversityHeroCard() {
             .height(158.dp)
     ) {
         Image(
-            painter = painterResource(id = R.drawable.facility_classroom),
+            painter = painterResource(id = R.drawable.bld_classroom),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop

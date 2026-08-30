@@ -94,7 +94,8 @@ class CampusViewModel @Inject constructor(
         val sportsCapacity: Int = 0,
         val studioCapacity: Int = 0,
         val unlockedCells: Int = 0,
-        val totalCells: Int = 0
+        val totalCells: Int = 0,
+        val currentYear: Int = 2026
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -120,7 +121,10 @@ class CampusViewModel @Inject constructor(
                     campusLevel = school.campusLevel,
                     facilities = school.facilities,
                     maxFacilities = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel),
-                    placed = BT.decodeBuildings(dev.placedBuildings),
+                    placed = BT.decodeBuildings(dev.placedBuildings).map { b ->
+                        val f = school.facilities.firstOrNull { it.id == b.facilityId }
+                        if (f != null) b.copy(constructionDaysLeft = f.constructionDaysLeft) else b
+                    },
                     terrain = terrain.associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
                     tutorialDone = dev.tutorialDone,
                     studentCount = students.size,
@@ -155,6 +159,7 @@ class CampusViewModel @Inject constructor(
                     enrollmentBonus = bonuses.enrollmentBonus,
                     currentMonth = school.currentMonth,
                     currentDay = school.currentDay,
+                    currentYear = school.currentYear,
                     dormBeds = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalBeds(school.facilities),
                     canteenSeats = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalCanteenSeats(school.facilities),
                     classSlots = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalClassSlots(school.facilities),
@@ -174,7 +179,10 @@ class CampusViewModel @Inject constructor(
                 _state.value = _state.value.copy(
                     foundedColleges = dev.founded,
                     affiliatedHospital = dev.affiliatedHospital,
-                    placed = BT.decodeBuildings(dev.placedBuildings),
+                    placed = BT.decodeBuildings(dev.placedBuildings).map { b ->
+                        val f = _state.value.facilities.firstOrNull { it.id == b.facilityId }
+                        if (f != null) b.copy(constructionDaysLeft = f.constructionDaysLeft) else b
+                    },
                     terrain = BT.decodeTerrain(dev.terrainMap)
                         .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
                     tutorialDone = dev.tutorialDone
@@ -185,6 +193,39 @@ class CampusViewModel @Inject constructor(
             kotlinx.coroutines.delay(1500)
             ensureHospitalPlaced()
         }
+        viewModelScope.safeLaunch {
+            gameEngine.gameDaySignal.collect { tickConstruction() }
+        }
+    }
+
+    private suspend fun tickConstruction() {
+        val st = _state.value
+        val constructing = st.placed.any { it.isConstructing } ||
+            st.facilities.any { it.isConstructing }
+        if (!constructing) return
+        var finishedName: String? = null
+        schoolRepository.mutateSchool { school ->
+            school.facilities.forEach { f ->
+                if (f.constructionDaysLeft > 0) {
+                    f.constructionDaysLeft = (f.constructionDaysLeft - 1).coerceAtLeast(0)
+                    if (f.constructionDaysLeft == 0) {
+                        finishedName = f.type.displayName
+                    }
+                }
+            }
+            true
+        }
+        val nextPlaced = st.placed.map { b ->
+            if (!b.isConstructing) b
+            else {
+                val left = (b.constructionDaysLeft - 1).coerceAtLeast(0)
+                if (left == 0) finishedName = finishedName ?: BT.specByKey(b.key)?.displayName
+                b.copy(constructionDaysLeft = left)
+            }
+        }
+        val msg = finishedName?.let { "${it}竣工，开始投入使用" }
+        _state.value = st.copy(placed = nextPlaced, message = msg ?: st.message)
+        updateLayoutSuspend(nextPlaced, st.terrain)
     }
 
     private fun tileKindOf(name: String): BT.TileKind =
@@ -244,11 +285,10 @@ class CampusViewModel @Inject constructor(
 
     private fun defaultRoads(campusLevel: Int): Map<Long, BT.TileKind> {
         val rect = BT.unlockedRect(campusLevel)
-        val roadY = (rect.y1 - 3).coerceAtLeast(rect.y0 + 1)
-        val roadX = rect.x0 + 1
         val cells = mutableMapOf<Long, BT.TileKind>()
+        // 只铺一条横向主干道，纵向不切地，给宿舍 3×3 留整块空地
+        val roadY = (rect.y0 + 6).coerceIn(rect.y0 + 1, rect.y1 - 4)
         for (x in rect.x0 until rect.x1) cells[roadY * 1000L + x] = BT.TileKind.ROAD
-        for (y in rect.y0 until rect.y1) cells[y * 1000L + roadX] = BT.TileKind.ROAD
         return cells
     }
 
@@ -288,7 +328,7 @@ class CampusViewModel @Inject constructor(
         }
         val terrainMap = defaultRoads(school.campusLevel)
         val placed = mutableListOf<BT.PlacedBuilding>()
-        val adminSpot = firstFree(BT.ADMIN, placed, terrainMap, school.campusLevel) ?: (10 to 4)
+        val adminSpot = firstFree(BT.ADMIN, placed, terrainMap, school.campusLevel) ?: (5 to 3)
         placed.add(BT.PlacedBuilding("ADMIN", adminSpot.first, adminSpot.second, school.campusLevel))
         val founded = policyManager.policies.value.collegeDevelopment.founded
         founded.forEach { college ->
@@ -424,8 +464,12 @@ class CampusViewModel @Inject constructor(
                     firstFree(spec, st.placed, st.terrain, st.campusLevel)
                 }
                 if (spot != null) {
-                    val newPlaced = st.placed + BT.PlacedBuilding(spec.key, spot.first, spot.second)
-                    _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已落成")
+                    val days = spec.buildDays
+                    val newPlaced = st.placed + BT.PlacedBuilding(
+                        spec.key, spot.first, spot.second, 1, "", days
+                    )
+                    val msg = if (days > 0) "${spec.displayName}开工，还需 ${days} 天竣工" else "${spec.displayName}已落成"
+                    _state.value = _state.value.copy(placed = newPlaced, message = msg)
                     updateLayoutSuspend(newPlaced, st.terrain)
                 } else {
                     _state.value = _state.value.copy(message = "${spec.displayName}已成立，但校园没有空位，请清理后再摆放")
@@ -460,7 +504,7 @@ class CampusViewModel @Inject constructor(
                     return@mutateSchool false
                 }
                 school.cash -= cost
-                val f = Facility(type = type, level = 1, condition = 100f)
+                val f = Facility(type = type, level = 1, condition = 100f, constructionDaysLeft = spec.buildDays)
                 school.facilities.add(f)
                 newFacility = f
                 true
@@ -478,8 +522,12 @@ class CampusViewModel @Inject constructor(
                         firstFree(spec, st.placed, st.terrain, st.campusLevel)
                     }
                     if (spot != null) {
-                        val newPlaced = st.placed + BT.PlacedBuilding(spec.key, spot.first, spot.second, 1, f.id)
-                        _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已落成")
+                        val days = spec.buildDays
+                        val newPlaced = st.placed + BT.PlacedBuilding(
+                            spec.key, spot.first, spot.second, 1, f.id, days
+                        )
+                        val msg = if (days > 0) "${spec.displayName}开工，还需 ${days} 天竣工" else "${spec.displayName}已落成"
+                        _state.value = _state.value.copy(placed = newPlaced, message = msg)
                         updateLayoutSuspend(newPlaced, st.terrain)
                     }
                 }
@@ -492,7 +540,10 @@ class CampusViewModel @Inject constructor(
     // ===== 摆放模式 =====
 
     fun startPlace(spec: BT.Spec) {
-        _state.value = _state.value.copy(showBuildMenu = false, message = "点击地图上的绿色空地放置${spec.displayName}")
+        _state.value = _state.value.copy(
+            showBuildMenu = false,
+            message = "拖动地图找空地，再点格子放置${spec.displayName}（建造需${spec.buildDays}天）"
+        )
         pendingSpec = spec
         pendingTile = null
         moveId = null
