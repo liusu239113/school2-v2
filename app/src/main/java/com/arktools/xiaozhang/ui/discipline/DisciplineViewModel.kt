@@ -3,7 +3,7 @@ package com.arktools.xiaozhang.ui.discipline
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiaozhang.audio.AudioManager
-import com.arktools.xiaozhang.domain.model.CollegeType
+import com.arktools.xiaozhang.domain.policy.CollegeType
 import com.arktools.xiaozhang.domain.model.DisciplineCatalog
 import com.arktools.xiaozhang.domain.repository.SchoolRepository
 import com.arktools.xiaozhang.domain.policy.SchoolPolicyManager

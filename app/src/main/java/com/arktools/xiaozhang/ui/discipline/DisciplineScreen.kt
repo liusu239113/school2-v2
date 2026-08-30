@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.arktools.xiaozhang.domain.model.CollegeType
+import com.arktools.xiaozhang.domain.policy.CollegeType
 import com.arktools.xiaozhang.domain.model.DisciplineCatalog
 
 /**

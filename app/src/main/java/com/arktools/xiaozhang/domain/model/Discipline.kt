@@ -1,5 +1,6 @@
 package com.arktools.xiaozhang.domain.model
 
+import com.arktools.xiaozhang.domain.policy.CollegeType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
