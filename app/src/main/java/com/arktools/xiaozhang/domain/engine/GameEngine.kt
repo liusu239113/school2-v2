@@ -3149,6 +3149,7 @@ class GameEngine @Inject constructor(
 
         emitCampusWeeklyBrief(school)
         maybeRunDisciplineEvaluation(school)
+        runGraduateSchoolMonth(school)
 
         // 每月1号执行尚未完成的月结；仅月结内部失败才会触发重试标记。
         if (isMonthlySettlementDue(school) || pendingMonthlySettlementRetry) {
@@ -7613,6 +7614,82 @@ class GameEngine @Inject constructor(
             bonusCash = 0.0,
             bonusReputation = 0
         ), school)
+    }
+
+    /**
+     * 研究生院：每月 1 日结算——9 月按名额招生，逐月推进学制并发科研经费，毕业授学位。
+     */
+    private suspend fun runGraduateSchoolMonth(school: School) {
+        if (school.currentDay != 1) return
+        if (!policyManager.policies.value.collegeDevelopment.graduateProgram) return
+        val gm = policyManager.graduateManager
+
+        // 招生（每年 9 月一次）
+        if (school.currentMonth == 9 && gm.state.value.lastIntakeYear != school.currentYear) {
+            val dev = policyManager.policies.value.collegeDevelopment
+            val states = com.arktools.xiaozhang.domain.model.DisciplineCatalog.decode(dev.disciplinesJson)
+            val built = states.filter { it.value.level > 0 }.keys.toList()
+            if (built.isNotEmpty()) {
+                val ratedAB = states.values.count {
+                    it.level >= 3 || it.lastRating == "A" || it.lastRating == "A+"
+                }
+                val ratedAPlus = states.values.count { it.lastRating == "A+" }
+                val mQuota = com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager
+                    .masterQuota(school.campusLevel, ratedAB)
+                val pQuota = com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager
+                    .phdQuota(school.campusLevel, ratedAPlus)
+                val rng = kotlin.random.Random
+                val fresh = buildList {
+                    repeat(mQuota) {
+                        add(com.arktools.xiaozhang.domain.graduate.GradStudent(
+                            id = java.util.UUID.randomUUID().toString(),
+                            name = com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager.randomName(rng),
+                            type = "MASTER",
+                            disciplineId = built[rng.nextInt(built.size)]
+                        ))
+                    }
+                    repeat(pQuota) {
+                        add(com.arktools.xiaozhang.domain.graduate.GradStudent(
+                            id = java.util.UUID.randomUUID().toString(),
+                            name = com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager.randomName(rng),
+                            type = "PHD",
+                            disciplineId = built[rng.nextInt(built.size)]
+                        ))
+                    }
+                }
+                if (fresh.isNotEmpty()) {
+                    gm.intake(fresh, school.currentYear)
+                    emitEvent(GameEvent.PositiveEvent(
+                        title = "研究生入学",
+                        message = "本年共招收硕士 $mQuota 名、博士 $pQuota 名。请在「研究生院」为他们分配学业导师：有导师指导进度快一倍。",
+                        bonusCash = 0.0,
+                        bonusReputation = 10
+                    ), school)
+                }
+            }
+        }
+
+        // 月度推进 + 科研经费
+        val graduated = gm.advanceMonth(gm.advisorLoad())
+        val income = gm.monthlyIncomeWan()
+        val repGain = graduated.sumOf { if (it.type == "PHD") 120L else 40L }
+        if (income > 0 || repGain > 0) {
+            schoolRepository.mutateSchool { s ->
+                s.cash += income
+                s.reputation += repGain
+                true
+            }
+        }
+        if (graduated.isNotEmpty()) {
+            val m = graduated.count { it.type == "MASTER" }
+            val phd = graduated.count { it.type == "PHD" }
+            emitEvent(GameEvent.PositiveEvent(
+                title = "学位授予仪式",
+                message = "本届授予硕士学位 $m 人、博士学位 $phd 人。毕业生进入校友网络，母校声誉随之上涨。",
+                bonusCash = 0.0,
+                bonusReputation = 0
+            ), school)
+        }
     }
 
     /**
