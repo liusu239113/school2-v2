@@ -110,6 +110,10 @@ class TeacherViewModel @Inject constructor(
     private val _currentGameDay = MutableStateFlow(0L)
     val currentGameDay: StateFlow<Long> = _currentGameDay.asStateFlow()
 
+    /** teacherId -> 担任学业导师的班级（用于显示"这位老师在哪个班/哪栋楼"） */
+    private val _headClasses = MutableStateFlow<Map<String, List<com.arktools.xiaozhang.domain.model.SchoolClass>>>(emptyMap())
+    val headClasses: StateFlow<Map<String, List<com.arktools.xiaozhang.domain.model.SchoolClass>>> = _headClasses.asStateFlow()
+
     // ========== 教师发展相关 ==========
     val devState: StateFlow<TeacherDevState> = teacherDevManager.state
 
@@ -134,6 +138,14 @@ class TeacherViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             teacherRepository.getTeachersFlow().collect {
                 _teachers.value = it
+            }
+        }
+        // 收集班级数据：谁担任哪个班的学业导师，一览可见
+        viewModelScope.safeLaunch {
+            gameEngine.classesFlow.collect { classes ->
+                _headClasses.value = classes
+                    .filter { it.headTeacherId != null }
+                    .groupBy { it.headTeacherId!! }
             }
         }
     }

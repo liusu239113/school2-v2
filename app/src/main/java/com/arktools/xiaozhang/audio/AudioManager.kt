@@ -70,14 +70,15 @@ class AudioManager @Inject constructor(
         BUDGET_SLIDE,
         COMPETITION_WIN,
         COMPETITION_LOSE,
-        MAJOR_TRANSFER
+        MAJOR_TRANSFER,
+        CONSTRUCTION_DONE
     }
 
     enum class BgmType(val resName: String) {
         MENU("v2_bgm_menu"),
         MAIN("v2_bgm_campus"),
         BUSY("v2_bgm_campus"),
-        RELAXED("v2_bgm_campus"),
+        RELAXED("v2_bgm_relax"),
         CRISIS("v2_bgm_crisis")
     }
 
@@ -113,7 +114,8 @@ class AudioManager @Inject constructor(
         SoundType.BUDGET_SLIDE to "v2_budget_slide",
         SoundType.COMPETITION_WIN to "v2_competition_win",
         SoundType.COMPETITION_LOSE to "v2_competition_lose",
-        SoundType.MAJOR_TRANSFER to "v2_major_transfer"
+        SoundType.MAJOR_TRANSFER to "v2_major_transfer",
+        SoundType.CONSTRUCTION_DONE to "v2_construction_done"
     )
 
     private fun getResId(name: String): Int {
@@ -255,6 +257,7 @@ class AudioManager @Inject constructor(
     // Convenience methods
     fun playButtonClick() = playSound(SoundType.BUTTON_CLICK)
     fun playCardOpen() = playSound(SoundType.CARD_OPEN)
+    fun playConstructionDone() = playSound(SoundType.CONSTRUCTION_DONE)
     fun playCourseCreate() = playSound(SoundType.COURSE_CREATE)
     fun playCourseRelease() = playSound(SoundType.COURSE_RELEASE)
     fun playTeacherHire() = playSound(SoundType.TEACHER_HIRE)

@@ -804,9 +804,7 @@ fun MainScreen(
                                 33 -> PrincipalOfficeScreen()
                     40 -> TeachingScreen()
                     41 -> ResearchScreen()
-                    42 -> DistrictScreen()
-                    43 -> PolicyScreen()
-                    44 -> ReportScreen()
+                    42 -> GovernmentScreen()
                                 else -> OverviewScreen(listState = overviewListState)
                             }
                         }
@@ -1065,9 +1063,7 @@ private fun getSubPageTitle(tab: Int): String {
         33 -> "校长办公室"
         40 -> "教学配置"
         41 -> "科研研究"
-        42 -> "社会合作"
-        43 -> "学校政策"
-        44 -> "办学报表"
+        42 -> "政府与行业"
         else -> "校长我来当 2：大学时代"
     }
 }

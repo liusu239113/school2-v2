@@ -139,7 +139,16 @@ private fun TeacherTeamContent(
     val currentGameDay by viewModel.currentGameDay.collectAsState()
     val batchTrainResult by viewModel.batchTrainResult.collectAsState()
     val facultyCoverage by viewModel.collegeFacultyCoverage.collectAsState()
+    val headClasses by viewModel.headClasses.collectAsState()
     var showBatchTrainConfirm by remember { mutableStateOf(false) }
+
+    fun classSummaryFor(teacherId: String): String? {
+        val list = headClasses[teacherId] ?: return null
+        if (list.isEmpty()) return null
+        val names = list.joinToString("、") { it.displayName }
+        val students = list.sumOf { it.studentCount }
+        return "学业导师·$names · $students 人 · 在标准教室授课"
+    }
 
     // 一键培训确认弹窗（先显示预算预估）
     if (showBatchTrainConfirm) {
@@ -276,6 +285,7 @@ private fun TeacherTeamContent(
                                     isOnTraining = devState.teacherProfiles
                                         .find { it.teacherId == teacher.id }
                                         ?.isOnTraining ?: false,
+                                    headClassSummary = classSummaryFor(teacher.id),
                                     onClick = { viewModel.selectTeacher(teacher) }
                                 )
                             }
@@ -290,6 +300,7 @@ private fun TeacherTeamContent(
                                 isOnTraining = devState.teacherProfiles
                                     .find { it.teacherId == teacher.id }
                                     ?.isOnTraining ?: false,
+                                headClassSummary = classSummaryFor(teacher.id),
                                 onClick = { viewModel.selectTeacher(teacher) }
                             )
                         }
@@ -449,6 +460,7 @@ private fun TeacherCard(
     teacher: Teacher,
     trainingCredits: Int = 0,
     isOnTraining: Boolean = false,
+    headClassSummary: String? = null,
     onClick: () -> Unit
 ) {
     Card(
@@ -519,6 +531,17 @@ private fun TeacherCard(
                             )
                         )
                     }
+                }
+
+                headClassSummary?.let { summary ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF1E96C8),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

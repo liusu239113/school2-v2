@@ -1,5 +1,6 @@
 package com.arktools.xiaozhang.ui.governance
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -20,6 +23,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -154,26 +159,37 @@ fun GovernanceScreen(
 
         // ===== 一级管理入口 =====
         Panel(title = "管理入口") {
+            data class Entry(val label: String, val icon: Int, val target: Int)
             val entries = listOf(
-                "教学配置（教学班容量/强度）" to 40,
-                "科研研究" to 41,
-                "学生生活（宿舍/食堂）" to 21,
-                "学生社团" to 17,
-                "奖助学金" to 29,
-                "学术会议" to 23,
-                "校友与就业" to 15,
-                "数据报表" to 44,
-                "学校政策（学费/考试等）" to 43
+                Entry("教学配置（教学班容量/强度）", com.arktools.xiaozhang.R.drawable.ic_core_course, 40),
+                Entry("科研研究", com.arktools.xiaozhang.R.drawable.ic_research, 41),
+                Entry("学生生活（宿舍/食堂）", com.arktools.xiaozhang.R.drawable.ic_food, 21),
+                Entry("学生社团", com.arktools.xiaozhang.R.drawable.ic_people, 17),
+                Entry("奖助学金", com.arktools.xiaozhang.R.drawable.ic_gift, 29),
+                Entry("学术会议", com.arktools.xiaozhang.R.drawable.ic_memo, 23),
+                Entry("校友与就业", com.arktools.xiaozhang.R.drawable.ic_briefcase, 15),
+                Entry("办学报表", com.arktools.xiaozhang.R.drawable.ic_chart, 11),
+                Entry("大学政策（学费/考试等）", com.arktools.xiaozhang.R.drawable.ic_balance, 16)
             )
-            entries.forEach { (label, target) ->
+            entries.forEach { entry ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onNavigateTo(target) }
+                        .clickable {
+                            viewModel.playUiClick()
+                            onNavigateTo(entry.target)
+                        }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(label, fontSize = 14.sp, color = Color(0xFF182635), modifier = Modifier.weight(1f))
+                    Image(
+                        painter = painterResource(id = entry.icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(entry.label, fontSize = 14.sp, color = Color(0xFF182635), modifier = Modifier.weight(1f))
                     Text("→", color = Color(0xFF1E96C8), fontWeight = FontWeight.Bold)
                 }
             }

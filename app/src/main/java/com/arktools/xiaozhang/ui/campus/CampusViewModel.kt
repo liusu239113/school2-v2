@@ -225,6 +225,7 @@ class CampusViewModel @Inject constructor(
         }
         val msg = finishedName?.let { "${it}竣工，开始投入使用" }
         _state.value = st.copy(placed = nextPlaced, message = msg ?: st.message)
+        if (finishedName != null) audioManager.playConstructionDone()
         updateLayoutSuspend(nextPlaced, st.terrain)
     }
 
@@ -406,6 +407,7 @@ class CampusViewModel @Inject constructor(
     }
 
     fun selectPlaced(placed: BT.PlacedBuilding, spec: BT.Spec) {
+        audioManager.playCardOpen()
         val st = _state.value
         val facility = st.facilities.firstOrNull { it.id == placed.facilityId }
         val kind = when {
@@ -433,6 +435,7 @@ class CampusViewModel @Inject constructor(
     }
 
     fun openBuildMenu() {
+        audioManager.playButtonClick()
         _state.value = _state.value.copy(showBuildMenu = true)
     }
 
@@ -544,6 +547,7 @@ class CampusViewModel @Inject constructor(
             showBuildMenu = false,
             message = "拖动地图找空地，再点格子放置${spec.displayName}（建造需${spec.buildDays}天）"
         )
+        audioManager.playButtonClick()
         pendingSpec = spec
         pendingTile = null
         moveId = null
@@ -554,12 +558,14 @@ class CampusViewModel @Inject constructor(
             showBuildMenu = false,
             message = "点击空地铺设${tile.displayName}。点一次铺一块，再点取消；点已铺格子可拆除。"
         )
+        audioManager.playButtonClick()
         pendingTile = tile
         pendingSpec = null
         moveId = null
     }
 
     fun cancelPlacement() {
+        audioManager.playButtonClick()
         pendingSpec = null
         pendingTile = null
         moveId = null

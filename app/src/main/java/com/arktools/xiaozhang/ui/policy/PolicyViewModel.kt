@@ -58,6 +58,7 @@ class PolicyViewModel @Inject constructor(
         audioManager.playBudgetSlide()
     }
     fun setAnnualGoal(goal: AnnualGoal) = policyManager.setAnnualGoal(goal)
+    fun playUiClick() = audioManager.playButtonClick()
     fun adjustAdmissionTrack(track: com.arktools.xiaozhang.domain.model.AdmissionTrack, delta: Int) {
         val next = policyManager.policies.value.admissionTrackPlan.adjust(track, delta)
         policyManager.setAdmissionTrackPlan(next)
