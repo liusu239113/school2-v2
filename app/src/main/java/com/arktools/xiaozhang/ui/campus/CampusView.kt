@@ -93,6 +93,7 @@ fun CampusView(
     var moveTarget by remember { mutableStateOf<BT.PlacedBuilding?>(null) }
     // 摆放/铺装/搬移的幽灵位置（格子坐标）
     var ghost by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var ghostDragRemain by remember { mutableStateOf(Offset.Zero) }
     val inPlacementMode = pendingSpec != null || pendingTile != null || moveTarget != null
 
     // 幽灵位置合法性：与 ViewModel.canPlaceAt 同规则（边界/解锁区/地形/重叠/搬移豁免）
@@ -213,27 +214,47 @@ fun CampusView(
         LaunchedEffect2(listOf(inPlacementMode, pendingSpec, pendingTile, moveTarget)) {
             if (inPlacementMode && ghost == null) {
                 val world = Offset(screenW / 2f, screenH / 2f) - camera
-                val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
-                val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
+                val rect = BT.unlockedRect(state.campusLevel)
+                val spec = pendingSpec
+                val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
+                val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
+                val cx = (world.x / cell).toInt().coerceIn(rect.x0, maxX)
+                val cy = (world.y / cell).toInt().coerceIn(rect.y0, maxY)
                 ghost = cx to cy
+                ghostDragRemain = Offset.Zero
             }
-            if (!inPlacementMode) ghost = null
+            if (!inPlacementMode) {
+                ghost = null
+                ghostDragRemain = Offset.Zero
+            }
         }
 
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(inPlacementMode) {
+                .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
                     if (inPlacementMode) {
-                        // 摆放/铺装/搬移模式：手指移动=挪动幽灵预览；双指捏合=缩放
+                        // 摆放/铺装/搬移：单指拖动幽灵（累计像素再吸附格子），双指捏合缩放
                         detectTransformGestures { centroid, pan, zoomChange, _ ->
                             if (zoomChange != 1f) zoomBy(zoomChange, centroid)
                             if (pan != Offset.Zero) {
-                                val world = centroid + camera
-                                val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
-                                val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
-                                ghost = cx to cy
+                                val current = ghost ?: return@detectTransformGestures
+                                ghostDragRemain += pan
+                                val dx = kotlin.math.truncate(ghostDragRemain.x / cell).toInt()
+                                val dy = kotlin.math.truncate(ghostDragRemain.y / cell).toInt()
+                                if (dx != 0 || dy != 0) {
+                                    ghostDragRemain = Offset(
+                                        ghostDragRemain.x - dx * cell,
+                                        ghostDragRemain.y - dy * cell
+                                    )
+                                    val rect = BT.unlockedRect(state.campusLevel)
+                                    val spec = pendingSpec
+                                    val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
+                                    val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
+                                    ghost = (current.first + dx).coerceIn(rect.x0, maxX) to
+                                        (current.second + dy).coerceIn(rect.y0, maxY)
+                                }
                             }
                         }
                     } else {
@@ -253,8 +274,12 @@ fun CampusView(
                         val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
                         val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
                         if (inPlacementMode) {
-                            // 摆放模式：点击选定位置，用底部确认按钮落地
-                            ghost = cx to cy
+                            val rect = BT.unlockedRect(state.campusLevel)
+                            val spec = pendingSpec
+                            val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
+                            val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
+                            ghost = cx.coerceIn(rect.x0, maxX) to cy.coerceIn(rect.y0, maxY)
+                            ghostDragRemain = Offset.Zero
                         } else {
                             viewModel.onCellTapped(cx, cy)
                         }

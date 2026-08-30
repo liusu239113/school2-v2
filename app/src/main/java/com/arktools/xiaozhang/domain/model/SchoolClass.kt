@@ -42,7 +42,7 @@ data class SchoolClass(
     val createdYear: Int = 0,
     val createdMonth: Int = 0
 ) {
-    /** 班级名称，如 "大一(1)班·精英班" */
+    /** 班级名称，如 "大一(1)班·通识教学班" */
     val displayName: String
         get() = "${gradeLevel.displayName}(${classNumber})班·${classTier.displayName}"
 
@@ -106,7 +106,7 @@ enum class GradeLevel(
 enum class ClassStrategy(val displayName: String, val description: String) {
     RANDOM("随机编入教学班", "完全随机分配，公平但差异大"),
     BALANCED("均衡编入教学班", "五维均值接近，班级实力均衡"),
-    STREAMED("分层编入教学班", "按智力分重点班/普通班，尖子生集中但影响公平"),
+    STREAMED("分层编入教学班", "按学业基础分核心班/通识班，尖子生集中但影响公平"),
     SUBJECT_BASED("选科编入教学班", "按学生强项维度编入教学班，利于特长培养")
 }
 

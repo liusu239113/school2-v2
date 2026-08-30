@@ -148,19 +148,19 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.ACTION,
         text = "请完成教学配置",
-        subText = "在治院点「教学配置」，用 +/- 开出 1~2 个班。确认后教程继续。",
+        subText = "在治院点「教学配置」，用 +/- 开出 1~2 个教学班。确认后教程继续。",
         highlightTarget = HighlightTarget.FULL_SCREEN,
         completionCondition = CompletionCondition.CONFIGURE_TEACHING
     ))
     add(TutorialStepData(
         mode = TutorialMode.STORY,
         speaker = "教育局长",
-        text = "师资和培养方案齐了。9 月迎新会按专业分流。\n\n如果现在还是 8 月，系统会直接帮你招进第一批学生，不用干等。"
+        text = "师资和培养方案齐了。9 月迎新会按专业分流。\n\n没有宿舍招不到人。先在校园建一栋宿舍，再点继续迎新。"
     ))
     add(TutorialStepData(
         mode = TutorialMode.ACTION,
         text = "正在招收第一批学生……",
-        subText = "迎新进行中，完成后自动继续",
+        subText = "需要先有宿舍。建好后系统会自动迎新，完成后继续。",
         highlightTarget = HighlightTarget.FULL_SCREEN,
         completionCondition = CompletionCondition.WAIT_ENROLLMENT,
         unpauseGame = true

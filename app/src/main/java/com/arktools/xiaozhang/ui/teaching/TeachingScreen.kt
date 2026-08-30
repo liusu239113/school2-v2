@@ -31,7 +31,7 @@ import com.arktools.xiaozhang.ui.components.PixelGameBackground
  *
  * 布局：
  * - 顶部概览卡片（总班数、总容量、每月成本）
- * - 班型配置区
+ * - 教学班容量
  * - 教学强度选择
  * - 作息政策开关
  * - 特殊项目管理
@@ -87,8 +87,8 @@ fun TeachingScreen(
             }
         }
 
-        // === 班型配置 ===
-        item { SectionTitle("班型配置（教室${classroomCount}间，容量${classroomCapacity}班）") }
+        // === 教学班容量 ===
+        item { SectionTitle("教学班容量（教室${classroomCount}间，容量${classroomCapacity}个教学班）") }
         item { ClassDistributionSection(viewModel, state, maxClassesPerTier, classroomCapacity) }
 
         // === 教学强度 ===
@@ -166,7 +166,7 @@ private fun SectionTitle(title: String) {
     )
 }
 
-// ========= 班型配置 =========
+// ========= 教学班容量 =========
 
 @Composable
 private fun ClassDistributionSection(viewModel: TeachingViewModel, state: TeachingState, maxPerTier: Int, classroomCapacity: Int) {
@@ -175,7 +175,7 @@ private fun ClassDistributionSection(viewModel: TeachingViewModel, state: Teachi
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "班型总数决定全校招生容量上限（每年招入约1/3新生）",
+                "教学班数量决定全校招生容量（每年招入约三分之一新生）。这是大学教学班，不是高中重点班。",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -105,7 +105,7 @@ class DistrictViewModel @Inject constructor(
                 return@safeLaunch
             }
             if (req.minClasses > 0 && classCount < req.minClasses) {
-                _upgradeMessage.value = "班级不足！需要 ${req.minClasses} 个班（当前 ${classCount} 个班）。请到「教学」页面增加班型配置。"
+                _upgradeMessage.value = "教学班不足！需要 ${req.minClasses} 个教学班（当前 ${classCount} 个）。请到「治院 → 教学配置」增加教学班容量。"
                 return@safeLaunch
             }
             if (req.minStudents > 0 && studentCount < req.minStudents) {

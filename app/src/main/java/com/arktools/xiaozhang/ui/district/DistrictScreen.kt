@@ -896,7 +896,7 @@ private fun CapacityCard(state: CampusExpansionState) {
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "校园容量是实体空间上限，招生上限取决于「学院」页面的班型配置",
+                "校园容量是实体空间上限，招生上限取决于「治院 → 教学配置」的教学班容量",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )

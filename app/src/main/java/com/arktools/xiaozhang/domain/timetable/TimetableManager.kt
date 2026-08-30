@@ -283,7 +283,7 @@ class TimetableManager @Inject constructor() {
             )
         }
 
-        // 根据班型调整课时：特长班强化对应特长科目，精英/重点班强化主科
+        // 根据教学班调整课时：方向班强化对应科目，拔尖/核心班强化主科
         when (classTier) {
             ClassTier.ART -> {
                 base[Subject.ART] = (base.getOrDefault(Subject.ART, 0) + 3).coerceAtMost(6)

@@ -2764,6 +2764,15 @@ class GameEngine @Inject constructor(
     suspend fun triggerEnrollmentForTutorial() {
         engineOperationMutex.withLock {
             val school = schoolRepository.getSchool() ?: return@withLock
+            if (FacilityCapacity.totalBeds(school.facilities) <= 0) {
+                emitEvent(GameEvent.NegativeEvent(
+                    title = "迎新还缺宿舍",
+                    message = "没有床位招不到人。先在校园地图建一栋宿舍，再继续迎新。",
+                    penaltyCash = 0.0,
+                    penaltyReputation = 0
+                ), school)
+                return@withLock
+            }
             val enrollmentSchool = if (
                 school.currentMonth < 9 ||
                 (school.currentMonth == 9 && school.currentDay > 1)
@@ -6465,7 +6474,7 @@ class GameEngine @Inject constructor(
             // 教学方案未配置，无法招生 —— 给玩家明确提示
             emitEvent(GameEvent.NegativeEvent(
                 title = "招生失败",
-                message = "尚未配置教学方案，无法招收新生！请前往「教学管理」设置班型分配（如重点班/普通班数量）。",
+                message = "尚未配置教学方案，无法招收新生！请前往「治院 → 教学配置」设置教学班容量。",
                 penaltyCash = 0.0,
                 penaltyReputation = 0
             ), school)
@@ -7087,8 +7096,8 @@ class GameEngine @Inject constructor(
             // 教学配置质量加成：好的教学管理能让分数提升最多10%
             val classTier = getStudentClassTier(student)
             val tierBonus = when (classTier) {
-                com.arktools.xiaozhang.domain.model.ClassTier.ROCKET -> 1.05f   // 精英班额外+5%
-                com.arktools.xiaozhang.domain.model.ClassTier.KEY -> 1.03f      // 重点班额外+3%
+                com.arktools.xiaozhang.domain.model.ClassTier.ROCKET -> 1.05f   // 拔尖培养班额外+5%
+                com.arktools.xiaozhang.domain.model.ClassTier.KEY -> 1.03f      // 专业核心班额外+3%
                 else -> 1.0f
             }
             // 办学层次影响毕业评估出口：专科培养出口更窄（×0.85），深造去向更少

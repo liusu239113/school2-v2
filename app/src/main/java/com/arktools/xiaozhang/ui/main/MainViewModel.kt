@@ -363,7 +363,7 @@ class MainViewModel @Inject constructor(
     /**
      * 跳过教程时赠送初始奖励——与教程正常完成流程完全一致：
      * 1. 赠送1名C级教师（教程中玩家只招1名）
-     * 2. 配置默认教学方案：1重点班 + 2普通班（教程推荐配置）
+     * 2. 配置默认教学方案：1个专业核心班 + 2个通识教学班
      * 3. 触发招生，获得第一批学生（教程中 WAIT_ENROLLMENT 步骤效果）
      */
     fun grantSkipTutorialRewards() {

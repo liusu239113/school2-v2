@@ -155,7 +155,7 @@ fun GovernanceScreen(
         // ===== 一级管理入口 =====
         Panel(title = "管理入口") {
             val entries = listOf(
-                "教学配置（班容量/强度）" to 40,
+                "教学配置（教学班容量/强度）" to 40,
                 "科研研究" to 41,
                 "学生生活（宿舍/食堂）" to 21,
                 "学生社团" to 17,

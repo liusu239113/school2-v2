@@ -378,7 +378,7 @@ private fun ActionWaitOverlay(
     onSkip: () -> Unit
 ) {
     // 操作等待模式：提示条放在顶部状态栏下方，不遮挡游戏关键信息
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         // 操作提示条 — 留出顶部空间给 TopAppBar + StatusBar（约120dp）
         Card(
             modifier = Modifier

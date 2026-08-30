@@ -196,21 +196,21 @@ class ClassManager @Inject constructor() {
             return
         }
 
-        // 分层: 按智力排序，前30%进重点班(KEY/第1个班)，其余均分到普通班
+        // 分层: 按学业基础排序，前30%进核心班，其余均分到通识班
         val sorted = students.sortedByDescending { it.attributes.intelligence }
         val topTierCount = (sorted.size * 0.3f).toInt().coerceAtLeast(1)
 
         val topTier = sorted.take(topTierCount)
         val normalTier = sorted.drop(topTierCount)
 
-        // 重点班(第1个班)
+        // 核心班(第1个班)
         for (student in topTier) {
             if (classes[0].isFull) break
             mapping[student.id] = classes[0].id
             classes[0].studentCount++
         }
 
-        // 普通班(第2个班起)
+        // 通识班(第2个班起)
         val normalClasses = classes.subList(1, classes.size)
         var idx = 0
         for (student in normalTier) {
@@ -226,7 +226,7 @@ class ClassManager @Inject constructor() {
             idx = (idx + 1) % normalClasses.size
         }
 
-        // 重点班溢出的学生也分配到普通班
+        // 核心班溢出的学生也分配到通识班
         for (student in topTier) {
             if (student.id !in mapping) {
                 var attempts = 0

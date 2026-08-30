@@ -31,7 +31,6 @@ import com.arktools.xiaozhang.ui.campus.CampusView
 import com.arktools.xiaozhang.ui.external.ExternalScreen
 import com.arktools.xiaozhang.ui.governance.GovernanceScreen
 import com.arktools.xiaozhang.ui.hiring.HiringScreen
-import com.arktools.xiaozhang.ui.campus.CampusView
 import com.arktools.xiaozhang.BuildConfig
 import com.arktools.xiaozhang.R
 import androidx.compose.material.icons.Icons
@@ -171,16 +170,39 @@ fun MainScreen(
     val hasSaveData by menuViewModel.hasSaveData.collectAsState()
     val needsRestart by viewModel.needsRestart.collectAsState()
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    // 保持总览页滚动位置（在 MainScreen 层 remember，不随 tab 切换销毁）
-    val overviewListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var navStack by rememberSaveable { mutableStateOf(listOf(0)) }
     var showSettings by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
-
-    val context = LocalContext.current
-
     var showConfetti by remember { mutableStateOf(false) }
     var showTutorial by rememberSaveable { mutableStateOf(false) }
     val tutorialManager = remember { TutorialManager() }
+    fun navigateTo(tab: Int) {
+        if (tab == selectedTab) return
+        navStack = navStack + tab
+        selectedTab = tab
+    }
+    fun navigateBack() {
+        if (navStack.size > 1) {
+            navStack = navStack.dropLast(1)
+            selectedTab = navStack.last()
+            return
+        }
+        if (selectedTab > 3) {
+            selectedTab = 1
+            navStack = listOf(1)
+        } else {
+            showExitDialog = true
+        }
+    }
+    fun selectRootTab(tab: Int) {
+        selectedTab = tab
+        navStack = listOf(tab)
+        tutorialManager.notifyTabChanged(tab)
+    }
+    // 保持总览页滚动位置（在 MainScreen 层 remember，不随 tab 切换销毁）
+    val overviewListState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    val context = LocalContext.current
     val storyTutorialPending by viewModel.storyTutorialPending.collectAsState()
     val unreadCount by notificationViewModel.unreadCount.collectAsState()
     val gameSpeed by viewModel.gameSpeed.collectAsState()
@@ -363,15 +385,21 @@ fun MainScreen(
 
     // 教程期间暂停游戏时间流逝，教程结束后恢复
     // 但如果当前步骤标记了 unpauseGame=true，则取消暂停让游戏跑起来
-    LaunchedEffect(showTutorial, tutorialManager.isActive, tutorialManager.currentStepIndex) {
+    val hasDorm = school?.facilities?.any {
+        it.type == com.arktools.xiaozhang.domain.model.FacilityType.DORMITORY
+    } == true
+    LaunchedEffect(showTutorial, tutorialManager.isActive, tutorialManager.currentStepIndex, hasDorm) {
         if (showTutorial && tutorialManager.isActive) {
             // 教程进行中：抑制所有事件弹窗
             viewModel.setEventsSuppressed(true)
             val currentStep = tutorialManager.currentStep
             if (currentStep.completionCondition == CompletionCondition.WAIT_ENROLLMENT) {
-                // 教程等待入学步骤：直接触发招生，不让玩家傻等2.5分钟
-                viewModel.resumeGame()
-                viewModel.triggerEnrollmentForTutorial()
+                if (hasDorm) {
+                    viewModel.resumeGame()
+                    viewModel.triggerEnrollmentForTutorial()
+                } else {
+                    viewModel.pauseGame()
+                }
             } else if (currentStep.unpauseGame) {
                 // 其他需要游戏运行的步骤
                 viewModel.resumeGame()
@@ -517,8 +545,8 @@ fun MainScreen(
 
     // 拦截系统返回手势：子页面返回总览，主页面弹出退出确认
     BackHandler(enabled = school != null) {
-        if (selectedTab > 4) {
-            selectedTab = 0
+        if (selectedTab > 3 || navStack.size > 1) {
+            navigateBack()
         } else {
             showExitDialog = true
         }
@@ -617,8 +645,8 @@ fun MainScreen(
                     containerColor = Color(0xCC0B2038)
                 ),
                 navigationIcon = {
-                    if (selectedTab > 4) {
-                        IconButton(onClick = { selectedTab = 0 }) {
+                    if (selectedTab > 3 || navStack.size > 1) {
+                        IconButton(onClick = { navigateBack() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "返回"
@@ -647,7 +675,7 @@ fun MainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { selectedTab = 14 }) {
+                    IconButton(onClick = { navigateTo(14) }) {
                         BadgedBox(
                             badge = {
                                 if (unreadCount > 0) {
@@ -689,25 +717,25 @@ fun MainScreen(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_campus_v2), contentDescription = "校园", modifier = Modifier.size(28.dp)) },
                     label = { Text("校园") },
                     selected = selectedTab == 0,
-                    onClick = { menuViewModel.playClickSound(); selectedTab = 0; tutorialManager.notifyTabChanged(0) }
+                    onClick = { menuViewModel.playClickSound(); selectRootTab(0) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "治院", modifier = Modifier.size(28.dp)) },
                     label = { Text("治院") },
                     selected = selectedTab == 1,
-                    onClick = { menuViewModel.playClickSound(); selectedTab = 1; tutorialManager.notifyTabChanged(1) }
+                    onClick = { menuViewModel.playClickSound(); selectRootTab(1) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_teacher_v2), contentDescription = "人事", modifier = Modifier.size(28.dp)) },
                     label = { Text("人事") },
                     selected = selectedTab == 2,
-                    onClick = { menuViewModel.playClickSound(); selectedTab = 2; tutorialManager.notifyTabChanged(2) }
+                    onClick = { menuViewModel.playClickSound(); selectRootTab(2) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_research_v2), contentDescription = "外联", modifier = Modifier.size(28.dp)) },
                     label = { Text("外联") },
                     selected = selectedTab == 3,
-                    onClick = { menuViewModel.playClickSound(); selectedTab = 3; tutorialManager.notifyTabChanged(3) }
+                    onClick = { menuViewModel.playClickSound(); selectRootTab(3) }
                 )
                 }
         }
@@ -717,7 +745,7 @@ fun MainScreen(
                 .fillMaxWidth()
                 .padding(paddingValues)
         ) {
-            school?.let { SchoolStatusBar(school = it, onCampusClick = { selectedTab = 4 }) }
+            school?.let { SchoolStatusBar(school = it, onCampusClick = { navigateTo(4) }) }
 
             AnimatedContent(
                 targetState = selectedTab,
@@ -733,8 +761,8 @@ fun MainScreen(
                 label = "tabContent"
             ) { tab ->
                 when (tab) {
-                    0 -> CampusView(onNavigateTo = { selectedTab = it })
-                    1 -> GovernanceScreen(onNavigateTo = { selectedTab = it })
+                    0 -> CampusView(onNavigateTo = { navigateTo(it) })
+                    1 -> GovernanceScreen(onNavigateTo = { navigateTo(it) })
                     2 -> HiringScreen()
                     3 -> ExternalScreen()
                     4 -> DistrictScreen()
@@ -759,7 +787,7 @@ fun MainScreen(
                                 12 -> MarketingScreen()
                                 13 -> EventScreen()
                                 14 -> NotificationScreen(
-                                    onNavigateToTab = { tabIndex -> selectedTab = tabIndex }
+                                    onNavigateToTab = { tabIndex -> navigateTo(tabIndex) }
                                 )
                                 15 -> AlumniScreen()
                                 16 -> PolicyScreen()
@@ -982,28 +1010,26 @@ private fun SpeedSelector(
         else -> "×${String.format("%.1f", currentSpeed)}"
     }
 
-    val speedColor by androidx.compose.animation.animateColorAsState(
-        targetValue = when {
-            currentSpeed <= 1f -> MaterialTheme.colorScheme.onSurface
-            currentSpeed <= 2f -> MaterialTheme.colorScheme.primary
-            currentSpeed <= 3f -> AccentOrange
-            else -> AccentRed
-        },
-        animationSpec = tween(300),
-        label = "speedColor"
-    )
+    val speedColor = when {
+        currentSpeed <= 1f -> Color.White
+        currentSpeed <= 2f -> Color(0xFFFFD54F)
+        currentSpeed <= 3f -> AccentOrange
+        else -> AccentRed
+    }
 
     androidx.compose.material3.TextButton(
         onClick = {
             val nextIndex = (currentIndex + 1) % speedOptions.size
             onSpeedChange(speedOptions[nextIndex])
         },
-        modifier = Modifier.width(56.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+        modifier = Modifier
+            .width(64.dp)
+            .background(Color(0x33FFFFFF), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 4.dp)
     ) {
         Text(
             text = if (currentSpeed > 1f && !isBoostActive) "×1🔒" else displayText,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = speedColor,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
         )
