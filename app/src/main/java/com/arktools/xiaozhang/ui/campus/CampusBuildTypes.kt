@@ -9,21 +9,46 @@ import kotlinx.serialization.json.Json
 
 /**
  * 瓦片自由建造数据层：
- * - 22×14 网格，初始解锁中央 14×8，校园每升 1 级外扩一圈
+ * - 48×32 网格（旧档建筑仍停在原坐标，新地向外长）
+ * - 初始解锁中央 14×8，校园升级分阶段开地，满级铺满
  * - 建筑占格（行政 3×2 / 学院 2×2 / 宿舍 2×3 / 医院 3×3 ...）
  * - 地形与装扮：道路、广场砖、水系、花坛、松树、石灯笼、长椅、雕像
  * - 状态经 policyJson 持久化（CollegeDevelopment.placedBuildings / terrainMap）
  */
 object CampusBuildTypes {
 
-    const val GRID_W = 22
-    const val GRID_H = 14
+    const val GRID_W = 48
+    const val GRID_H = 32
 
-    /** 初始解锁矩形（左上 4,3 起，14×8） */
+    /** 初始解锁矩形（左上 4,3 起，14×8）——与旧 22×14 地图重叠，旧档不位移 */
     const val INIT_X = 4
     const val INIT_Y = 3
     const val INIT_W = 14
     const val INIT_H = 8
+
+    data class UnlockRect(val x0: Int, val y0: Int, val x1: Int, val y1: Int) {
+        val w: Int get() = x1 - x0
+        val h: Int get() = y1 - y0
+        val cells: Int get() = w * h
+    }
+
+    fun unlockRing(campusLevel: Int): Int = when (campusLevel.coerceAtLeast(1)) {
+        1 -> 0
+        2 -> 4
+        3 -> 8
+        4 -> 14
+        5 -> 20
+        else -> 99
+    }
+
+    fun unlockedRect(campusLevel: Int): UnlockRect {
+        val ring = unlockRing(campusLevel)
+        val x0 = (INIT_X - ring).coerceAtLeast(0)
+        val y0 = (INIT_Y - ring).coerceAtLeast(0)
+        val x1 = (INIT_X + INIT_W + ring).coerceAtMost(GRID_W)
+        val y1 = (INIT_Y + INIT_H + ring).coerceAtMost(GRID_H)
+        return UnlockRect(x0, y0, x1, y1)
+    }
 
     /** 非草地地形/装扮（1×1） */
     enum class TileKind(val costWan: Double, val unlockLevel: Int, val displayName: String) {
@@ -129,11 +154,7 @@ object CampusBuildTypes {
 
     /** 解锁区域检查 */
     fun inUnlockedArea(x: Int, y: Int, campusLevel: Int): Boolean {
-        val ring = (campusLevel - 1).coerceAtMost(4)
-        val x0 = INIT_X - ring
-        val y0 = INIT_Y - ring
-        val w = INIT_W + ring * 2
-        val h = INIT_H + ring * 2
-        return x >= x0 && x < x0 + w && y >= y0 && y < y0 + h
+        val rect = unlockedRect(campusLevel)
+        return x >= rect.x0 && x < rect.x1 && y >= rect.y0 && y < rect.y1
     }
 }

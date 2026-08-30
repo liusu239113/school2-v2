@@ -37,6 +37,33 @@ object FacilityCapacity {
         else -> 9
     }
 
+    fun librarySeats(level: Int): Int = 80 + (level - 1).coerceAtLeast(0) * 40
+
+    fun labBenches(level: Int): Int = 24 + (level - 1).coerceAtLeast(0) * 12
+
+    fun computerSeats(level: Int): Int = 40 + (level - 1).coerceAtLeast(0) * 16
+
+    fun sportsCapacity(level: Int): Int = 200 + (level - 1).coerceAtLeast(0) * 80
+
+    fun studioCapacity(level: Int): Int = 20 + (level - 1).coerceAtLeast(0) * 8
+
+    fun gardenPlots(level: Int): Int = 1 + (level - 1).coerceAtLeast(0)
+
+    /** 第 n 栋（0 起）的边际贡献，避免十几栋实验室把加成顶爆。 */
+    fun diminishing(index: Int): Float = when {
+        index <= 0 -> 1f
+        index == 1 -> 0.7f
+        index == 2 -> 0.45f
+        else -> 0.25f
+    }
+
+    fun stacked(facilities: List<Facility>, type: FacilityType, perLevel: (Int) -> Int): Int {
+        return facilities.filter { it.type == type && it.isOperational }
+            .sortedByDescending { it.level }
+            .mapIndexed { index, facility -> (perLevel(facility.level) * diminishing(index)).toInt().coerceAtLeast(1) }
+            .sum()
+    }
+
     fun totalBeds(facilities: List<Facility>): Int =
         facilities.filter { it.type == FacilityType.DORMITORY && it.isOperational }
             .sumOf { bedsPerDorm(it.level) }
@@ -48,6 +75,13 @@ object FacilityCapacity {
     fun totalClassSlots(facilities: List<Facility>): Int =
         facilities.filter { it.type == FacilityType.CLASSROOM && it.isOperational }
             .sumOf { classSlots(it.level) }
+
+    fun totalLibrarySeats(facilities: List<Facility>): Int = stacked(facilities, FacilityType.LIBRARY, ::librarySeats)
+    fun totalLabBenches(facilities: List<Facility>): Int = stacked(facilities, FacilityType.LABORATORY, ::labBenches)
+    fun totalComputerSeats(facilities: List<Facility>): Int = stacked(facilities, FacilityType.COMPUTER_LAB, ::computerSeats)
+    fun totalSportsCapacity(facilities: List<Facility>): Int = stacked(facilities, FacilityType.SPORTS_FIELD, ::sportsCapacity)
+    fun totalStudioCapacity(facilities: List<Facility>): Int = stacked(facilities, FacilityType.ART_STUDIO, ::studioCapacity)
+    fun totalGardenPlots(facilities: List<Facility>): Int = stacked(facilities, FacilityType.GARDEN, ::gardenPlots)
 
     fun occupancyRatio(students: Int, capacity: Int): Float {
         if (capacity <= 0) return if (students <= 0) 0f else 2f
@@ -82,14 +116,14 @@ enum class FacilityType(
 ) {
     // Teaching facilities — 建设成本适中，维护费合理（占学费收入10-20%为宜）
     CLASSROOM("标准教室", "提供班级槽位(Lv1:3班,Lv2:4班,Lv3:6班,Lv4:7班,Lv5:9班)，可重复建造扩容", 18.0, 0.6, 5, FacilityCategory.TEACHING, repeatable = true),
-    MULTIMEDIA_ROOM("多媒体教室", "现代化教学设备，教学质量+10%/级", 35.0, 1.2, 3, FacilityCategory.TEACHING),
-    LABORATORY("实验室", "理科实验设施，理科课程评分+15%/级，教学质量+5%/级", 50.0, 1.8, 3, FacilityCategory.TEACHING),
-    COMPUTER_LAB("计算机房", "信息技术设施，理科课程评分+10%/级，教学质量+5%/级，学生智力/创造力+", 40.0, 1.5, 3, FacilityCategory.TEACHING),
-    ART_STUDIO("艺术工作室", "美术/音乐教学，艺术课程评分+15%/级，教学质量+5%/级", 25.0, 0.8, 3, FacilityCategory.TEACHING),
+    MULTIMEDIA_ROOM("多媒体教室", "现代化教学设备，教学质量+10%/级。可重复建造扩容", 35.0, 1.2, 3, FacilityCategory.TEACHING, repeatable = true),
+    LABORATORY("实验室", "实验台位决定理科课容量。可重复建造分馆", 50.0, 1.8, 3, FacilityCategory.TEACHING, repeatable = true),
+    COMPUTER_LAB("计算机房", "机位决定信息技术课容量。可重复建造", 40.0, 1.5, 3, FacilityCategory.TEACHING, repeatable = true),
+    ART_STUDIO("艺术工作室", "工位决定艺术课容量。可重复建造", 25.0, 0.8, 3, FacilityCategory.TEACHING, repeatable = true),
 
     // Support facilities
-    LIBRARY("图书馆", "课程研发效率+10%/级，学生智力+", 30.0, 1.0, 5, FacilityCategory.SUPPORT),
-    SPORTS_FIELD("运动场", "体育设施，招生加成+5%/级，学生体质+", 45.0, 1.2, 3, FacilityCategory.SUPPORT),
+    LIBRARY("图书馆", "阅览席决定科研速度。可重复建分馆", 30.0, 1.0, 5, FacilityCategory.SUPPORT, repeatable = true),
+    SPORTS_FIELD("运动场", "容纳量决定体育课和社团。可重复建造", 45.0, 1.2, 3, FacilityCategory.SUPPORT, repeatable = true),
     CANTEEN("食堂", "餐位决定饮食质量。可重复建造扩容", 28.0, 1.0, 3, FacilityCategory.SUPPORT, repeatable = true),
     DORMITORY("宿舍楼", "床位决定住宿体验。可重复建造扩容", 95.0, 2.4, 3, FacilityCategory.SUPPORT, repeatable = true),
 
@@ -97,7 +131,7 @@ enum class FacilityType(
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),
     CONFERENCE_CENTER("会议中心", "学术声誉+8%/级，事件奖励加成+10%/级", 60.0, 1.8, 3, FacilityCategory.PRESTIGE),
     EMPLOYMENT_CENTER("就业指导中心", "毕业就业率+6%/级，学生社交+", 45.0, 1.5, 3, FacilityCategory.SUPPORT),
-    GARDEN("校园花园", "教师忠诚度衰减-20%/级，学生品德+", 12.0, 0.4, 3, FacilityCategory.PRESTIGE),
+    GARDEN("校园花园", "教师忠诚度衰减-20%/级，学生品德+。可重复布置园区", 12.0, 0.4, 3, FacilityCategory.PRESTIGE, repeatable = true),
     GATE("校门/门面", "学校形象，声誉增长+10%/级", 8.0, 0.2, 3, FacilityCategory.PRESTIGE)
 }
 
@@ -137,40 +171,44 @@ object FacilityBonusCalculator {
         var programming = 0f
         var art = 0f
 
-        facilities.filter { it.isOperational }.forEach { facility ->
-            val levelMultiplier = facility.level.toFloat()
-            when (facility.type) {
-                FacilityType.CLASSROOM -> enrollment += 0.02f * levelMultiplier
-                FacilityType.MULTIMEDIA_ROOM -> teachingQuality += 0.10f * levelMultiplier
-                FacilityType.LABORATORY -> {
-                    teachingQuality += 0.05f * levelMultiplier
-                    science += 0.15f * levelMultiplier
+        facilities.filter { it.isOperational }
+            .groupBy { it.type }
+            .forEach { (type, group) ->
+                group.sortedByDescending { it.level }.forEachIndexed { index, facility ->
+                    val levelMultiplier = facility.level.toFloat() * FacilityCapacity.diminishing(index)
+                    when (type) {
+                        FacilityType.CLASSROOM -> enrollment += 0.02f * levelMultiplier
+                        FacilityType.MULTIMEDIA_ROOM -> teachingQuality += 0.10f * levelMultiplier
+                        FacilityType.LABORATORY -> {
+                            teachingQuality += 0.05f * levelMultiplier
+                            science += 0.15f * levelMultiplier
+                        }
+                        FacilityType.COMPUTER_LAB -> {
+                            teachingQuality += 0.05f * levelMultiplier
+                            programming += 0.20f * levelMultiplier
+                        }
+                        FacilityType.ART_STUDIO -> {
+                            teachingQuality += 0.05f * levelMultiplier
+                            art += 0.15f * levelMultiplier
+                        }
+                        FacilityType.LIBRARY -> research += 0.10f * levelMultiplier
+                        FacilityType.SPORTS_FIELD -> enrollment += 0.05f * levelMultiplier
+                        FacilityType.CANTEEN -> fatigueReduction += 0.15f * levelMultiplier
+                        FacilityType.DORMITORY -> enrollment += 0.06f * levelMultiplier
+                        FacilityType.AUDITORIUM -> {
+                            eventReward += 0.20f * levelMultiplier
+                            reputationGrowth += 0.05f * levelMultiplier
+                        }
+                        FacilityType.GARDEN -> loyaltyDecay += 0.20f * levelMultiplier
+                        FacilityType.GATE -> reputationGrowth += 0.10f * levelMultiplier
+                        FacilityType.CONFERENCE_CENTER -> {
+                            reputationGrowth += 0.08f * levelMultiplier
+                            eventReward += 0.10f * levelMultiplier
+                        }
+                        FacilityType.EMPLOYMENT_CENTER -> reputationGrowth += 0.06f * levelMultiplier
+                    }
                 }
-                FacilityType.COMPUTER_LAB -> {
-                    teachingQuality += 0.05f * levelMultiplier
-                    programming += 0.20f * levelMultiplier
-                }
-                FacilityType.ART_STUDIO -> {
-                    teachingQuality += 0.05f * levelMultiplier
-                    art += 0.15f * levelMultiplier
-                }
-                FacilityType.LIBRARY -> research += 0.10f * levelMultiplier
-                FacilityType.SPORTS_FIELD -> enrollment += 0.05f * levelMultiplier
-                FacilityType.CANTEEN -> fatigueReduction += 0.15f * levelMultiplier
-                FacilityType.DORMITORY -> enrollment += 0.06f * levelMultiplier
-                FacilityType.AUDITORIUM -> {
-                    eventReward += 0.20f * levelMultiplier
-                    reputationGrowth += 0.05f * levelMultiplier
-                }
-                FacilityType.GARDEN -> loyaltyDecay += 0.20f * levelMultiplier
-                FacilityType.GATE -> reputationGrowth += 0.10f * levelMultiplier
-                FacilityType.CONFERENCE_CENTER -> {
-                    reputationGrowth += 0.08f * levelMultiplier
-                    eventReward += 0.10f * levelMultiplier
-                }
-                FacilityType.EMPLOYMENT_CENTER -> reputationGrowth += 0.06f * levelMultiplier
             }
-        }
 
         return FacilityBonuses(
             teachingQualityBonus = teachingQuality,

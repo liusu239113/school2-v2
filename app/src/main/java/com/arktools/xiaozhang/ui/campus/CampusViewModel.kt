@@ -87,7 +87,14 @@ class CampusViewModel @Inject constructor(
         val currentDay: Int = 1,
         val dormBeds: Int = 0,
         val canteenSeats: Int = 0,
-        val classSlots: Int = 0
+        val classSlots: Int = 0,
+        val librarySeats: Int = 0,
+        val labBenches: Int = 0,
+        val computerSeats: Int = 0,
+        val sportsCapacity: Int = 0,
+        val studioCapacity: Int = 0,
+        val unlockedCells: Int = 0,
+        val totalCells: Int = 0
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -150,7 +157,14 @@ class CampusViewModel @Inject constructor(
                     currentDay = school.currentDay,
                     dormBeds = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalBeds(school.facilities),
                     canteenSeats = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalCanteenSeats(school.facilities),
-                    classSlots = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
+                    classSlots = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalClassSlots(school.facilities),
+                    librarySeats = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalLibrarySeats(school.facilities),
+                    labBenches = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalLabBenches(school.facilities),
+                    computerSeats = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalComputerSeats(school.facilities),
+                    sportsCapacity = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalSportsCapacity(school.facilities),
+                    studioCapacity = com.arktools.xiaozhang.domain.model.FacilityCapacity.totalStudioCapacity(school.facilities),
+                    unlockedCells = BT.unlockedRect(school.campusLevel).cells,
+                    totalCells = BT.GRID_W * BT.GRID_H
                 )
             }
         }

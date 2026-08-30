@@ -66,8 +66,9 @@ object MilestoneRegistry {
                 MilestoneStage(10, "招收10名学生", rewardCash = 5.0, rewardReputation = 10),
                 MilestoneStage(50, "招收50名学生", rewardCash = 15.0, rewardReputation = 30),
                 MilestoneStage(200, "招收200名学生", rewardCash = 40.0, rewardReputation = 80),
-                MilestoneStage(500, "招收500名学生", rewardCash = 80.0, rewardReputation = 150),
-                MilestoneStage(1000, "招收1000名学生", rewardCash = 150.0, rewardReputation = 300)
+                MilestoneStage(1000, "招收1000名学生", rewardCash = 80.0, rewardReputation = 150),
+                MilestoneStage(3000, "招收3000名学生", rewardCash = 150.0, rewardReputation = 300),
+                MilestoneStage(8000, "招收8000名学生", rewardCash = 250.0, rewardReputation = 500)
             )
         ),
 
@@ -108,11 +109,11 @@ object MilestoneRegistry {
             description = "校舍等级",
             category = MilestoneCategory.CAMPUS,
             stages = listOf(
-                MilestoneStage(2, "校舍升级到2级", rewardCash = 10.0, rewardReputation = 20),
-                MilestoneStage(4, "校舍升级到4级", rewardCash = 25.0, rewardReputation = 50),
-                MilestoneStage(6, "校舍升级到6级", rewardCash = 50.0, rewardReputation = 100),
-                MilestoneStage(8, "校舍升级到8级", rewardCash = 100.0, rewardReputation = 200),
-                MilestoneStage(10, "校舍升级到10级", rewardCash = 200.0, rewardReputation = 500)
+                MilestoneStage(2, "校园升级到2级", rewardCash = 10.0, rewardReputation = 20),
+                MilestoneStage(3, "校园升级到3级", rewardCash = 25.0, rewardReputation = 50),
+                MilestoneStage(4, "校园升级到4级", rewardCash = 50.0, rewardReputation = 100),
+                MilestoneStage(5, "校园升级到5级", rewardCash = 100.0, rewardReputation = 200),
+                MilestoneStage(6, "校园升级到6级", rewardCash = 200.0, rewardReputation = 500)
             )
         ),
 

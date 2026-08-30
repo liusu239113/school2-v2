@@ -64,7 +64,7 @@ import com.arktools.xiaozhang.ui.campus.CampusBuildTypes as BT
 
 /**
  * 瓦片自由建造校园：
- * - 22×14 网格，等级解锁区域
+ * - 48×32 网格，等级分阶段开地
  * - 单指拖动平移，点格放置/搬移/铺装
  * - 建造抽屉（建筑 + 地面装扮），消息显示在触发容器内
  * - 首次进入显示四步新手引导（随存档记忆）
@@ -195,14 +195,18 @@ fun CampusView(
             }
         }
 
-        // 初始镜头：对准解锁区中心
-        LaunchedEffect2(Unit) {
-            if (camera == Offset(0f, 0f)) {
-                camera = Offset(
-                    ((screenW - worldW) / 2f).coerceAtMost(0f) + 0f,
-                    ((screenH - worldH) / 2f).coerceAtMost(0f)
-                )
-            }
+        // 初始镜头：对准解锁区中心（大地图不要从左上角荒地开始）
+        var cameraReady by remember { mutableStateOf(false) }
+        LaunchedEffect2(state.campusLevel) {
+            if (cameraReady) return@LaunchedEffect2
+            val rect = BT.unlockedRect(state.campusLevel)
+            val cx = (rect.x0 + rect.x1) / 2f * cell
+            val cy = (rect.y0 + rect.y1) / 2f * cell
+            camera = Offset(
+                (screenW / 2f - cx).coerceIn((screenW - worldW).coerceAtMost(0f), 0f),
+                (screenH / 2f - cy).coerceIn((screenH - worldH).coerceAtMost(0f), 0f)
+            )
+            cameraReady = true
         }
 
         // 进入摆放/铺装/搬移模式时，幽灵自动出现在屏幕中心的格子，立刻可见
@@ -332,11 +336,11 @@ fun CampusView(
                 }
 
                 // 锁定区域遮罩（加深蒙层与解锁区形成明显对比 + 金色边界 + 提示文字）
-                val ring = (state.campusLevel - 1).coerceAtMost(4)
-                val ux0 = (BT.INIT_X - ring) * cell
-                val uy0 = (BT.INIT_Y - ring) * cell
-                val ux1 = ux0 + (BT.INIT_W + ring * 2) * cell
-                val uy1 = uy0 + (BT.INIT_H + ring * 2) * cell
+                val rect = BT.unlockedRect(state.campusLevel)
+                val ux0 = rect.x0 * cell
+                val uy0 = rect.y0 * cell
+                val ux1 = rect.x1 * cell
+                val uy1 = rect.y1 * cell
                 drawRect(Color(0x52000000), Offset(0f, 0f), Size(worldW, uy0))
                 drawRect(Color(0x52000000), Offset(0f, uy1), Size(worldW, worldH - uy1))
                 drawRect(Color(0x52000000), Offset(0f, uy0), Size(ux0, uy1 - uy0))
@@ -479,7 +483,12 @@ fun CampusView(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "班槽 ${state.classSlots} · 装扮 ${state.decorCount}件 · 建筑 ${state.facilities.size}/${state.maxFacilities}",
+                    "班槽 ${state.classSlots} · 阅览 ${state.librarySeats} · 实验台 ${state.labBenches} · 机位 ${state.computerSeats}",
+                    color = Color(0xFFB8C7D6),
+                    fontSize = 10.sp
+                )
+                Text(
+                    "用地 ${state.unlockedCells}/${state.totalCells} · 建筑 ${state.facilities.size}/${state.maxFacilities} · 装扮 ${state.decorCount}",
                     color = Color(0xFFB8C7D6),
                     fontSize = 10.sp
                 )
@@ -724,7 +733,7 @@ private fun CampusTutorialOverlay(onDone: () -> Unit) {
     var step by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val steps = listOf(
         "欢迎来到你的大学！\n\n点击行政楼查看资金、师生和校园等级。建筑不是摆设——点开就能进入对应系统。",
-        "点右下角「建造」：先在地图上摆教室、宿舍、食堂和图书馆。绿框可放、红框不可放。装扮（花坛/长椅）会慢慢抬满意度。",
+        "点右下角「建造」：先摆教室、宿舍、食堂。升级校园会向外开地；教室/宿舍/图书馆/实验室都能连盖，不是每种一座。",
         "底部「人事」：发布招聘，从三名候选人中录用第一位教师。没有教师就开不了课。",
         "底部「治院」：把 10 点预算分给教学、科研、校园生活或社会合作。6 月学年评估按此考核。",
         "底部「外联」：看大学排名、报名校际竞赛、跟踪校友。就业中心建成后会直接影响毕业去向。"
@@ -832,6 +841,11 @@ private fun BuildingPanelContent(
                     fontSize = 12.sp,
                     color = Color(0xFF14648C)
                 )
+                Text(
+                    "已解锁用地 ${state.unlockedCells}/${state.totalCells} 格 · 升级校园向外开地",
+                    fontSize = 12.sp,
+                    color = Color(0xFF14648C)
+                )
                 val seasonHint = when (state.currentMonth) {
                     8 -> "8月建校窗口：教室、宿舍、食堂都要落在地图上。没有宿舍，9月招不到人。"
                     9 -> "9月迎新季：床位满了就招不进来。扩招 = 再盖一栋宿舍，不是点一次升级完事。"
@@ -848,7 +862,7 @@ private fun BuildingPanelContent(
                     )
                     PanelButton("升级校园") { onUpgradeCampus() }
                 } else {
-                    Text("已达最高等级", fontSize = 13.sp, color = Color(0xFF2E9B78))
+                    Text("校园已满级。后期靠连盖宿舍/分馆、开下一轮课题和铺满地图，而不是再升一级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
@@ -906,7 +920,7 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.SPORTS_FIELD -> {
                             Text(
-                                "社团 ${state.clubCount} 个 · 全校满意度 ${state.avgSatisfaction.toInt()}",
+                                "容纳 ${state.sportsCapacity} 人 · 社团 ${state.clubCount} 个 · 可再建场馆",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
@@ -932,7 +946,7 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.LIBRARY -> {
                             Text(
-                                "科研加速 +${(state.researchBonus * 100).toInt()}% · 平均智力 ${state.avgIntelligence.toInt()}",
+                                "阅览席 ${state.librarySeats} · 科研加速 +${(state.researchBonus * 100).toInt()}% · 可建分馆",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
@@ -953,16 +967,16 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.MULTIMEDIA_ROOM, FacilityType.LABORATORY, FacilityType.COMPUTER_LAB -> {
                             Text(
-                                "教学质量 +${(state.teachingQualityBonus * 100).toInt()}% · 平均智力 ${state.avgIntelligence.toInt()}",
+                                "实验台 ${state.labBenches} · 机位 ${state.computerSeats} · 教学质量 +${(state.teachingQualityBonus * 100).toInt()}%",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("实验/机房/多媒体每天提升智力和创造力。", fontSize = 12.sp, color = Color(0xFF617386))
+                            Text("可重复建造。第二栋起边际收益递减，但容量仍会涨。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("教学配置") { onOpenTeaching() }
                         }
                         FacilityType.ART_STUDIO -> {
                             Text(
-                                "平均创造力 ${state.avgCreativity.toInt()} · 艺术课评分随工作室升级",
+                                "工位 ${state.studioCapacity} · 平均创造力 ${state.avgCreativity.toInt()}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
@@ -1042,7 +1056,7 @@ private fun BuildMenuContent(
     ) {
         Text("建造", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF182635))
         Text(
-            "当前经费 ${state.cash.toInt()}万 · 校园 Lv.${state.campusLevel}",
+            "当前经费 ${state.cash.toInt()}万 · 校园 Lv.${state.campusLevel} · 用地 ${state.unlockedCells}/${state.totalCells}",
             fontSize = 13.sp,
             color = Color(0xFF617386)
         )
@@ -1097,6 +1111,11 @@ private fun BuildMenuContent(
                 FacilityType.CLASSROOM -> "班槽 ${state.classSlots} · 已建 ${owned} 栋"
                 FacilityType.DORMITORY -> "在校 ${state.studentCount}/${state.dormBeds} 床 · 已建 ${owned} 栋"
                 FacilityType.CANTEEN -> "餐位 ${state.canteenSeats} · 已建 ${owned} 栋"
+                FacilityType.LIBRARY -> "阅览 ${state.librarySeats} · 已建 ${owned} 栋"
+                FacilityType.LABORATORY -> "实验台 ${state.labBenches} · 已建 ${owned} 栋"
+                FacilityType.COMPUTER_LAB -> "机位 ${state.computerSeats} · 已建 ${owned} 栋"
+                FacilityType.SPORTS_FIELD -> "容纳 ${state.sportsCapacity} · 已建 ${owned} 栋"
+                FacilityType.ART_STUDIO -> "工位 ${state.studioCapacity} · 已建 ${owned} 栋"
                 else -> type.description
             }
             BuildRow(

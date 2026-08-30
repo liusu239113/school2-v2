@@ -800,7 +800,8 @@ private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.R
             }
             chainUi.definitions.forEach { def ->
                 val program = chainUi.programs[def.id]
-                val finished = chainUi.completedChains.contains(def.id)
+                val rounds = chainUi.completedRounds[def.id] ?: 0
+                val finished = program == null && rounds > 0
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -822,17 +823,18 @@ private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.R
                             )
                         }
                         when {
-                            finished -> Text(
-                                "已结题",
-                                fontSize = 11.sp,
-                                color = Color(0xFF4CAF50),
-                                fontWeight = FontWeight.Bold
-                            )
                             program != null -> Text(
                                 "进行中",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
+                            )
+                            finished -> Text(
+                                text = "开第${rounds + 1}轮",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { viewModel.startChain(def.id) }
                             )
                             else -> Text(
                                 text = "启动",
@@ -845,9 +847,12 @@ private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.R
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     if (program != null) {
-                        val stage = def.stages[program.stageIndex]
+                        val stage = com.arktools.xiaozhang.domain.research.ResearchChainManager.scaledStage(
+                            def.stages[program.stageIndex],
+                            program.roundIndex
+                        )
                         Text(
-                            "第${program.stageIndex + 1}/${def.stages.size}阶段「${stage.name}」 ${program.daysDone}/${stage.requiredDays}天 · 到账${stage.rewardCashWan.toInt()}万 + ${stage.rewardReputation}声誉",
+                            "第${program.roundIndex + 1}轮 · 第${program.stageIndex + 1}/${def.stages.size}阶段「${stage.name}」 ${program.daysDone}/${stage.requiredDays}天 · 到账${stage.rewardCashWan.toInt()}万 + ${stage.rewardReputation}声誉",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -860,9 +865,13 @@ private fun ResearchChainSection(viewModel: com.arktools.xiaozhang.ui.research.R
                                 .padding(top = 4.dp)
                         )
                     } else {
-                        val first = def.stages.first()
+                        val first = com.arktools.xiaozhang.domain.research.ResearchChainManager.scaledStage(
+                            def.stages.first(),
+                            rounds
+                        )
+                        val roundHint = if (rounds > 0) "已完成${rounds}轮 · " else ""
                         Text(
-                            "首阶段「${first.name}」：启动${first.startFeeWan.toInt()}万 · 约${first.requiredDays}天",
+                            "${roundHint}「${first.name}」：启动${first.startFeeWan.toInt()}万 · 约${first.requiredDays}天",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

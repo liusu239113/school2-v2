@@ -45,11 +45,15 @@ object FacilityStudentEffect {
         // 计算特质修正系数
         val traitMods = calculateTraitModifiers(student.traits)
 
-        facilities.filter { it.isOperational }.forEach { facility ->
+        val operational = facilities.filter { it.isOperational }
+        val typeIndex = mutableMapOf<FacilityType, Int>()
+        operational.sortedByDescending { it.level }.forEach { facility ->
+            val index = typeIndex[facility.type] ?: 0
+            typeIndex[facility.type] = index + 1
             val power = facility.level * BASE_POWER_PER_LEVEL
             val conditionFactor = facility.condition / 100f  // 设施状态折损
 
-            val effectivePower = power * conditionFactor
+            val effectivePower = power * conditionFactor * FacilityCapacity.diminishing(index)
 
             when (facility.type) {
                 FacilityType.CONFERENCE_CENTER -> {

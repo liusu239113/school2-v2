@@ -7508,6 +7508,8 @@ class GameEngine @Inject constructor(
             if (FacilityType.CANTEEN !in types) add("食堂")
             else if (seats > 0 && studentCount > seats) add("加建食堂（餐位 ${studentCount}/${seats}）")
             if (FacilityType.LIBRARY !in types) add("图书馆")
+            else if (studentCount > FacilityCapacity.totalLibrarySeats(school.facilities)) add("加建图书馆分馆（阅览席不足）")
+            if (FacilityType.LABORATORY !in types && school.campusLevel >= 2) add("实验室")
             if (school.currentMonth in 5..7 && FacilityType.EMPLOYMENT_CENTER !in types) add("就业指导中心")
         }
         val avgSat = if (students.isNotEmpty()) students.map { it.satisfaction.toFloat() }.average() else 0.0

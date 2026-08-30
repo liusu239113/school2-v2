@@ -50,6 +50,7 @@ class ResearchViewModel @Inject constructor(
         val programs: Map<String, com.arktools.xiaozhang.domain.research.ResearchChainManager.ChainProgress> =
             emptyMap(),
         val completedChains: List<String> = emptyList(),
+        val completedRounds: Map<String, Int> = emptyMap(),
         val qualityBonus: Float = 0f,
         val message: String? = null
     )
@@ -71,6 +72,7 @@ class ResearchViewModel @Inject constructor(
             definitions = manager.definitions(),
             programs = manager.snapshotState().programs,
             completedChains = manager.snapshotState().completedChains,
+            completedRounds = manager.definitions().associate { it.id to manager.completedRoundCount(it.id) },
             qualityBonus = manager.qualityBonus()
         )
     }

@@ -39,13 +39,15 @@ class ResearchChainManager @Inject constructor() {
     data class ChainProgress(
         val chainId: String,
         val stageIndex: Int,
-        val daysDone: Int
+        val daysDone: Int,
+        val roundIndex: Int = 0
     )
 
     @Serializable
     data class ManagerState(
         val programs: Map<String, ChainProgress> = emptyMap(),
-        val completedChains: List<String> = emptyList()
+        val completedChains: List<String> = emptyList(),
+        val completedRounds: Map<String, Int> = emptyMap()
     )
 
     data class StageCompletion(
@@ -96,10 +98,8 @@ class ResearchChainManager @Inject constructor() {
     ): StartResult {
         val def = DEFS.firstOrNull { it.id == chainId }
             ?: return StartResult(false, "课题链不存在", 0.0)
-        val stage = def.stages.first()
-        if (state.completedChains.contains(chainId)) {
-            return StartResult(false, "${def.name}已结题", 0.0)
-        }
+        val round = completedRoundCount(chainId)
+        val stage = scaledStage(def.stages.first(), round)
         if (state.programs.containsKey(chainId)) {
             return StartResult(false, "${def.name}正在进行中", 0.0)
         }
@@ -118,11 +118,12 @@ class ResearchChainManager @Inject constructor() {
             )
         }
         state = state.copy(
-            programs = state.programs + (chainId to ChainProgress(chainId, 0, 0))
+            programs = state.programs + (chainId to ChainProgress(chainId, 0, 0, round))
         )
+        val roundLabel = if (round == 0) "第一轮" else "第${round + 1}轮"
         return StartResult(
             true,
-            "已启动${def.name}第一阶段「${stage.name}」，每天随科研推进，约${stage.requiredDays}天完成",
+            "已启动${def.name}${roundLabel}「${stage.name}」，每天随科研推进，约${stage.requiredDays}天完成",
             stage.startFeeWan
         )
     }
@@ -134,7 +135,9 @@ class ResearchChainManager @Inject constructor() {
         val updated = mutableMapOf<String, ChainProgress>()
         state.programs.forEach { (chainId, progress) ->
             val def = DEFS.firstOrNull { it.id == chainId } ?: return@forEach
-            val stage = def.stages.getOrNull(progress.stageIndex) ?: return@forEach
+            val rawStage = def.stages.getOrNull(progress.stageIndex) ?: return@forEach
+            val round = progress.roundIndex
+            val stage = scaledStage(rawStage, round)
             val days = progress.daysDone + 1
             if (days >= stage.requiredDays) {
                 pendingCashWan += stage.rewardCashWan
@@ -149,7 +152,8 @@ class ResearchChainManager @Inject constructor() {
                     updated[chainId] = ChainProgress(
                         chainId,
                         progress.stageIndex + 1,
-                        0
+                        0,
+                        round
                     )
                 }
             } else {
@@ -157,9 +161,14 @@ class ResearchChainManager @Inject constructor() {
             }
         }
         val newCompleted = completions.filter { it.chainFinished }.map { it.chain.id }
+        val rounds = state.completedRounds.toMutableMap()
+        newCompleted.forEach { id ->
+            rounds[id] = completedRoundCount(id) + 1
+        }
         state = state.copy(
             programs = updated,
-            completedChains = (state.completedChains + newCompleted).distinct()
+            completedChains = (state.completedChains + newCompleted).distinct(),
+            completedRounds = rounds
         )
         return completions
     }
@@ -167,38 +176,65 @@ class ResearchChainManager @Inject constructor() {
     /** 已完成阶段累计的教学质量加成（永久） */
     fun qualityBonus(): Float {
         var bonus = 0f
-        state.completedChains.forEach { chainId ->
-            DEFS.firstOrNull { it.id == chainId }?.stages?.forEach { stage ->
-                bonus += stage.rewardQuality
+        DEFS.forEach { def ->
+            val rounds = completedRoundCount(def.id)
+            if (rounds > 0) {
+                def.stages.forEach { stage ->
+                    bonus += stage.rewardQuality
+                    if (rounds > 1) bonus += stage.rewardQuality * 0.4f * (rounds - 1)
+                }
             }
         }
         state.programs.values.forEach { progress ->
             val def = DEFS.firstOrNull { it.id == progress.chainId } ?: return@forEach
             for (i in 0 until progress.stageIndex) {
-                bonus += def.stages[i].rewardQuality
+                bonus += scaledStage(def.stages[i], progress.roundIndex).rewardQuality
             }
         }
         return bonus
     }
 
     fun progressSummary(): String {
-        if (state.programs.isEmpty() && state.completedChains.isEmpty()) {
+        if (state.programs.isEmpty() && completedRoundCountAll() == 0) {
             return "尚未启动任何课题链"
         }
         val parts = mutableListOf<String>()
-        state.completedChains.forEach { id ->
-            DEFS.firstOrNull { it.id == id }?.let { parts.add("${it.name}（已结题）") }
+        DEFS.forEach { def ->
+            val rounds = completedRoundCount(def.id)
+            if (rounds > 0 && !state.programs.containsKey(def.id)) {
+                parts.add("${def.name}已完成${rounds}轮，可开第${rounds + 1}轮")
+            }
         }
         state.programs.values.forEach { p ->
             val def = DEFS.firstOrNull { it.id == p.chainId } ?: return@forEach
-            val stage = def.stages[p.stageIndex]
-            parts.add("${def.name}·${stage.name} ${p.daysDone}/${stage.requiredDays}天")
+            val stage = scaledStage(def.stages[p.stageIndex], p.roundIndex)
+            parts.add("${def.name}第${p.roundIndex + 1}轮·${stage.name} ${p.daysDone}/${stage.requiredDays}天")
         }
         return parts.joinToString("；")
     }
 
+    fun completedRoundCount(chainId: String): Int {
+        val stored = state.completedRounds[chainId]
+        if (stored != null) return stored
+        return if (state.completedChains.contains(chainId)) 1 else 0
+    }
+
+    private fun completedRoundCountAll(): Int = DEFS.sumOf { completedRoundCount(it.id) }
+
     companion object {
         val CHAIN_UNLOCK_LEVEL = mapOf("TEACHING" to 1, "APPLIED" to 2, "INDUSTRY" to 3)
+
+        fun scaledStage(stage: ChainStage, roundIndex: Int): ChainStage {
+            val bump = 1.0 + roundIndex * 0.35
+            val dayBump = 1.0 + roundIndex * 0.20
+            return stage.copy(
+                requiredDays = (stage.requiredDays * dayBump).toInt().coerceAtLeast(stage.requiredDays),
+                startFeeWan = stage.startFeeWan * bump,
+                rewardCashWan = stage.rewardCashWan * bump,
+                rewardReputation = (stage.rewardReputation * bump).toLong(),
+                rewardQuality = if (roundIndex == 0) stage.rewardQuality else stage.rewardQuality * 0.4f
+            )
+        }
 
         private val DEFS = listOf(
             ChainDef(
