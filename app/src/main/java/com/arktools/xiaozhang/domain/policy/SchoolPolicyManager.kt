@@ -388,7 +388,8 @@ class SchoolPolicyManager @Inject constructor(
                 foundingStyle = p.collegeDevelopment.foundingStyle,
                 placedBuildings = p.collegeDevelopment.placedBuildings,
                 terrainMap = p.collegeDevelopment.terrainMap,
-                tutorialDone = p.collegeDevelopment.tutorialDone
+                tutorialDone = p.collegeDevelopment.tutorialDone,
+                disciplinesJson = p.collegeDevelopment.disciplinesJson
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -432,7 +433,8 @@ class SchoolPolicyManager @Inject constructor(
                     foundingStyle = data.foundingStyle,
                     placedBuildings = data.placedBuildings,
                     terrainMap = data.terrainMap,
-                    tutorialDone = data.tutorialDone
+                    tutorialDone = data.tutorialDone,
+                    disciplinesJson = data.disciplinesJson
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -766,7 +768,8 @@ data class PolicyPersistData(
     val foundingStyle: String = "BALANCED",
     val placedBuildings: String = "",
     val terrainMap: String = "",
-    val tutorialDone: Boolean = false
+    val tutorialDone: Boolean = false,
+    val disciplinesJson: String = ""
 )
 
 data class ManagedCollegeResult(
@@ -792,6 +795,7 @@ data class CollegeDevelopment(
     val placedBuildings: String = "",
     val terrainMap: String = "",
     val tutorialDone: Boolean = false,
+    val disciplinesJson: String = "",
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,

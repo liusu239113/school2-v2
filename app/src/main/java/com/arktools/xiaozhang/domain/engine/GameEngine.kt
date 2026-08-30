@@ -217,6 +217,9 @@ class GameEngine @Inject constructor(
     /** 每周校园简报去重（按游戏日） */
     private var lastCampusBriefDay = -1
 
+    /** 学科评估去重：偶数年 6 月 1 日只评估一次 */
+    private var lastDisciplineEvalKey = 0
+
     /** 游戏日推进信号：每次 tick 推进一天后发射，供 ViewModel 监听刷新 */
     private val _gameDaySignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val gameDaySignal: SharedFlow<Unit> = _gameDaySignal.asSharedFlow()
@@ -2852,6 +2855,7 @@ class GameEngine @Inject constructor(
         pendingStudentYearEndRecovery = false
         pendingGraduationProjectionRetry = false
         lastCampusBriefDay = -1
+        lastDisciplineEvalKey = 0
         managerRestoreFailedFields.clear()
         android.util.Log.i("GameEngine", "Game loop stopped and database writes drained")
     }
@@ -2897,6 +2901,7 @@ class GameEngine @Inject constructor(
         pendingStudentYearEndRecovery = false
         pendingGraduationProjectionRetry = false
         lastCampusBriefDay = -1
+        lastDisciplineEvalKey = 0
         managerRestoreFailedFields.clear()
         // Core in-memory state
         gameOverDetector.reset()
@@ -3143,6 +3148,7 @@ class GameEngine @Inject constructor(
         drainOneDeferredEvent(school)
 
         emitCampusWeeklyBrief(school)
+        maybeRunDisciplineEvaluation(school)
 
         // 每月1号执行尚未完成的月结；仅月结内部失败才会触发重试标记。
         if (isMonthlySettlementDue(school) || pendingMonthlySettlementRetry) {
@@ -6557,13 +6563,23 @@ class GameEngine @Inject constructor(
         // 12. 设施招生加成（教室+运动场+宿舍的 enrollmentBonus）
         val facilityBonuses = FacilityBonusCalculator.calculate(school.facilities)
         val facilityEnrollMultiplier = 1f + facilityBonuses.enrollmentBonus
+        // 学科建设：建设度提高生源吸引力
+        val disciplineStates = com.arktools.xiaozhang.domain.model.DisciplineCatalog.decode(
+            policyManager.policies.value.collegeDevelopment.disciplinesJson
+        )
+        val openedDisciplines = disciplineStates.values.count { it.level > 0 }
+        val disciplineEnrollMultiplier = 1f + openedDisciplines * 0.01f +
+            disciplineStates.values.sumOf {
+                com.arktools.xiaozhang.domain.model.DisciplineCatalog.enrollBonus(it).toDouble()
+            }.toFloat()
 
         // 13. 计算最终招生人数（受教室容量硬约束）
         // 注意：marketingEnrollBonus 已经是 >=1.0 的倍率，直接相乘
         // dimBonus: 声誉维度加成（各维度分数贡献）
         val rawEnroll = (baseEnroll * reputationFactor * (1f + dimBonus) * policyEffects.enrollmentMultiplier *
                 (1f + alumniBonus) * (1f + scholarshipBonus) * marketingEnrollBonus.toFloat()
-                * pressureEnrollMultiplier * connectionEnrollBonus * facilityEnrollMultiplier
+                * pressureEnrollMultiplier * connectionEnrollBonus * facilityEnrollMultiplier *
+                disciplineEnrollMultiplier
                 * school.schoolTier().enrollmentMultiplier * school.schoolOwnership().enrollmentMultiplier
                 + employmentBonus).toInt()
         val existingGradeOneCount = studentRepository.getGradeStudentCount(GradeLevel.GRADE_1)
@@ -7548,6 +7564,55 @@ class GameEngine @Inject constructor(
             actionLabel = "去建造",
             actionTabIndex = 0
         )
+    }
+
+    /**
+     * 学科评估：偶数年 6 月 1 日放榜，按建设度定级并发奖金/声誉。
+     */
+    private suspend fun maybeRunDisciplineEvaluation(school: School) {
+        if (school.currentMonth \!= 6 || school.currentDay \!= 1) return
+        if (school.currentYear % 2 \!= 0) return
+        val key = school.currentYear * 100 + school.currentMonth
+        if (key == lastDisciplineEvalKey) return
+        lastDisciplineEvalKey = key
+
+        val dev = policyManager.policies.value.collegeDevelopment
+        val states = com.arktools.xiaozhang.domain.model.DisciplineCatalog.decode(dev.disciplinesJson).toMutableMap()
+        if (states.values.none { it.level > 0 }) return
+
+        var rep = 0L
+        var grant = 0.0
+        val headlines = mutableListOf<String>()
+        states.forEach { (id, st) ->
+            if (st.level <= 0) return@forEach
+            val rating = com.arktools.xiaozhang.domain.model.DisciplineCatalog.evaluate(
+                st,
+                school.currentDay + (id.hashCode() and 0x7)
+            )
+            val outcome = com.arktools.xiaozhang.domain.model.DisciplineCatalog.outcomeOf(rating)
+            rep += outcome.reputation
+            grant += outcome.grantWan
+            val name = com.arktools.xiaozhang.domain.model.DisciplineCatalog.byId(id)?.name ?: id
+            headlines.add("$name：$rating（${outcome.headline}）")
+            states[id] = st.copy(lastRating = rating, lastEvalYear = school.currentYear)
+        }
+
+        schoolRepository.mutateSchool { s ->
+            s.reputation = (s.reputation + rep).coerceAtLeast(0)
+            s.cash += grant
+            val updated = dev.copy(disciplinesJson = com.arktools.xiaozhang.domain.model.DisciplineCatalog.encode(states))
+            policyManager.replaceCollegeDevelopment(updated)
+            s.policyJson = policyManager.toJson()
+            true
+        }
+
+        emitEvent(GameEvent.PositiveEvent(
+            title = "学科评估放榜",
+            message = headlines.joinToString("\n") +
+                "\n\n财政奖励 ${grant.toInt()} 万，声誉 ${if (rep >= 0) "+" else ""}$rep。",
+            bonusCash = 0.0,
+            bonusReputation = 0
+        ), school)
     }
 
     /**

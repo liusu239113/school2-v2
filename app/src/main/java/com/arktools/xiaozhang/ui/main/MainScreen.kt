@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.arktools.xiaozhang.ui.campus.CampusView
+import com.arktools.xiaozhang.ui.discipline.DisciplineScreen
 import com.arktools.xiaozhang.ui.external.ExternalScreen
 import com.arktools.xiaozhang.ui.governance.GovernanceScreen
 import com.arktools.xiaozhang.ui.hiring.HiringScreen
@@ -805,6 +806,7 @@ fun MainScreen(
                     40 -> TeachingScreen()
                     41 -> ResearchScreen()
                     42 -> GovernmentScreen()
+                    45 -> DisciplineScreen()
                                 else -> OverviewScreen(listState = overviewListState)
                             }
                         }
@@ -1064,6 +1066,7 @@ private fun getSubPageTitle(tab: Int): String {
         40 -> "教学配置"
         41 -> "科研研究"
         42 -> "政府与行业"
+        45 -> "学科建设"
         else -> "校长我来当 2：大学时代"
     }
 }
