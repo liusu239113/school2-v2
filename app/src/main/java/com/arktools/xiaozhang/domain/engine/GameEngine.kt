@@ -7570,8 +7570,8 @@ class GameEngine @Inject constructor(
      * 学科评估：偶数年 6 月 1 日放榜，按建设度定级并发奖金/声誉。
      */
     private suspend fun maybeRunDisciplineEvaluation(school: School) {
-        if (school.currentMonth \!= 6 || school.currentDay \!= 1) return
-        if (school.currentYear % 2 \!= 0) return
+        if (school.currentMonth != 6 || school.currentDay != 1) return
+        if (school.currentYear % 2 != 0) return
         val key = school.currentYear * 100 + school.currentMonth
         if (key == lastDisciplineEvalKey) return
         lastDisciplineEvalKey = key
