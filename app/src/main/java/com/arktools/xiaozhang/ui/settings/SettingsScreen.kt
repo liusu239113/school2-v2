@@ -1,6 +1,5 @@
 package com.arktools.xiaozhang.ui.settings
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,8 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -61,7 +58,6 @@ fun SettingsScreen(
     val musicEnabled by settingsViewModel.musicEnabled.collectAsState()
     val sfxVolume by settingsViewModel.sfxVolume.collectAsState()
     val bgmVolume by settingsViewModel.bgmVolume.collectAsState()
-    val textColorMode by settingsViewModel.textColorMode.collectAsState()
     val gameSpeed by settingsViewModel.gameSpeed.collectAsState()
 
     Scaffold(
@@ -126,24 +122,6 @@ fun SettingsScreen(
                 }
                 if (musicEnabled) {
                     VolumeSlider("音乐音量", bgmVolume, settingsViewModel::setBgmVolume)
-                }
-            }
-
-            SettingsCard(title = "显示设置") {
-                Text("文字颜色", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "如果文字颜色与背景冲突导致看不清，可在此切换",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TextColorOption("自动", textColorMode == "auto", { settingsViewModel.setTextColorMode("auto") }, Modifier.weight(1f))
-                    TextColorOption("深色文字", textColorMode == "dark", { settingsViewModel.setTextColorMode("dark") }, Modifier.weight(1f))
-                    TextColorOption("浅色文字", textColorMode == "light", { settingsViewModel.setTextColorMode("light") }, Modifier.weight(1f))
                 }
             }
 

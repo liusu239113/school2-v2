@@ -5,9 +5,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -247,31 +247,57 @@ fun CampusView(
                 .fillMaxSize()
                 .clipToBounds()
                 .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
-                    detectTransformGestures { centroid, _, zoomChange, _ ->
-                        if (zoomChange != 1f) zoomBy(zoomChange, centroid)
-                    }
-                }
-                .pointerInput(inPlacementMode, cell, state.campusLevel, pendingSpec) {
-                    detectDragGestures { _, dragAmount ->
-                        // 浏览和幽灵预览都能拖地图，点格子才移动幽灵
-                        camera = Offset(camera.x + dragAmount.x, camera.y + dragAmount.y)
-                        clampCamera()
-                    }
-                }
-                .pointerInput(inPlacementMode, pendingSpec, cell) {
-                    detectTapGestures { tap ->
-                        val world = tap + camera
-                        val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
-                        val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
-                        if (inPlacementMode) {
-                            val rect = BT.unlockedRect(state.campusLevel)
-                            val spec = pendingSpec
-                            val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
-                            val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
-                            ghost = cx.coerceIn(rect.x0, maxX) to cy.coerceIn(rect.y0, maxY)
-                            ghostDragRemain = Offset.Zero
-                        } else {
-                            viewModel.onCellTapped(cx, cy)
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var totalDrag = Offset.Zero
+                        var dragged = false
+                        var lastCentroid = down.position
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.isEmpty()) break
+                            val centroid = Offset(
+                                pressed.map { it.position.x }.average().toFloat(),
+                                pressed.map { it.position.y }.average().toFloat()
+                            )
+                            if (pressed.size >= 2) {
+                                val prev = event.changes.mapNotNull { ch ->
+                                    if (ch.previousPressed) ch.previousPosition else null
+                                }
+                                if (prev.size >= 2) {
+                                    val oldDist = (prev[0] - prev[1]).getDistance()
+                                    val newDist = (pressed[0].position - pressed[1].position).getDistance()
+                                    if (oldDist > 8f && newDist > 8f) {
+                                        zoomBy(newDist / oldDist, centroid)
+                                        dragged = true
+                                    }
+                                }
+                            } else {
+                                val delta = centroid - lastCentroid
+                                totalDrag += delta
+                                if (totalDrag.getDistance() > 12f) {
+                                    dragged = true
+                                    camera = Offset(camera.x + delta.x, camera.y + delta.y)
+                                    clampCamera()
+                                }
+                            }
+                            lastCentroid = centroid
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                        if (!dragged) {
+                            val world = Offset(down.position.x - camera.x, down.position.y - camera.y)
+                            val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
+                            val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
+                            if (inPlacementMode) {
+                                val rect = BT.unlockedRect(state.campusLevel)
+                                val spec = pendingSpec
+                                val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
+                                val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
+                                ghost = cx.coerceIn(rect.x0, maxX) to cy.coerceIn(rect.y0, maxY)
+                                ghostDragRemain = Offset.Zero
+                            } else {
+                                viewModel.onCellTapped(cx, cy)
+                            }
                         }
                     }
                 }
