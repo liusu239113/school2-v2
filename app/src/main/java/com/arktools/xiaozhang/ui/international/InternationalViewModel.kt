@@ -3,6 +3,7 @@ package com.arktools.xiaozhang.ui.international
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiaozhang.audio.AudioManager
+import com.arktools.xiaozhang.domain.graduate.GraduateSchoolManager
 import com.arktools.xiaozhang.domain.international.InternationalProgramManager
 import com.arktools.xiaozhang.domain.international.PartnerDef
 import com.arktools.xiaozhang.domain.policy.SchoolPolicyManager
@@ -121,7 +122,7 @@ class InternationalViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val partnerId = cur.signedIds.first()
             val names = (1..2).map {
-                InternationalProgramManager.randomForeignName(kotlin.random.Random)
+                GraduateSchoolManager.randomName()
             }
             policyManager.internationalManager.dispatchOutgoing(partnerId, names)
             schoolRepository.mutateSchool { school ->

@@ -1850,7 +1850,7 @@ class GameEngine @Inject constructor(
                         title = event.title,
                         message = event.message,
                         type = when {
-                            event.title.contains("毕业") -> com.arktools.xiaozhang.domain.model.NotificationType.STUDENT
+                            event.title.contains("毕业") || event.title.contains("学位授予") || event.title.contains("研究生") -> com.arktools.xiaozhang.domain.model.NotificationType.STUDENT
                             event.title.contains("灵感") -> com.arktools.xiaozhang.domain.model.NotificationType.TEACHER
                             event.title.contains("里程碑") -> com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE
                             else -> com.arktools.xiaozhang.domain.model.NotificationType.FINANCIAL
@@ -7711,7 +7711,7 @@ class GameEngine @Inject constructor(
                 title = "国际合作年报",
                 message = "海外合作院校年度联合评估通过，母校国际声誉上升。",
                 bonusCash = 0.0,
-                bonusReputation = annualRep
+                bonusReputation = 0
             ), school)
         }
 

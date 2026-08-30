@@ -87,7 +87,9 @@ class DistrictViewModel @Inject constructor(
                 return@safeLaunch
             }
             val req = GameBalanceConfig.getUpgradeRequirements(school.campusLevel + 1)
-            val teacherCount = teacherRepository.getTeachers().size
+            val teachers = teacherRepository.getTeachers()
+            val teacherCount = teachers.size
+            val avgSkill = if (teachers.isNotEmpty()) teachers.map { it.averageSkill }.average() else 0.0
             val classCount = teachingManager.config.totalClasses
             val studentCount = studentRepository.getActiveStudentCount()
             val yearsAtLevel = school.currentYear - school.levelUpYear
@@ -114,6 +116,19 @@ class DistrictViewModel @Inject constructor(
             }
             if (req.minYearsAtCurrentLevel > 0 && yearsAtLevel < req.minYearsAtCurrentLevel) {
                 _upgradeMessage.value = "需在当前等级运营满 ${req.minYearsAtCurrentLevel} 年（已运营 ${yearsAtLevel} 年）"
+                return@safeLaunch
+            }
+            if (req.minAverageTeacherSkill > 0 && avgSkill < req.minAverageTeacherSkill) {
+                _upgradeMessage.value = "师资不足！教师综合评分需达到 ${req.minAverageTeacherSkill}。请到「人事」培训或引进高水平教师。"
+                return@safeLaunch
+            }
+            val pm = gameEngine.policyManager
+            if (req.requiresResearch && pm.researchChainManager.anyCompletedRound().not()) {
+                _upgradeMessage.value = "科研不足！需至少结题一项科研课题。请到「治院 → 科研研究」推进课题链。"
+                return@safeLaunch
+            }
+            if (req.requiresInternational && pm.internationalManager.hasAnyPartner.not()) {
+                _upgradeMessage.value = "国际交流不足！需与至少一所海外院校建立合作。请到「治院 → 国际交流」签约。"
                 return@safeLaunch
             }
             schoolRepository.upgradeCampus()
