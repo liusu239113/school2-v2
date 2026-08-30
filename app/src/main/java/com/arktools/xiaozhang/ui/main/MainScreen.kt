@@ -700,7 +700,10 @@ fun MainScreen(
                     // 速度选择器
                     SpeedSelector(
                         currentSpeed = gameSpeed,
-                        onSpeedChange = { viewModel.requestSpeedChange(it) },
+                        onSpeedChange = {
+                            menuViewModel.playClickSound()
+                            viewModel.requestSpeedChange(it)
+                        },
                         isBoostActive = viewModel.speedBoostManager.isBoostActive()
                     )
                     IconButton(onClick = {

@@ -168,6 +168,7 @@ class TeacherViewModel @Inject constructor(
     }
 
     fun selectChannel(channel: RecruitmentChannel) {
+        audioManager.playButtonClick()
         viewModelScope.safeLaunch {
             _errorMessage.value = null
             // 原子操作：检查余额 + 扣款，避免 TOCTOU 竞态
