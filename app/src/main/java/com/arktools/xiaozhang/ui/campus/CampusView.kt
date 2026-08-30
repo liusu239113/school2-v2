@@ -346,12 +346,28 @@ fun CampusView(
                         else -> {
                             val deco = bitmaps[kind.drawableRes]
                             if (deco != null) {
+                                val aspect = deco.width.toFloat() / deco.height.toFloat().coerceAtLeast(1f)
+                                var dw = cell * when (kind) {
+                                    BT.TileKind.TREE -> 0.95f
+                                    BT.TileKind.STATUE -> 0.72f
+                                    BT.TileKind.LANTERN -> 0.62f
+                                    BT.TileKind.BENCH -> 0.92f
+                                    BT.TileKind.FLOWERBED -> 0.92f
+                                    else -> 0.88f
+                                }
+                                var dh = dw / aspect
+                                if (dh > cell) {
+                                    dh = cell
+                                    dw = dh * aspect
+                                }
+                                val dx = tx + (cell - dw) / 2f
+                                val dy = ty + (cell - dh)
                                 drawImage(
                                     image = deco,
                                     srcOffset = IntOffset.Zero,
                                     srcSize = IntSize(deco.width, deco.height),
-                                    dstOffset = IntOffset(tx.toInt(), ty.toInt()),
-                                    dstSize = IntSize(cell.toInt(), cell.toInt()),
+                                    dstOffset = IntOffset(dx.toInt(), dy.toInt()),
+                                    dstSize = IntSize(dw.toInt().coerceAtLeast(1), dh.toInt().coerceAtLeast(1)),
                                     filterQuality = FilterQuality.None
                                 )
                             }
@@ -386,22 +402,41 @@ fun CampusView(
                     }
                 }
 
-                // 建筑：贴图铺满占地格子，和瓦片边界对齐
+                // 建筑：占地格子保留，贴图按原图比例落在格子里，不硬拉扁
+                fun drawSpriteInFootprint(
+                    bmp: androidx.compose.ui.graphics.ImageBitmap,
+                    originX: Float,
+                    originY: Float,
+                    footW: Float,
+                    footH: Float,
+                    alpha: Float = 1f
+                ) {
+                    val aspect = bmp.width.toFloat() / bmp.height.toFloat().coerceAtLeast(1f)
+                    var dw = footW
+                    var dh = dw / aspect
+                    if (dh > footH) {
+                        dh = footH
+                        dw = dh * aspect
+                    }
+                    val dx = originX + (footW - dw) / 2f
+                    val dy = originY + (footH - dh)
+                    drawImage(
+                        image = bmp,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(bmp.width, bmp.height),
+                        dstOffset = IntOffset(dx.toInt(), dy.toInt()),
+                        dstSize = IntSize(dw.toInt().coerceAtLeast(1), dh.toInt().coerceAtLeast(1)),
+                        alpha = alpha,
+                        filterQuality = FilterQuality.None
+                    )
+                }
                 state.placed.forEach { placed ->
                     val spec = BT.specByKey(placed.key) ?: return@forEach
                     val bmp = bitmaps[spec.drawableRes] ?: return@forEach
                     val footW = spec.w * cell
                     val footH = spec.h * cell
-                    drawRect(Color(0x330B2038), Offset(placed.x * cell, placed.y * cell), Size(footW, footH))
-                    drawRect(Color(0x66FFFFFF), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(1.5f))
-                    drawImage(
-                        image = bmp,
-                        srcOffset = IntOffset.Zero,
-                        srcSize = IntSize(bmp.width, bmp.height),
-                        dstOffset = IntOffset((placed.x * cell).toInt(), (placed.y * cell).toInt()),
-                        dstSize = IntSize(footW.toInt(), footH.toInt()),
-                        filterQuality = FilterQuality.None
-                    )
+                    drawRect(Color(0x220B2038), Offset(placed.x * cell, placed.y * cell), Size(footW, footH))
+                    drawSpriteInFootprint(bmp, placed.x * cell, placed.y * cell, footW, footH)
                     if (placed.level >= 2) {
                         drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + 4f, placed.y * cell + footH * 0.55f))
                         drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + footW - 4f, placed.y * cell + footH * 0.55f))
@@ -440,19 +475,10 @@ fun CampusView(
                     ).forEach { corner ->
                         drawRect(frameColor, Offset(corner.x - cs / 2, corner.y - cs / 2), Size(cs, cs))
                     }
-                    spec?.let { s ->
-                        val bmp = bitmaps[s.drawableRes]
-                        if (bmp != null) {
-                            drawImage(
-                                image = bmp,
-                                srcOffset = IntOffset.Zero,
-                                srcSize = IntSize(bmp.width, bmp.height),
-                                dstOffset = IntOffset((gx * cell).toInt(), (gy * cell).toInt()),
-                                dstSize = IntSize(gw.toInt(), gh.toInt()),
-                                alpha = 0.72f,
-                                filterQuality = FilterQuality.None
-                            )
-                        }
+                    val previewBmp = spec?.let { bitmaps[it.drawableRes] }
+                        ?: pendingTile?.let { bitmaps[it.drawableRes] }
+                    if (previewBmp != null) {
+                        drawSpriteInFootprint(previewBmp, gx * cell, gy * cell, gw, gh, 0.78f)
                     }
                 }
 
@@ -513,15 +539,39 @@ fun CampusView(
             }
         }
 
-        // 建造 FAB
-        FloatingActionButton(
-            onClick = { viewModel.openBuildMenu() },
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.primary
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.End
         ) {
-            Text("建造", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xCC0B2038))
+                        .clickable {
+                            val focus = Offset(screenW / 2f, screenH / 2f)
+                            zoomBy(0.8f, focus)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) { Text("－", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xCC0B2038))
+                        .clickable {
+                            val focus = Offset(screenW / 2f, screenH / 2f)
+                            zoomBy(1.25f, focus)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) { Text("＋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            }
+            FloatingActionButton(
+                onClick = { viewModel.openBuildMenu() },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Text("建造", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
         }
 
         // 模式提示 + 操作结果：纵向堆叠在同一容器内，永不互相遮挡
@@ -551,7 +601,7 @@ fun CampusView(
                                 pendingTile = null
                                 moveTarget = null
                                 ghost = null
-                                viewModel.consumeMessage()
+                                viewModel.cancelPlacement()
                             },
                         textAlign = TextAlign.Center
                     )
@@ -632,6 +682,7 @@ fun CampusView(
                     pendingTile = null
                     moveTarget = null
                     ghost = null
+                    viewModel.cancelPlacement()
                 }) {
                     Text("取消", color = Color.White, fontSize = 13.sp)
                 }
@@ -679,6 +730,7 @@ fun CampusView(
                         onOpenClub = { onNavigateTo(17) },
                         onOpenScholarship = { onNavigateTo(29) },
                         onOpenEmployment = { onNavigateTo(15) },
+                        onOpenHiring = { onNavigateTo(2) },
                         chainSummary = viewModel.libraryChainSummary(),
                         onMove = {
                             state.selectedPlaced?.let { placed ->
@@ -771,6 +823,7 @@ private fun BuildingPanelContent(
     onOpenClub: () -> Unit = {},
     onOpenScholarship: () -> Unit = {},
     onOpenEmployment: () -> Unit = {},
+    onOpenHiring: () -> Unit = {},
     chainSummary: String = "",
     onMove: () -> Unit,
     onRemove: () -> Unit
@@ -831,6 +884,7 @@ private fun BuildingPanelContent(
                 } else {
                     Text("校园已满级。后期靠连盖宿舍/分馆、开下一轮课题和铺满地图，而不是再升一级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
+                PanelButton("人事招聘") { onOpenHiring() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college

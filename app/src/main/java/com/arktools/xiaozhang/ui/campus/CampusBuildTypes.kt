@@ -85,7 +85,7 @@ object CampusBuildTypes {
 
     val ADMIN = Spec(
         "ADMIN", "行政楼", 4, 3, 0.0, 1,
-        R.drawable.bld_admin, movable = false, removable = false, buildDays = 0
+        R.drawable.bld_admin, movable = true, removable = false, buildDays = 0
     )
     val COLLEGE_SPECS = listOf(
         Spec("C_LIBERAL", "人文学院", 3, 2, 18.0, 1, R.drawable.bld_liberal, college = CollegeType.LIBERAL_ARTS, removable = false, buildDays = 3),
@@ -102,7 +102,7 @@ object CampusBuildTypes {
         Spec("F_CANTEEN", "食堂", 3, 2, 28.0, 1, R.drawable.bld_canteen, facility = FacilityType.CANTEEN, buildDays = 3),
         Spec("F_MULTIMEDIA", "多媒体教室", 2, 2, 35.0, 1, R.drawable.bld_multimedia, facility = FacilityType.MULTIMEDIA_ROOM, buildDays = 3),
         Spec("F_GARDEN", "校园花园", 2, 2, 12.0, 1, R.drawable.bld_garden, facility = FacilityType.GARDEN, buildDays = 2),
-        Spec("F_GATE", "校门", 3, 1, 8.0, 1, R.drawable.bld_gate, facility = FacilityType.GATE, buildDays = 2),
+        Spec("F_GATE", "校门", 4, 3, 8.0, 1, R.drawable.bld_gate, facility = FacilityType.GATE, buildDays = 2),
         Spec("F_SPORTS_FIELD", "体育馆", 4, 3, 45.0, 2, R.drawable.bld_sports, facility = FacilityType.SPORTS_FIELD, buildDays = 5),
         Spec("F_LABORATORY", "实验室", 3, 2, 50.0, 2, R.drawable.bld_lab, facility = FacilityType.LABORATORY, buildDays = 4),
         Spec("F_COMPUTER_LAB", "计算机房", 3, 2, 40.0, 2, R.drawable.bld_computer, facility = FacilityType.COMPUTER_LAB, buildDays = 3),

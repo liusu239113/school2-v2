@@ -550,10 +550,20 @@ class CampusViewModel @Inject constructor(
     }
 
     fun startPaint(tile: BT.TileKind) {
-        _state.value = _state.value.copy(showBuildMenu = false, message = "点击地图铺设${tile.displayName}")
+        _state.value = _state.value.copy(
+            showBuildMenu = false,
+            message = "点击空地铺设${tile.displayName}。点一次铺一块，再点取消；点已铺格子可拆除。"
+        )
         pendingTile = tile
         pendingSpec = null
         moveId = null
+    }
+
+    fun cancelPlacement() {
+        pendingSpec = null
+        pendingTile = null
+        moveId = null
+        _state.value = _state.value.copy(message = null)
     }
 
     fun startMove(placed: BT.PlacedBuilding) {
@@ -644,13 +654,32 @@ class CampusViewModel @Inject constructor(
             pendingSpec = null
             return
         }
-        // 铺瓦/装扮
+        // 铺瓦/装扮：点一次铺一块就退出；点已有同类格子拆除
         pendingTile?.let { tile ->
             if (!BT.inUnlockedArea(x, y, st.campusLevel)) {
                 _state.value = _state.value.copy(message = "该区域尚未解锁")
                 return
             }
-            if (st.terrain[x + y * 1000L] == tile) return
+            val key = y * 1000L + x
+            val existing = st.terrain[key]
+            if (existing == tile) {
+                val newTerrain = st.terrain - key
+                pendingTile = null
+                _state.value = _state.value.copy(
+                    terrain = newTerrain,
+                    message = "已拆除${tile.displayName}"
+                )
+                updateLayoutSuspend(st.placed, newTerrain)
+                return
+            }
+            if (st.placed.any { b ->
+                val spec = BT.specByKey(b.key) ?: return@any false
+                BT.occupies(b, spec, x, y)
+            }) {
+                _state.value = _state.value.copy(message = "格子上已有建筑")
+                audioManager.playEventNegative()
+                return
+            }
             if (st.cash < tile.costWan) {
                 _state.value = _state.value.copy(message = "资金不足！需要 ${tile.costWan} 万")
                 audioManager.playEventNegative()
@@ -660,13 +689,16 @@ class CampusViewModel @Inject constructor(
                 val result = schoolRepository.mutateSchool { school ->
                     if (school.cash < tile.costWan) return@mutateSchool false
                     school.cash -= tile.costWan
-                    school.policyJson = policyManager.toJson()
                     true
                 }
                 if (result != null) {
                     audioManager.playBuildFacility()
-                    val newTerrain = st.terrain + ((y * 1000L + x) to tile)
-                    _state.value = _state.value.copy(terrain = newTerrain)
+                    val newTerrain = st.terrain + (key to tile)
+                    pendingTile = null
+                    _state.value = _state.value.copy(
+                        terrain = newTerrain,
+                        message = "${tile.displayName}已铺设"
+                    )
                     updateLayoutSuspend(st.placed, newTerrain)
                 }
             }
