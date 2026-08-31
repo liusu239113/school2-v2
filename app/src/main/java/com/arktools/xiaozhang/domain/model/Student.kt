@@ -38,8 +38,8 @@ data class Student(
     // ======= 学期掌握度 (0~100, 每学期重置, 影响考试成绩) =======
     var semesterMastery: Float = 0f,
 
-    // ======= 高考与升学 =======
-    var gaoKaoScore: Float = 0f,                        // 高考总分(0~750)
+    // ======= 毕业深造评估 =======
+    var gaoKaoScore: Float = 0f,                        // 毕业评估分(0~750)
     var admittedUniversity: String? = null,              // 录取大学名称
     var universityTier: UniversityTier? = null,          // 录取大学等级
 
@@ -361,8 +361,8 @@ object StudentSatisfactionCalculator {
  */
 enum class UniversityTier(val displayName: String, val minScore: Float, val reputationBonus: Long) {
     QINGBEI("清华/北大", 700f, 50L),
-    TOP_985("顶尖985", 650f, 20L),
-    NORMAL_985("985", 620f, 10L),
+    TOP_985("顶尖名校深造", 650f, 20L),
+    NORMAL_985("重点高校深造", 620f, 10L),
     TOP_211("重点211", 580f, 5L),
     NORMAL_211("211", 540f, 3L),
     FIRST_TIER("一本", 500f, 1L),

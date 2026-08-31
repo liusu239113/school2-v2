@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import com.arktools.xiaozhang.ui.campus.CampusView
 import com.arktools.xiaozhang.ui.discipline.DisciplineScreen
 import com.arktools.xiaozhang.ui.external.ExternalScreen
+import com.arktools.xiaozhang.ui.story.OpeningStoryScreen
 import com.arktools.xiaozhang.ui.graduate.GraduateScreen
 import com.arktools.xiaozhang.ui.international.InternationalScreen
 import com.arktools.xiaozhang.ui.governance.GovernanceScreen
@@ -823,6 +824,13 @@ fun MainScreen(
         }
     }
     } // PixelGameBackground
+
+    // 新存档开场漫画（看过/跳过即写进度，仅新档出现）
+    val showOpeningStory by viewModel.showOpeningStory.collectAsState()
+    if (showOpeningStory) {
+        OpeningStoryScreen(onDone = { viewModel.markOpeningStorySeen() })
+        return
+    }
 
     EventDialogContainer()
 

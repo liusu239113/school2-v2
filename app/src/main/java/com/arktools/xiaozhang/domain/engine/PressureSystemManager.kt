@@ -40,15 +40,15 @@ class PressureSystemManager @Inject constructor() {
     var consecutiveLossMonths: Int = 0
         private set
 
-    /** 连续高考排名下降年数 */
+    /** 连续毕业评估排名下降年数 */
     var consecutiveRankingDecline: Int = 0
         private set
 
-    /** 上一年高考升学率 */
+    /** 上一年毕业深造就业率 */
     var lastYearGraduationRate: Float = -1f
         private set
 
-    /** 最近一次完成年度高考后果结算的游戏年份。 */
+    /** 最近一次完成年度毕业评估结算的游戏年份。 */
     var lastExamProcessingYear: Int = 0
         private set
 
@@ -615,7 +615,7 @@ class PressureSystemManager @Inject constructor() {
     )
 
     /**
-     * 年度高考结果处理
+     * 年度毕业评估结果处理
      */
     fun processAnnualExamResults(
         processingYear: Int,
@@ -635,12 +635,12 @@ class PressureSystemManager @Inject constructor() {
         lastYearGraduationRate = currentGraduationRate
 
         return when {
-            // 状元级表现（升学率>90%且上升）
+            // 状元级表现（深造就业率>90%且上升）
             currentGraduationRate > 0.9f && diff > 0.05f -> {
                 consecutiveRankingDecline = 0
                 ExamConsequence(
                     rankChange = -2, reputationChange = 300L,
-                    description = "高考成绩卓越！升学率${String.format("%.1f", currentGraduationRate * 100)}%，引发社会关注！",
+                    description = "毕业质量卓越！深造就业率${String.format("%.1f", currentGraduationRate * 100)}%，引发社会关注！",
                     isPositive = true
                 )
             }
@@ -649,7 +649,7 @@ class PressureSystemManager @Inject constructor() {
                 consecutiveRankingDecline = 0
                 ExamConsequence(
                     rankChange = -1, reputationChange = 100L,
-                    description = "高考成绩显著提升！升学率比去年提高${String.format("%.1f", diff * 100)}个百分点",
+                    description = "毕业质量显著提升！深造就业率比去年提高${String.format("%.1f", diff * 100)}个百分点",
                     isPositive = true
                 )
             }
@@ -660,9 +660,9 @@ class PressureSystemManager @Inject constructor() {
                 ExamConsequence(
                     rankChange = 1, reputationChange = -penalty,
                     description = if (consecutiveRankingDecline >= 2)
-                        "高考成绩连续${consecutiveRankingDecline}年下滑！教育局约谈校长！"
+                        "毕业评估排名连续${consecutiveRankingDecline}年下滑！教育厅约谈校长！"
                     else
-                        "高考升学率下降${String.format("%.1f", -diff * 100)}个百分点，家长不满情绪上升",
+                        "毕业深造就业率下降${String.format("%.1f", -diff * 100)}个百分点，家长不满情绪上升",
                     isPositive = false
                 )
             }
@@ -671,7 +671,7 @@ class PressureSystemManager @Inject constructor() {
                 consecutiveRankingDecline++
                 ExamConsequence(
                     rankChange = 0, reputationChange = -30L,
-                    description = "高考成绩略有下滑，需引起重视",
+                    description = "毕业评估略有下滑，需引起重视",
                     isPositive = false
                 )
             }

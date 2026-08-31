@@ -610,8 +610,8 @@ private fun GraduationTrendCard(summaries: List<com.arktools.xiaozhang.domain.al
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     AlumniMiniStat("总毕业生", "$totalGrads", Color(0xFFBBDEFB))
                     AlumniMiniStat("平均本科率", "${avgBengke.toInt()}%", Color(0xFFA5D6A7))
-                    AlumniMiniStat("累计985", "$total985", Color(0xFFCE93D8))
-                    AlumniMiniStat("累计清北", "$totalQingbei", Color(0xFFFFCC80))
+                    AlumniMiniStat("顶尖深造", "$total985", Color(0xFFCE93D8))
+                    AlumniMiniStat("顶尖名校", "$totalQingbei", Color(0xFFFFCC80))
                 }
 
                 // 趋势：最近几届本科率
@@ -683,9 +683,9 @@ private fun GraduationBatchCard(summary: com.arktools.xiaozhang.domain.alumni.Gr
                 GradStatItem("毕业人数", "${summary.totalStudents}")
                 GradStatItem("平均分", "${summary.averageScore.toInt()}")
                 GradStatItem("最高分", "${summary.highestScore.toInt()}")
-                GradStatItem("985", "${summary.key985Count}人")
+                GradStatItem("顶尖深造", "${summary.key985Count}人")
                 if (summary.qingbeiCount > 0) {
-                    GradStatItem("清北", "${summary.qingbeiCount}人")
+                    GradStatItem("顶尖名校", "${summary.qingbeiCount}人")
                 }
             }
 

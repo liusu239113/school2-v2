@@ -297,6 +297,24 @@ class MainViewModel @Inject constructor(
     private val _needsRestart = MutableStateFlow(false)
     val needsRestart: StateFlow<Boolean> = _needsRestart.asStateFlow()
 
+    /** 新存档开场漫画：仅 newGame 置位，看完/跳过后写进度不再出现 */
+    private val _showOpeningStory = MutableStateFlow(false)
+    val showOpeningStory: StateFlow<Boolean> = _showOpeningStory.asStateFlow()
+
+    fun markOpeningStorySeen() {
+        _showOpeningStory.value = false
+        viewModelScope.safeLaunch {
+            val pm = gameEngine.policyManager
+            pm.replaceCollegeDevelopment(
+                pm.policies.value.collegeDevelopment.copy(openingStoryDone = true)
+            )
+            schoolRepository.mutateSchool { school ->
+                school.policyJson = pm.toJson()
+                true
+            }
+        }
+    }
+
     /**
      * 主菜单“继续游戏”：live 数据库有学校则直接继续；
      * live 数据库为空时，从所有历史候选中恢复修订时间最新的有效备份并重启进程。
@@ -438,6 +456,7 @@ class MainViewModel @Inject constructor(
                 _isGameRunning.value = false
                 tutorialRewardsGranted = false
                 _storyTutorialPending.value = true
+                _showOpeningStory.value = true
                 startGame()
             } catch (e: Exception) {
                 android.util.Log.e(

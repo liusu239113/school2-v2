@@ -395,6 +395,7 @@ class SchoolPolicyManager @Inject constructor(
                 placedBuildings = p.collegeDevelopment.placedBuildings,
                 terrainMap = p.collegeDevelopment.terrainMap,
                 tutorialDone = p.collegeDevelopment.tutorialDone,
+                openingStoryDone = p.collegeDevelopment.openingStoryDone,
                 disciplinesJson = p.collegeDevelopment.disciplinesJson
             )
             Json.encodeToString(data)
@@ -440,6 +441,7 @@ class SchoolPolicyManager @Inject constructor(
                     placedBuildings = data.placedBuildings,
                     terrainMap = data.terrainMap,
                     tutorialDone = data.tutorialDone,
+                    openingStoryDone = data.openingStoryDone,
                     disciplinesJson = data.disciplinesJson
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
@@ -779,6 +781,7 @@ data class PolicyPersistData(
     val placedBuildings: String = "",
     val terrainMap: String = "",
     val tutorialDone: Boolean = false,
+    val openingStoryDone: Boolean = false,
     val disciplinesJson: String = ""
 )
 
@@ -805,6 +808,7 @@ data class CollegeDevelopment(
     val placedBuildings: String = "",
     val terrainMap: String = "",
     val tutorialDone: Boolean = false,
+    val openingStoryDone: Boolean = false,
     val disciplinesJson: String = "",
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,

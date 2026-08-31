@@ -30,7 +30,7 @@ enum class ClassTier(
 enum class SubjectTrack(
     val displayName: String,
     val subjects: List<Subject>,     // 主攻科目
-    val universityBonus: Float,      // 对高考录取的加成
+    val universityBonus: Float,      // 对深造去向的加成
     val difficulty: Float            // 难度系数（影响成绩离散度）
 ) {
     SCIENCE("理科", listOf(Subject.PHYSICS, Subject.CHEMISTRY, Subject.BIOLOGY), 0.05f, 1.1f),
@@ -96,7 +96,7 @@ enum class SpecialProgram(
     val maxStudents: Int,          // 最大参与学生数
     val bonusType: ProgramBonusType
 ) {
-    MATH_OLYMPIAD("数学竞赛", "冲击全国数学联赛，保送清北", 20.0, 5.0, 2, Subject.MATH, 15, ProgramBonusType.COMPETITION),
+    MATH_OLYMPIAD("数学竞赛", "冲击全国学科竞赛，直通顶尖深造", 20.0, 5.0, 2, Subject.MATH, 15, ProgramBonusType.COMPETITION),
     PHYSICS_OLYMPIAD("物理竞赛", "冲击物理奥赛金牌", 20.0, 5.0, 2, Subject.PHYSICS, 15, ProgramBonusType.COMPETITION),
     CHEMISTRY_OLYMPIAD("化学竞赛", "冲击化学奥赛奖牌", 15.0, 4.0, 2, Subject.CHEMISTRY, 15, ProgramBonusType.COMPETITION),
     INFORMATICS("信息学奥赛", "NOI/IOI竞赛培训", 25.0, 6.0, 2, Subject.MATH, 20, ProgramBonusType.COMPETITION),
