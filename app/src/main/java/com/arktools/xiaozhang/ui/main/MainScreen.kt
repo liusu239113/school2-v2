@@ -827,6 +827,9 @@ fun MainScreen(
 
     // 新存档开场漫画（看过/跳过即写进度，仅新档出现）
     val showOpeningStory by viewModel.showOpeningStory.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(showOpeningStory.show) {
+        if (showOpeningStory.show) viewModel.playOpeningStoryBgm()
+    }
     if (showOpeningStory.show) {
         OpeningStoryScreen(
             principalName = showOpeningStory.principalName,

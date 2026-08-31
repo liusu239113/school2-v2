@@ -138,7 +138,11 @@ fun OpeningStoryScreen(
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.weight(1f))
-            Text("页面 $pageIndex/10", color = Color(0xFFB8C7D6), fontSize = 13.sp)
+            Text(
+                "页面 $pageIndex/10 · 第${index % 6 + 1}/6格",
+                color = Color(0xFFB8C7D6),
+                fontSize = 13.sp
+            )
             Spacer(Modifier.width(16.dp))
             Text(
                 "跳过序章",

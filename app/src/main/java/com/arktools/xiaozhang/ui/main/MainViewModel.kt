@@ -307,8 +307,12 @@ class MainViewModel @Inject constructor(
     private val _showOpeningStory = MutableStateFlow(OpeningStoryState())
     val showOpeningStory: StateFlow<OpeningStoryState> = _showOpeningStory.asStateFlow()
 
+    /** 开场漫画专用剧情 BGM */
+    fun playOpeningStoryBgm() = audioManager.switchBgm(AudioManager.BgmType.STORY)
+
     fun markOpeningStorySeen() {
         _showOpeningStory.value = OpeningStoryState()
+        audioManager.startBgm()
         viewModelScope.safeLaunch {
             val pm = gameEngine.policyManager
             pm.replaceCollegeDevelopment(

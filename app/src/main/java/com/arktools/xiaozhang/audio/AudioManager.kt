@@ -79,6 +79,7 @@ class AudioManager @Inject constructor(
         MAIN("v2_bgm_campus"),
         BUSY("v2_bgm_campus"),
         RELAXED("v2_bgm_relax"),
+        STORY("v2_bgm_story"),
         CRISIS("v2_bgm_crisis")
     }
 
