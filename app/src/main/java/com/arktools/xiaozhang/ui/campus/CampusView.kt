@@ -113,7 +113,7 @@ fun CampusView(
             if (cx2 < 0 || cy2 < 0 || cx2 >= BT.GRID_W || cy2 >= BT.GRID_H) return false
             if (!BT.inUnlockedArea(cx2, cy2, state.campusLevel)) return false
             val t = state.terrain[cy2 * 1000L + cx2]
-            if (t \!= null) return false
+            if (t != null) return false
             val blocked = state.placed.any { p ->
                 if (ignoreId != null && (p.facilityId == ignoreId || p.key == ignoreId)) return@any false
                 // 与 canPlaceAt 一致：行政楼重建可落回原位

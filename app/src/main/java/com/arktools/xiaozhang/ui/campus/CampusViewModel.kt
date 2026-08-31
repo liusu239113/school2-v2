@@ -259,7 +259,7 @@ class CampusViewModel @Inject constructor(
             if (!BT.inUnlockedArea(cx, cy, campusLevel)) return "该区域尚未解锁（升级校园扩大范围）"
             val key = cy * 1000L + cx
             val t = terrain[key]
-            if (t \!= null) {
+            if (t != null) {
                 return "格子上已有道路或装扮，请先点击同格拆除"
             }
             val occupiedBy = others.firstOrNull { b ->
