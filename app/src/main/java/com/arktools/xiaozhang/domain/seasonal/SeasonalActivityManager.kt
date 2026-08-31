@@ -266,6 +266,47 @@ class SeasonalActivityManager @Inject constructor() {
     }
 
     /**
+     * 立即举办：跳过审批与漫长筹备，次日正式开幕（触发对应小游戏）。
+     * @return (是否成功, 提示信息)
+     */
+    fun hostNow(
+        type: ActivityType,
+        year: Int,
+        month: Int,
+        scale: ActivityScale = ActivityScale.STANDARD
+    ): kotlin.Pair<Boolean, String> {
+        val visible = _state.value.activities.any {
+            it.type == type &&
+                it.phase in listOf(
+                    ActivityPhase.PENDING_APPROVAL,
+                    ActivityPhase.PREPARING,
+                    ActivityPhase.ACTIVE
+                )
+        }
+        if (visible) return kotlin.Pair(false, "该活动已在流程中，不能重复举办")
+        val activity = SeasonalActivity(
+            id = type.name + "_" + year + "_" + month + "_now",
+            type = type,
+            year = year,
+            phase = ActivityPhase.PREPARING,
+            scale = scale,
+            preparationProgress = (type.preparationDays - 1).coerceAtLeast(0),
+            actualCost = (type.baseCost * scale.costMultiplier).toLong()
+        )
+        _state.update { it.copy(activities = it.activities + activity) }
+        return kotlin.Pair(true, "已开始筹备" + type.displayName + "，明天正式开幕！")
+    }
+
+    /** hostNow 的回滚：移除刚插入的筹备活动（扣款失败时用） */
+    fun cancelHostNow(type: ActivityType) {
+        _state.update { state ->
+            state.copy(activities = state.activities.filterNot {
+                it.type == type && it.id.endsWith("_now") && it.phase == ActivityPhase.PREPARING
+            })
+        }
+    }
+
+    /**
      * 校长批准活动（需签字）
      * @param activityId 活动ID
      * @param approvedScale 批准的规模（校长可选择不同于建议的规模）

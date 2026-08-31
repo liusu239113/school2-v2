@@ -41,6 +41,54 @@ fun SeasonalScreen(
             )
         }
 
+        // 立即举办（专属小游戏玩法）
+        item {
+            val hostMessage by viewModel.hostMessage.collectAsState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Text("立即举办（明天开幕，可玩小游戏）", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                viewModel.quickHostTypes.forEach { type ->
+                    val costWan = type.baseCost / 10000.0
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(type.displayName, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                type.description,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                        TextButton(onClick = { viewModel.hostActivity(type) }) {
+                            Text("办 · " + costWan.toInt() + "万", fontSize = 12.sp)
+                        }
+                    }
+                }
+                hostMessage?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        it,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.consumeHostMessage() }
+                    )
+                }
+            }
+        }
+
         // 待审批活动（需要校长处理）
         val pendingActivities = state.activities.filter {
             it.phase == ActivityPhase.PENDING_APPROVAL

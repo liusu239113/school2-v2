@@ -733,6 +733,7 @@ fun CampusView(
                         onOpenScholarship = { onNavigateTo(29) },
                         onOpenEmployment = { onNavigateTo(15) },
                         onOpenHiring = { onNavigateTo(2) },
+                        onOpenActivities = { onNavigateTo(18) },
                         chainSummary = viewModel.libraryChainSummary(),
                         onMove = {
                             state.selectedPlaced?.let { placed ->
@@ -826,6 +827,7 @@ private fun BuildingPanelContent(
     onOpenScholarship: () -> Unit = {},
     onOpenEmployment: () -> Unit = {},
     onOpenHiring: () -> Unit = {},
+    onOpenActivities: () -> Unit = {},
     chainSummary: String = "",
     onMove: () -> Unit,
     onRemove: () -> Unit
@@ -887,6 +889,7 @@ private fun BuildingPanelContent(
                     Text("校园已满级。后期靠连盖宿舍/分馆、开下一轮课题和铺满地图，而不是再升一级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
+                PanelButton("举办校园活动") { onOpenActivities() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college
