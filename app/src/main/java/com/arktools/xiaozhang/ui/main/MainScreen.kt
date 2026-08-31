@@ -827,8 +827,12 @@ fun MainScreen(
 
     // 新存档开场漫画（看过/跳过即写进度，仅新档出现）
     val showOpeningStory by viewModel.showOpeningStory.collectAsState()
-    if (showOpeningStory) {
-        OpeningStoryScreen(onDone = { viewModel.markOpeningStorySeen() })
+    if (showOpeningStory.show) {
+        OpeningStoryScreen(
+            principalName = showOpeningStory.principalName,
+            schoolName = showOpeningStory.schoolName,
+            onDone = { viewModel.markOpeningStorySeen() }
+        )
         return
     }
 

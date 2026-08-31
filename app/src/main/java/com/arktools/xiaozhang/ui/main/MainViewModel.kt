@@ -298,11 +298,17 @@ class MainViewModel @Inject constructor(
     val needsRestart: StateFlow<Boolean> = _needsRestart.asStateFlow()
 
     /** 新存档开场漫画：仅 newGame 置位，看完/跳过后写进度不再出现 */
-    private val _showOpeningStory = MutableStateFlow(false)
-    val showOpeningStory: StateFlow<Boolean> = _showOpeningStory.asStateFlow()
+    data class OpeningStoryState(
+        val show: Boolean = false,
+        val principalName: String = "",
+        val schoolName: String = ""
+    )
+
+    private val _showOpeningStory = MutableStateFlow(OpeningStoryState())
+    val showOpeningStory: StateFlow<OpeningStoryState> = _showOpeningStory.asStateFlow()
 
     fun markOpeningStorySeen() {
-        _showOpeningStory.value = false
+        _showOpeningStory.value = OpeningStoryState()
         viewModelScope.safeLaunch {
             val pm = gameEngine.policyManager
             pm.replaceCollegeDevelopment(
@@ -456,7 +462,11 @@ class MainViewModel @Inject constructor(
                 _isGameRunning.value = false
                 tutorialRewardsGranted = false
                 _storyTutorialPending.value = true
-                _showOpeningStory.value = true
+                _showOpeningStory.value = OpeningStoryState(
+                    show = true,
+                    principalName = created.principalName,
+                    schoolName = created.name
+                )
                 startGame()
             } catch (e: Exception) {
                 android.util.Log.e(
