@@ -1335,7 +1335,6 @@ private fun BuildRow(
 }
 
 @Composable
-@Composable
 private fun PanelButtonSmall(text: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier

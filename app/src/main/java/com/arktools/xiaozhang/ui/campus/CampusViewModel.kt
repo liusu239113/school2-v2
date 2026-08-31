@@ -232,7 +232,7 @@ class CampusViewModel @Inject constructor(
     }
 
     /** 把全校班级轮流挂到已竣工的标准教室上（展示用），并带上导师/班长信息 */
-    private fun rebuildClassRows() {
+    private suspend fun rebuildClassRows() {
         val st = _state.value
         val rooms = st.placed
             .filter { it.key == "F_CLASSROOM" && !it.isConstructing }
