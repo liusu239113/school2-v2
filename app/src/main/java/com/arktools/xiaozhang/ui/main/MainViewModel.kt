@@ -353,6 +353,11 @@ class MainViewModel @Inject constructor(
         // Do NOT change _isGameRunning — pausing stays in game view with pause overlay
     }
 
+    /** 教程/等待类暂停：只停时间轴，不打断背景音乐 */
+    fun pauseGameKeepMusic() {
+        gameEngine.pause()
+    }
+
     fun resumeGame() {
         gameEngine.resume()
         audioManager.resumeBgm()

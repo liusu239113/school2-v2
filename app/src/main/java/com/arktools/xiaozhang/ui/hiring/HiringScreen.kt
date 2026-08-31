@@ -41,7 +41,8 @@ import com.arktools.xiaozhang.ui.teacher.TeacherViewModel
  */
 @Composable
 fun HiringScreen(
-    viewModel: TeacherViewModel = hiltViewModel()
+    viewModel: TeacherViewModel = hiltViewModel(),
+    onNavigateTo: (Int) -> Unit = {}
 ) {
     val teachers by viewModel.teachers.collectAsState()
     val candidates by viewModel.candidates.collectAsState()
@@ -61,6 +62,27 @@ fun HiringScreen(
                 color = Color(0xFFB8C7D6),
                 fontSize = 13.sp
             )
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFF1E3A5C))
+                        .clickable { onNavigateTo(48) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("在编教师/位置", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFF1E3A5C))
+                        .clickable { onNavigateTo(8) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("班级与学业导师", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+            }
         }
 
         item {

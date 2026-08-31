@@ -402,13 +402,13 @@ fun MainScreen(
                     viewModel.resumeGame()
                     viewModel.triggerEnrollmentForTutorial()
                 } else {
-                    viewModel.pauseGame()
+                    viewModel.pauseGameKeepMusic()
                 }
             } else if (currentStep.unpauseGame) {
                 // 其他需要游戏运行的步骤
                 viewModel.resumeGame()
             } else {
-                viewModel.pauseGame()
+                viewModel.pauseGameKeepMusic()
             }
         } else if (!tutorialManager.isActive && showTutorial) {
             // 教程刚结束，恢复游戏并取消事件抑制
@@ -770,7 +770,7 @@ fun MainScreen(
                 when (tab) {
                     0 -> CampusView(onNavigateTo = { navigateTo(it) })
                     1 -> GovernanceScreen(onNavigateTo = { navigateTo(it) })
-                    2 -> HiringScreen()
+                    2 -> HiringScreen(onNavigateTo = { navigateTo(it) })
                     3 -> ExternalScreen()
                     4 -> DistrictScreen()
                     else -> {
@@ -815,6 +815,7 @@ fun MainScreen(
                     45 -> DisciplineScreen()
                     46 -> GraduateScreen()
                     47 -> InternationalScreen()
+                    48 -> TeacherListScreen()
                                 else -> OverviewScreen(listState = overviewListState)
                             }
                         }
@@ -1089,6 +1090,7 @@ private fun getSubPageTitle(tab: Int): String {
         41 -> "科研研究"
         42 -> "政府与行业"
         45 -> "学科建设"
+        48 -> "教师团队"
         46 -> "研究生院"
         47 -> "国际交流"
         else -> "校长我来当 2：大学时代"
