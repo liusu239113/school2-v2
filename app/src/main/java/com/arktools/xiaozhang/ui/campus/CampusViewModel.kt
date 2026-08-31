@@ -88,6 +88,7 @@ class CampusViewModel @Inject constructor(
         val dormBeds: Int = 0,
         val canteenSeats: Int = 0,
         val classSlots: Int = 0,
+        val classSlotRule: Int = 3,
         val librarySeats: Int = 0,
         val labBenches: Int = 0,
         val computerSeats: Int = 0,
@@ -100,6 +101,35 @@ class CampusViewModel @Inject constructor(
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
     }
+
+    data class ClassRow(
+        val classId: String,
+        val name: String,
+        val studentCount: Int,
+        val advisorName: String?,
+        val monitorName: String?,
+        val facilityId: String
+    )
+
+    data class StudentOption(val id: String, val name: String)
+
+    private val _classRows = MutableStateFlow<List<ClassRow>>(emptyList())
+    val classRows: StateFlow<List<ClassRow>> = _classRows.asStateFlow()
+
+    private val _advisorOptions = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val advisorOptions: StateFlow<List<Pair<String, String>>> = _advisorOptions.asStateFlow()
+
+    private val _studentOptions = MutableStateFlow<List<StudentOption>>(emptyList())
+    val studentOptions: StateFlow<List<StudentOption>> = _studentOptions.asStateFlow()
+
+    private val _officerMessage = MutableStateFlow<String?>(null)
+    val officerMessage = _officerMessage.asStateFlow()
+
+    private val _pickingAdvisorClass = MutableStateFlow<String?>(null)
+    val pickingAdvisorClass = _pickingAdvisorClass.asStateFlow()
+
+    private val _pickingMonitorClass = MutableStateFlow<String?>(null)
+    val pickingMonitorClass = _pickingMonitorClass.asStateFlow()
 
     private val _state = MutableStateFlow(CampusUiState())
     val state: StateFlow<CampusUiState> = _state.asStateFlow()
@@ -196,6 +226,102 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             gameEngine.gameDaySignal.collect { tickConstruction() }
         }
+        viewModelScope.safeLaunch {
+            gameEngine.classesFlow.collect { rebuildClassRows() }
+        }
+    }
+
+    /** 把全校班级轮流挂到已竣工的标准教室上（展示用），并带上导师/班长信息 */
+    private fun rebuildClassRows() {
+        val st = _state.value
+        val rooms = st.placed
+            .filter { it.key == "F_CLASSROOM" && !it.isConstructing }
+            .sortedBy { it.facilityId }
+        val officers = com.arktools.xiaozhang.domain.model.ClassOfficers.decode(
+            policyManager.policies.value.collegeDevelopment.classOfficersJson
+        )
+        val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
+        val rows = gameEngine.classes.mapIndexed { idx, cls ->
+            val room = if (rooms.isEmpty()) null else rooms[idx % rooms.size]
+            val advisor = cls.headTeacherId?.let { id -> teachers.firstOrNull { it.id == id } }
+            ClassRow(
+                classId = cls.id,
+                name = cls.displayName,
+                studentCount = cls.studentCount,
+                advisorName = advisor?.name,
+                monitorName = officers[cls.id]?.second,
+                facilityId = room?.facilityId.orEmpty()
+            )
+        }
+        _classRows.value = rows
+        _state.value = _state.value.copy(classSlotRule =
+            com.arktools.xiaozhang.domain.model.FacilityCapacity.classSlots(st.campusLevel))
+    }
+
+    fun classesInBuilding(facilityId: String): List<ClassRow> =
+        _classRows.value.filter { it.facilityId == facilityId }
+
+    fun openAdvisorPicker(classId: String) {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            val teachers = runCatching { teacherRepository.getTeachers() }
+                .getOrDefault(emptyList()).filter { it.isWorking }
+            _advisorOptions.value = teachers.map { it.id to (it.name + " · " + it.level.name + "级") }
+            _pickingAdvisorClass.value = classId
+        }
+    }
+
+    fun assignAdvisor(classId: String, teacherId: String) {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            val cls = gameEngine.classes.firstOrNull { it.id == classId } ?: return@safeLaunch
+            val teacher = runCatching { teacherRepository.getTeachers() }
+                .getOrDefault(emptyList()).firstOrNull { it.id == teacherId } ?: return@safeLaunch
+            gameEngine.classManager.assignHeadTeacher(cls, teacher, gameEngine.classes)
+            gameEngine.saveHeadTeacherMap()
+            gameEngine.notifyClassesChanged()
+            _pickingAdvisorClass.value = null
+            _officerMessage.value = "已任命 " + teacher.name + " 为 " + cls.displayName + " 学业导师"
+        }
+    }
+
+    fun openMonitorPicker(classId: String) {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            val students = runCatching { studentRepository.getStudentsByClass(classId) }
+                .getOrDefault(emptyList())
+            _studentOptions.value = students.map { StudentOption(it.id, it.name) }
+            _pickingMonitorClass.value = classId
+        }
+    }
+
+    fun appointMonitor(classId: String, studentId: String, studentName: String) {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            val dev = policyManager.policies.value.collegeDevelopment
+            val officers = com.arktools.xiaozhang.domain.model.ClassOfficers
+                .decode(dev.classOfficersJson).toMutableMap()
+            officers[classId] = studentId to studentName
+            policyManager.replaceCollegeDevelopment(
+                dev.copy(classOfficersJson = com.arktools.xiaozhang.domain.model.ClassOfficers.encode(officers))
+            )
+            schoolRepository.mutateSchool { s ->
+                s.policyJson = policyManager.toJson()
+                true
+            }
+            _pickingMonitorClass.value = null
+            _officerMessage.value = studentName + " 已当选班长"
+            rebuildClassRows()
+        }
+    }
+
+    fun closePickers() {
+        _pickingAdvisorClass.value = null
+        _pickingMonitorClass.value = null
+    }
+
+    fun consumeOfficerMessage() {
+        _officerMessage.value = null
     }
 
     private suspend fun tickConstruction() {

@@ -583,7 +583,8 @@ fun CampusView(
             moveTarget != null -> "搬移模式：拖动选择新位置，点「搬到这里」确认。点此取消"
             else -> null
         }
-        if (modeHint != null || state.message != null) {
+        val officerMessage by viewModel.officerMessage.collectAsState()
+        if (modeHint != null || state.message != null || officerMessage != null) {
             Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -608,7 +609,7 @@ fun CampusView(
                         textAlign = TextAlign.Center
                     )
                 }
-                state.message?.let { msg ->
+                (officerMessage ?: state.message)?.let { msg ->
                     Text(
                         msg,
                         color = Color.White,
@@ -617,7 +618,7 @@ fun CampusView(
                             .padding(top = 4.dp)
                             .background(Color(0xCC14648C))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
-                            .clickable { viewModel.consumeMessage() },
+                            .clickable { viewModel.consumeMessage(); viewModel.consumeOfficerMessage() },
                         textAlign = TextAlign.Center
                     )
                 }
@@ -720,6 +721,7 @@ fun CampusView(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     BuildingPanelContent(
+                        viewModel = viewModel,
                         building = building,
                         state = state,
                         placed = state.selectedPlaced,
@@ -750,6 +752,80 @@ fun CampusView(
                     )
                 }
             }
+        }
+
+        val pickingAdvisor by viewModel.pickingAdvisorClass.collectAsState()
+        pickingAdvisor?.let { classId ->
+            val options by viewModel.advisorOptions.collectAsState()
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { viewModel.closePickers() },
+                title = { Text("指派学业导师") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        if (options.isEmpty()) Text("暂无在职教师", fontSize = 13.sp)
+                        options.forEach { (tid, name) ->
+                            Text(
+                                name,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.assignAdvisor(classId, tid) }
+                                    .padding(vertical = 10.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Text(
+                        "关闭",
+                        modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            )
+        }
+
+        val pickingMonitor by viewModel.pickingMonitorClass.collectAsState()
+        pickingMonitor?.let { classId ->
+            val options by viewModel.studentOptions.collectAsState()
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { viewModel.closePickers() },
+                title = { Text("任命班长") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        if (options.isEmpty()) Text("本班暂无学生", fontSize = 13.sp)
+                        options.forEach { stu ->
+                            Text(
+                                stu.name,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.appointMonitor(classId, stu.id, stu.name) }
+                                    .padding(vertical = 10.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Text(
+                        "关闭",
+                        modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            )
         }
 
         // 建造抽屉
@@ -814,6 +890,7 @@ private fun LaunchedEffect2(key: Any?, block: suspend () -> Unit) {
 /** 建筑面板内容（实底白卡 + 搬移/拆除） */
 @Composable
 private fun BuildingPanelContent(
+    viewModel: CampusViewModel,
     building: CampusViewModel.CampusBuilding,
     state: CampusViewModel.CampusUiState,
     placed: BT.PlacedBuilding?,
@@ -984,11 +1061,41 @@ private fun BuildingPanelContent(
                             PanelButton("进入科研") { onOpenResearch() }
                         }
                         FacilityType.CLASSROOM -> {
+                            val myClasses = viewModel.classesInBuilding(building.id)
                             Text(
-                                "班槽 ${state.classSlots} · 在校 ${state.studentCount} 人 · 可重复建造扩班",
+                                "本楼容纳 ${state.classSlotRule} 个教学班 · 在校 ${state.studentCount} 人",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
+                            Text(
+                                "容纳规则：教室 Lv1=3班 Lv2=4班 Lv3=6班 Lv4=7班 Lv5+=9班。可重复建造扩班。",
+                                fontSize = 11.sp,
+                                color = Color(0xFF617386)
+                            )
+                            if (myClasses.isEmpty()) {
+                                Text("本楼暂无挂靠班级（系统按顺序自动分配）", fontSize = 11.sp, color = Color(0xFF617386))
+                            }
+                            myClasses.forEach { row ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFFF0F4F8))
+                                        .padding(8.dp)
+                                ) {
+                                    Text(row.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                    Text(
+                                        (row.advisorName?.let { "导师：" + it } ?: "导师：未安排")
+                                            + " · " + row.studentCount + " 人"
+                                            + (row.monitorName?.let { " · 班长：" + it } ?: ""),
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF617386)
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        PanelButtonSmall("换导师") { viewModel.openAdvisorPicker(row.classId) }
+                                        PanelButtonSmall("任班长") { viewModel.openMonitorPicker(row.classId) }
+                                    }
+                                }
+                            }
                             PanelButton("教学与招生管理") { onOpenTeaching() }
                         }
                         FacilityType.MULTIMEDIA_ROOM, FacilityType.LABORATORY, FacilityType.COMPUTER_LAB -> {
@@ -1228,6 +1335,18 @@ private fun BuildRow(
 }
 
 @Composable
+@Composable
+private fun PanelButtonSmall(text: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .background(Color(0xFF1E96C8))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
+
 private fun PanelButton(text: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
