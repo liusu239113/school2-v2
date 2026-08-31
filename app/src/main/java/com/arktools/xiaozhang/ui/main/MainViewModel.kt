@@ -468,8 +468,8 @@ class MainViewModel @Inject constructor(
                 _storyTutorialPending.value = true
                 _showOpeningStory.value = OpeningStoryState(
                     show = true,
-                    principalName = created.principalName,
-                    schoolName = created.name
+                    principalName = school.principalName,
+                    schoolName = school.name
                 )
                 startGame()
             } catch (e: Exception) {
