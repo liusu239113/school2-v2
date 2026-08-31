@@ -1346,6 +1346,7 @@ private fun PanelButtonSmall(text: String, onClick: () -> Unit) {
     }
 }
 
+@Composable
 private fun PanelButton(text: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
