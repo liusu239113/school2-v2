@@ -141,7 +141,7 @@ class TeacherDevelopmentManager @Inject constructor() {
         }
         return _state.value.talentPool.filter {
             it.status == TalentStatus.AVAILABLE &&
-                (it.source == TalentSource.ALUMNI_RETURN || it.teacher.level in allowed)
+                (it.source == TalentSource.ALUMNI_RETURN || TeacherLevel.valueOf(it.teacher.level) in allowed)
         }.take(6)
     }
 

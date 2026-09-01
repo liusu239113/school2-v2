@@ -1320,6 +1320,7 @@ private fun TeacherDevEventRow(event: TeacherDevEvent) {
             TeacherDevEventType.TRAINING_COMPLETE -> "培训"
             TeacherDevEventType.PROMOTION -> "升级"
             TeacherDevEventType.DEPARTURE -> "离职"
+            TeacherDevEventType.RETIREMENT -> "荣休"
             TeacherDevEventType.AWARD -> "获奖"
             TeacherDevEventType.EVALUATION -> "评价"
         }
