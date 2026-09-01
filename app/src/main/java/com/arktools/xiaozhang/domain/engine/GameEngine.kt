@@ -3926,7 +3926,16 @@ class GameEngine @Inject constructor(
                             level = teacher.level
                         )
                     }
-                    teacherDevelopmentManager.syncTeachers(teacherSyncData)
+                    teacherDevelopmentManager.syncTeachers(
+                        teacherSyncData,
+                        school.currentYear
+                    )
+                    teacherDevelopmentManager.ensureAnnualTalentPool(
+                        school.currentYear,
+                        school.campusLevel,
+                        alumniNetwork.alumni.value,
+                        teacherRepository::generateCandidates
+                    )
                     val monthlyResult = teacherDevelopmentManager.advanceMonth(
                         school.currentYear,
                         school.currentMonth,
@@ -4000,12 +4009,29 @@ class GameEngine @Inject constructor(
                     departure.teacherName,
                     departedTeacher
                 )
-                emitEvent(GameEvent.NegativeEvent(
-                    title = "教师离职: $display",
-                    message = "${display}已离开学校",
-                    penaltyCash = 0.0,
-                    penaltyReputation = 3.toLong()
-                ), school)
+                if (departure.reason == com.arktools.xiaozhang.domain.teacherdev.TeacherDepartureReason.RETIRED) {
+                    emitEvent(
+                        GameEvent.PositiveEvent(
+                            title = "教师荣休: $display",
+                            message = "${display}完成职业生涯，学校举行荣休仪式",
+                            bonusCash = 0.0,
+                            bonusReputation = 2L
+                        ),
+                        school
+                    )
+                } else {
+                    emitEvent(
+                        GameEvent.NegativeEvent(
+                            title = "教师离职: $display",
+                            message = if (
+                                departure.reason == com.arktools.xiaozhang.domain.teacherdev.TeacherDepartureReason.POACHED
+                            ) "$display 被其他高校挖走" else "$display 已离开学校",
+                            penaltyCash = 0.0,
+                            penaltyReputation = 3L
+                        ),
+                        school
+                    )
+                }
             }
             teacherDevResult.promotions.forEach { promotion ->
                 emitEvent(GameEvent.PositiveEvent(
@@ -4116,6 +4142,11 @@ class GameEngine @Inject constructor(
                         if (exam > 0f) exam * 0.7f + mastery * 0.3f else mastery
                     }.average().toFloat()
                 } else 50f
+
+                processAcademicProgressReports(
+                    school,
+                    st.cachedActiveStudentsForMonth
+                )
 
                 // 计算社团活跃度（有几个社团、社团热情度）
                 val clubs = clubManager.clubs.value
@@ -7772,6 +7803,91 @@ class GameEngine @Inject constructor(
     /**
      * 每学期初重置所有在读学生的学期掌握度
      */
+    private suspend fun processAcademicProgressReports(
+        school: School,
+        students: List<Student>
+    ) {
+        if (students.isEmpty()) return
+        val operatingYears = (school.currentYear - GameBalanceConfig.STARTING_YEAR).coerceAtLeast(0)
+        val difficulty = GameBalanceConfig.getDifficultyMultiplier(school.currentYear).toFloat()
+        val tierPressure = when (school.schoolTier()) {
+            SchoolTier.VOCATIONAL -> 0f
+            SchoolTier.VOCATIONAL_BACHELOR -> 2f
+            SchoolTier.APPLIED -> 4f
+            SchoolTier.RESEARCH -> 8f
+        }
+        val warningThreshold = (
+            42f + tierPressure + (school.campusLevel - 1) * 1.5f +
+                (difficulty - 1f) * 12f
+            ).coerceIn(42f, 68f)
+
+        if (school.currentMonth in listOf(11, 4)) {
+            val warningStudents = students.filter { student ->
+                val learning = if (student.academicScore > 0f) {
+                    student.academicScore * 0.65f + student.semesterMastery * 0.35f
+                } else student.semesterMastery
+                learning < warningThreshold || student.satisfaction < 42f ||
+                    student.healthStatus == HealthStatus.FATIGUED
+            }
+            val severe = warningStudents.count {
+                it.academicScore < warningThreshold - 15f || it.satisfaction < 30f
+            }
+            val ratio = warningStudents.size.toFloat() / students.size
+            if (warningStudents.isNotEmpty()) {
+                deferEvent(
+                    GameEvent.NegativeEvent(
+                        title = "学期学业预警",
+                        message = "本期${warningStudents.size}名学生需关注，其中${severe}名高风险。" +
+                            "当前达标线${warningThreshold.toInt()}，建议补充导师、优化课表并改善生活设施。",
+                        penaltyCash = 0.0,
+                        penaltyReputation = if (ratio > 0.35f) 2L else 0L
+                    )
+                )
+            } else {
+                deferEvent(
+                    GameEvent.PositiveEvent(
+                        title = "学期培养质量良好",
+                        message = "本期没有学生触发学业预警，培养方案运行稳定。",
+                        bonusCash = 0.0,
+                        bonusReputation = 1L
+                    )
+                )
+            }
+        }
+
+        if (school.currentMonth in listOf(1, 6)) {
+            val graduationGrade = school.schoolTier().graduationGrade
+            val candidates = students.filter { it.gradeLevel == graduationGrade }
+            if (candidates.isNotEmpty()) {
+                val passLine = (55f + tierPressure + operatingYears.coerceAtMost(8)).coerceAtMost(76f)
+                val qualified = candidates.count { student ->
+                    val score = if (student.academicScore > 0f) {
+                        student.academicScore * 0.7f + student.semesterMastery * 0.3f
+                    } else student.semesterMastery
+                    score >= passLine && student.satisfaction >= 35f
+                }
+                deferEvent(
+                    if (qualified == candidates.size) {
+                        GameEvent.PositiveEvent(
+                            title = "毕业资格预审",
+                            message = "${candidates.size}名毕业年级学生当前全部达标。6月仍将依据最终课程、实践与答辩结果审核。",
+                            bonusCash = 0.0,
+                            bonusReputation = 1L
+                        )
+                    } else {
+                        GameEvent.NegativeEvent(
+                            title = "毕业资格预审",
+                            message = "当前$qualified/${candidates.size}人达到预审线${passLine.toInt()}，" +
+                                "其余学生仍可通过导师辅导、补修课程和实践活动改善。",
+                            penaltyCash = 0.0,
+                            penaltyReputation = 0L
+                        )
+                    }
+                )
+            }
+        }
+    }
+
     private suspend fun resetSemesterMastery() {
         studentRepository.resetSemesterMastery()
     }

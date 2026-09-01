@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -47,6 +48,8 @@ fun HiringScreen(
     val teachers by viewModel.teachers.collectAsState()
     val candidates by viewModel.candidates.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val devState by viewModel.devState.collectAsState()
+    val availableTalent = devState.talentPool.filter { it.status == com.arktools.xiaozhang.domain.teacherdev.TalentStatus.AVAILABLE }
 
     LazyColumn(
         modifier = Modifier
@@ -58,9 +61,17 @@ fun HiringScreen(
         item {
             Text("人事", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(
-                "在编教师 ${teachers.size} 人 · 每学期发布一次招聘，三选一",
+                "在编教师 ${teachers.size} 人 · ${devState.talentPoolYear} 年度固定人才池",
                 color = Color(0xFFB8C7D6),
                 fontSize = 13.sp
+            )
+            val quotaText = TeacherLevel.entries.joinToString(" · ") { level ->
+                "$level ${availableTalent.count { it.teacher.level == level.name }}人"
+            }
+            Text(
+                "剩余：$quotaText · 校友返校 ${availableTalent.count { it.source.name == "ALUMNI_RETURN" }}人",
+                color = Color(0xFF7FC8E8),
+                fontSize = 12.sp
             )
         }
 
@@ -86,7 +97,7 @@ fun HiringScreen(
         }
 
         item {
-            Text("① 选择招聘渠道（扣渠道费，决定候选质量）", color = Color(0xFFB8C7D6), fontSize = 13.sp)
+            Text("① 解锁年度招聘渠道（每年每渠道只收费一次）", color = Color(0xFFB8C7D6), fontSize = 13.sp)
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -123,7 +134,7 @@ fun HiringScreen(
         }
 
         item {
-            Text("② 候选人三选一（点卡聘用，扣猎头费）", color = Color(0xFFB8C7D6), fontSize = 13.sp)
+            Text("② 从固定人才池聘用（聘用后该候选人永久离池）", color = Color(0xFFB8C7D6), fontSize = 13.sp)
         }
 
         if (candidates.isEmpty()) {
@@ -135,23 +146,21 @@ fun HiringScreen(
                         .padding(20.dp)
                 ) {
                     Text(
-                        "先选择上方渠道，系统将亮出 3 名候选人",
+                        "请选择渠道查看本年度固定候选人；名额用完后需等待次年补充",
                         fontSize = 13.sp,
                         color = Color(0xFF617386)
                     )
                 }
             }
         } else {
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    candidates.forEach { teacher ->
-                        CandidateCard(
-                            teacher = teacher,
-                            modifier = Modifier.weight(1f),
-                            onHire = { viewModel.hireTeacher(teacher) }
-                        )
-                    }
-                }
+            items(candidates.size, key = { index -> candidates[index].id }) { index ->
+                val teacher = candidates[index]
+                CandidateCard(
+                    teacher = teacher,
+                    sourceLabel = viewModel.talentSourceLabel(teacher.id),
+                    modifier = Modifier.fillMaxWidth(),
+                    onHire = { viewModel.hireTeacher(teacher) }
+                )
             }
         }
 
@@ -177,6 +186,7 @@ fun HiringScreen(
 @Composable
 private fun CandidateCard(
     teacher: Teacher,
+    sourceLabel: String,
     modifier: Modifier = Modifier,
     onHire: () -> Unit
 ) {
@@ -209,6 +219,14 @@ private fun CandidateCard(
                     fontWeight = FontWeight.Bold
                 )
             }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .background(if (sourceLabel == "校友返校") Color(0xFF2E7D32) else Color(0xFF1E3A5C))
+                    .padding(horizontal = 7.dp, vertical = 2.dp)
+            ) {
+                Text(sourceLabel, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
             // 学科标签（头像右下，全卡仅此一处）
             Box(
                 modifier = Modifier
@@ -238,7 +256,7 @@ private fun CandidateCard(
                 maxLines = 1
             )
             Text(
-                "综合 " + teacher.averageSkill,
+                "综合 ${teacher.averageSkill} · 月薪 ${String.format("%.2f", teacher.salary)}万",
                 fontSize = 12.sp,
                 color = Color(0xFF617386)
             )

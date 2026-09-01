@@ -1,6 +1,11 @@
 package com.arktools.xiaozhang.domain.teacherdev
 
+import com.arktools.xiaozhang.domain.alumni.Alumnus
+import com.arktools.xiaozhang.domain.alumni.CareerPath
+import com.arktools.xiaozhang.domain.model.Gender
+import com.arktools.xiaozhang.domain.model.Teacher
 import com.arktools.xiaozhang.domain.model.TeacherLevel
+import com.arktools.xiaozhang.domain.model.TeacherRole
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +38,147 @@ class TeacherDevelopmentManager @Inject constructor() {
         const val MAX_EVENTS_LOG = 30
         const val EVALUATION_INTERVAL_MONTHS = 6
     }
+
+    fun ensureAnnualTalentPool(
+        currentYear: Int,
+        campusLevel: Int,
+        alumni: List<Alumnus>,
+        generator: (TeacherLevel, Int) -> List<Teacher>
+    ) {
+        if (_state.value.talentPoolYear == currentYear) return
+        val counts = when (campusLevel.coerceIn(1, 6)) {
+            1 -> mapOf(TeacherLevel.C to 5, TeacherLevel.B to 2)
+            2 -> mapOf(TeacherLevel.C to 5, TeacherLevel.B to 3, TeacherLevel.A to 1)
+            3 -> mapOf(TeacherLevel.C to 4, TeacherLevel.B to 4, TeacherLevel.A to 2)
+            4 -> mapOf(TeacherLevel.C to 3, TeacherLevel.B to 5, TeacherLevel.A to 3, TeacherLevel.S to 1)
+            5 -> mapOf(TeacherLevel.C to 2, TeacherLevel.B to 5, TeacherLevel.A to 4, TeacherLevel.S to 2)
+            else -> mapOf(TeacherLevel.C to 2, TeacherLevel.B to 4, TeacherLevel.A to 5, TeacherLevel.S to 3)
+        }
+        val market = counts.flatMap { (level, count) ->
+            generator(level, count).map { teacher ->
+                TeacherTalentCandidate(
+                    id = teacher.id,
+                    teacher = TeacherTalentSnapshot.fromTeacher(teacher),
+                    source = TalentSource.MARKET,
+                    status = TalentStatus.AVAILABLE,
+                    poolYear = currentYear
+                )
+            }
+        }
+        val alumniReturn = alumni
+            .filter {
+                it.id !in _state.value.hiredAlumniIds &&
+                    it.monthsSinceGraduation >= 24 &&
+                    it.career in listOf(CareerPath.EDUCATION, CareerPath.RESEARCH) &&
+                    it.satisfaction >= 70f &&
+                    it.successPotential >= 0.55f
+            }
+            .sortedByDescending { it.successPotential + it.satisfaction / 100f }
+            .take((campusLevel / 2).coerceAtLeast(1))
+            .map { alumnus ->
+                val level = when {
+                    alumnus.successPotential >= 0.9f -> TeacherLevel.A
+                    alumnus.successPotential >= 0.72f -> TeacherLevel.B
+                    else -> TeacherLevel.C
+                }
+                val base = when (level) {
+                    TeacherLevel.C -> 220
+                    TeacherLevel.B -> 380
+                    TeacherLevel.A -> 580
+                    TeacherLevel.S -> 760
+                }
+                val teacher = Teacher(
+                    id = "alumni-${alumnus.id}",
+                    name = alumnus.name,
+                    gender = Gender.MALE,
+                    level = level,
+                    role = when (alumnus.career) {
+                        CareerPath.RESEARCH -> TeacherRole.PHYSICS
+                        else -> TeacherRole.MATH
+                    },
+                    teaching = base,
+                    research = base + if (alumnus.career == CareerPath.RESEARCH) 80 else 20,
+                    management = base - 20,
+                    psychology = base,
+                    salary = when (level) {
+                        TeacherLevel.C -> 0.45
+                        TeacherLevel.B -> 0.85
+                        TeacherLevel.A -> 1.35
+                        TeacherLevel.S -> 1.8
+                    },
+                    avatarIndex = alumnus.id.hashCode().let { kotlin.math.abs(it % 4) + 1 }
+                )
+                TeacherTalentCandidate(
+                    id = teacher.id,
+                    teacher = TeacherTalentSnapshot.fromTeacher(teacher),
+                    source = TalentSource.ALUMNI_RETURN,
+                    sourceAlumniId = alumnus.id,
+                    status = TalentStatus.AVAILABLE,
+                    poolYear = currentYear
+                )
+            }
+        _state.update {
+            it.copy(
+                talentPoolYear = currentYear,
+                talentPool = market + alumniReturn,
+                unlockedTalentChannels = emptySet()
+            )
+        }
+    }
+
+    fun isChannelUnlocked(channel: TalentChannel): Boolean =
+        channel in _state.value.unlockedTalentChannels
+
+    fun unlockChannel(channel: TalentChannel) {
+        _state.update { it.copy(unlockedTalentChannels = it.unlockedTalentChannels + channel) }
+    }
+
+    fun candidatesForChannel(channel: TalentChannel): List<TeacherTalentCandidate> {
+        val allowed = when (channel) {
+            TalentChannel.AD -> setOf(TeacherLevel.C, TeacherLevel.B)
+            TalentChannel.SCHOOL -> setOf(TeacherLevel.B, TeacherLevel.A)
+            TalentChannel.HEADHUNTER -> setOf(TeacherLevel.A, TeacherLevel.S)
+        }
+        return _state.value.talentPool.filter {
+            it.status == TalentStatus.AVAILABLE &&
+                (it.source == TalentSource.ALUMNI_RETURN || it.teacher.level in allowed)
+        }.take(6)
+    }
+
+    fun consumeTalentCandidate(candidateId: String): Teacher? {
+        val candidate = _state.value.talentPool.firstOrNull {
+            it.id == candidateId && it.status == TalentStatus.AVAILABLE
+        } ?: return null
+        _state.update { state ->
+            state.copy(
+                talentPool = state.talentPool.map {
+                    if (it.id == candidateId) it.copy(status = TalentStatus.HIRED) else it
+                },
+                hiredAlumniIds = candidate.sourceAlumniId?.let { state.hiredAlumniIds + it }
+                    ?: state.hiredAlumniIds
+            )
+        }
+        return candidate.teacher.toTeacher()
+    }
+
+    fun restoreTalentCandidate(candidateId: String) {
+        _state.update { state ->
+            state.copy(
+                talentPool = state.talentPool.map {
+                    if (it.id == candidateId && it.status == TalentStatus.HIRED) {
+                        it.copy(status = TalentStatus.AVAILABLE)
+                    } else it
+                },
+                hiredAlumniIds = state.talentPool.firstOrNull { it.id == candidateId }
+                    ?.sourceAlumniId?.let { state.hiredAlumniIds - it }
+                    ?: state.hiredAlumniIds
+            )
+        }
+    }
+
+    fun teacherAge(teacherId: String, currentYear: Int): Int? =
+        _state.value.teacherProfiles.firstOrNull { it.teacherId == teacherId }
+            ?.let { currentYear - it.birthYear }
 
     /**
      * 注册教师到发展系统
@@ -68,7 +214,7 @@ class TeacherDevelopmentManager @Inject constructor() {
     /**
      * 批量同步教师（每月开始时与主系统同步）
      */
-    fun syncTeachers(teachers: List<TeacherSyncData>) {
+    fun syncTeachers(teachers: List<TeacherSyncData>, currentYear: Int) {
         val profiles = _state.value.teacherProfiles.toMutableList()
         teachers.forEach { data ->
             val index = profiles.indexOfFirst { profile ->
@@ -96,7 +242,8 @@ class TeacherDevelopmentManager @Inject constructor() {
                     researchPoints = 0,
                     teachingAwards = 0,
                     isOnTraining = false,
-                    turnoverRisk = TurnoverRisk.LOW
+                    turnoverRisk = TurnoverRisk.LOW,
+                    birthYear = stableBirthYear(data.id, currentYear)
                 ))
             } else {
                 // 只向上同步实际等级，绝不从主系统等级反向降级发展档案
@@ -326,7 +473,7 @@ class TeacherDevelopmentManager @Inject constructor() {
 
         // 每月更新：服务年限、满意度自然波动、离职风险评估
         updatedProfiles = updatedProfiles.map { profile ->
-            val monthsService = profile.yearsOfService * 12 + 1
+            val monthsService = profile.monthsOfService + 1
             val yearsUpdate = monthsService / 12
             val monthsPromo = profile.monthsSinceLastPromotion + 1
 
@@ -355,12 +502,38 @@ class TeacherDevelopmentManager @Inject constructor() {
 
             profile.copy(
                 yearsOfService = yearsUpdate,
+                monthsOfService = monthsService,
                 monthsSinceLastPromotion = monthsPromo,
                 satisfaction = newSatisfaction,
                 turnoverRisk = risk,
                 researchPoints = profile.researchPoints + researchGain
             )
         }
+
+        // 每年1月执行退休：退休进入历史档案，不再按负面离职处理。
+        val retiringProfiles = if (currentMonth == 1) {
+            updatedProfiles.filter { it.ageAt(currentYear) >= it.retirementAge }
+        } else emptyList()
+        val retirementIds = retiringProfiles.map { it.teacherId }.toSet()
+        retiringProfiles.forEach { profile ->
+            departures.add(
+                TeacherDevTeacherChange(
+                    teacherId = profile.teacherId,
+                    teacherName = profile.name,
+                    reason = TeacherDepartureReason.RETIRED
+                )
+            )
+            newEvents.add(
+                TeacherDevEvent(
+                    title = "${profile.name}荣休",
+                    description = "服务${profile.yearsOfService}年后光荣退休，完成教学传承",
+                    type = TeacherDevEventType.RETIREMENT,
+                    month = currentMonth,
+                    year = currentYear
+                )
+            )
+        }
+        updatedProfiles = updatedProfiles.filterNot { it.teacherId in retirementIds }
 
         // 自动离职检查（满意度极低或被挖角）
         // 新入职保护期：入职3个月内不会离职（monthsSinceLastPromotion从0开始递增）
@@ -376,7 +549,8 @@ class TeacherDevelopmentManager @Inject constructor() {
                     departures.add(
                         TeacherDevTeacherChange(
                             teacherId = profile.teacherId,
-                            teacherName = profile.name
+                            teacherName = profile.name,
+                            reason = if (poached) TeacherDepartureReason.POACHED else TeacherDepartureReason.RESIGNED
                         )
                     )
                     newEvents.add(TeacherDevEvent(
@@ -462,6 +636,18 @@ class TeacherDevelopmentManager @Inject constructor() {
                 recentEvents = (newEvents + state.recentEvents).take(MAX_EVENTS_LOG),
                 totalPromotions = state.totalPromotions + promotions.size,
                 totalDepartures = state.totalDepartures + departures.size,
+                formerFaculty = (
+                    retiringProfiles.map { profile ->
+                        FormerFacultyRecord(
+                            teacherId = profile.teacherId,
+                            name = profile.name,
+                            departureYear = currentYear,
+                            reason = "RETIRED",
+                            finalTitle = profile.title.name,
+                            yearsOfService = profile.yearsOfService
+                        )
+                    } + state.formerFaculty
+                ).distinctBy { it.teacherId }.take(100),
                 lastProcessedYear = currentYear,
                 lastProcessedMonth = currentMonth
             )
@@ -485,7 +671,10 @@ class TeacherDevelopmentManager @Inject constructor() {
         return copy(
             teacherProfiles = teacherProfiles.map { it.copy() },
             activeTrainings = activeTrainings.map { it.copy() },
-            recentEvents = recentEvents.map { it.copy() }
+            recentEvents = recentEvents.map { it.copy() },
+            talentPool = talentPool.map { it.copy(teacher = it.teacher.copy()) },
+            formerFaculty = formerFaculty.map { it.copy() },
+            unlockedTalentChannels = unlockedTalentChannels.toSet()
         )
     }
 
@@ -510,13 +699,16 @@ class TeacherDevelopmentManager @Inject constructor() {
                         skillLevel = p.skillLevel,
                         satisfaction = p.satisfaction,
                         yearsOfService = p.yearsOfService,
+                        monthsOfService = p.monthsOfService,
                         monthsSinceLastPromotion = p.monthsSinceLastPromotion,
                         trainingCredits = p.trainingCredits,
                         evaluationScore = p.evaluationScore,
                         researchPoints = p.researchPoints,
                         teachingAwards = p.teachingAwards,
                         isOnTraining = p.isOnTraining,
-                        turnoverRisk = p.turnoverRisk.name
+                        turnoverRisk = p.turnoverRisk.name,
+                        birthYear = p.birthYear,
+                        retirementAge = p.retirementAge
                     )
                 },
                 trainings = state.activeTrainings.map { t ->
@@ -533,7 +725,12 @@ class TeacherDevelopmentManager @Inject constructor() {
                 totalPromotions = state.totalPromotions,
                 totalDepartures = state.totalDepartures,
                 lastProcessedYear = state.lastProcessedYear,
-                lastProcessedMonth = state.lastProcessedMonth
+                lastProcessedMonth = state.lastProcessedMonth,
+                talentPoolYear = state.talentPoolYear,
+                talentPool = state.talentPool,
+                unlockedTalentChannels = state.unlockedTalentChannels,
+                hiredAlumniIds = state.hiredAlumniIds,
+                formerFaculty = state.formerFaculty
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -572,13 +769,16 @@ class TeacherDevelopmentManager @Inject constructor() {
                     skillLevel = p.skillLevel,
                     satisfaction = p.satisfaction,
                     yearsOfService = p.yearsOfService,
+                    monthsOfService = p.monthsOfService,
                     monthsSinceLastPromotion = p.monthsSinceLastPromotion,
                     trainingCredits = p.trainingCredits,
                     evaluationScore = p.evaluationScore,
                     researchPoints = p.researchPoints,
                     teachingAwards = p.teachingAwards,
                     isOnTraining = p.isOnTraining,
-                    turnoverRisk = TurnoverRisk.valueOf(p.turnoverRisk)
+                    turnoverRisk = TurnoverRisk.valueOf(p.turnoverRisk),
+                    birthYear = p.birthYear,
+                    retirementAge = p.retirementAge
                 )
             }
             val trainings = data.trainings.map { t ->
@@ -608,7 +808,12 @@ class TeacherDevelopmentManager @Inject constructor() {
                 totalPromotions = data.totalPromotions,
                 totalDepartures = data.totalDepartures,
                 lastProcessedYear = data.lastProcessedYear,
-                lastProcessedMonth = data.lastProcessedMonth
+                lastProcessedMonth = data.lastProcessedMonth,
+                talentPoolYear = data.talentPoolYear,
+                talentPool = data.talentPool,
+                unlockedTalentChannels = data.unlockedTalentChannels,
+                hiredAlumniIds = data.hiredAlumniIds,
+                formerFaculty = data.formerFaculty
             )
         } catch (e: Exception) {
             throw IllegalArgumentException("TeacherDevelopmentManager.restoreFromJson failed", e)
@@ -629,6 +834,11 @@ class TeacherDevelopmentManager @Inject constructor() {
             creditsNeeded = nextTitle.requiredCredits,
             creditsHad = profile.trainingCredits
         )
+    }
+
+    private fun stableBirthYear(teacherId: String, currentYear: Int): Int {
+        val age = 27 + kotlin.math.abs(teacherId.hashCode() % 34)
+        return currentYear - age
     }
 
     private fun teacherLevelToTitle(level: TeacherLevel): TeacherTitle {
@@ -662,7 +872,12 @@ data class TeacherDevState(
     val totalPromotions: Int = 0,
     val totalDepartures: Int = 0,
     val lastProcessedYear: Int = 0,
-    val lastProcessedMonth: Int = 0
+    val lastProcessedMonth: Int = 0,
+    val talentPoolYear: Int = 0,
+    val talentPool: List<TeacherTalentCandidate> = emptyList(),
+    val unlockedTalentChannels: Set<TalentChannel> = emptySet(),
+    val hiredAlumniIds: Set<String> = emptySet(),
+    val formerFaculty: List<FormerFacultyRecord> = emptyList()
 )
 
 data class TeacherProfile(
@@ -674,14 +889,27 @@ data class TeacherProfile(
     val skillLevel: Float,
     val satisfaction: Float,
     val yearsOfService: Int,
+    val monthsOfService: Int = yearsOfService * 12,
     val monthsSinceLastPromotion: Int,
     val trainingCredits: Int,
     val evaluationScore: Float,
     val researchPoints: Int,
     val teachingAwards: Int,
     val isOnTraining: Boolean,
-    val turnoverRisk: TurnoverRisk
-)
+    val turnoverRisk: TurnoverRisk,
+    val birthYear: Int = 1965,
+    val retirementAge: Int = 65
+) {
+    fun ageAt(year: Int): Int = year - birthYear
+
+    fun careerPhaseAt(year: Int): TeacherCareerPhase = when (ageAt(year)) {
+        in Int.MIN_VALUE..34 -> TeacherCareerPhase.YOUNG
+        in 35..49 -> TeacherCareerPhase.CORE
+        in 50..59 -> TeacherCareerPhase.SENIOR
+        in 60..64 -> TeacherCareerPhase.PRE_RETIREMENT
+        else -> TeacherCareerPhase.RETIRED
+    }
+}
 
 enum class TeacherTitle(
     val displayName: String,
@@ -746,6 +974,7 @@ enum class TeacherDevEventType {
     TRAINING_COMPLETE,
     PROMOTION,
     DEPARTURE,
+    RETIREMENT,
     AWARD,
     EVALUATION
 }
@@ -759,8 +988,13 @@ data class TeacherDevMonthlyResult(
 
 data class TeacherDevTeacherChange(
     val teacherId: String,
-    val teacherName: String
+    val teacherName: String,
+    val reason: TeacherDepartureReason = TeacherDepartureReason.NONE
 )
+
+enum class TeacherDepartureReason {
+    NONE, RESIGNED, POACHED, RETIRED
+}
 
 enum class PromotionResult {
     SUCCESS,
@@ -806,7 +1040,12 @@ data class TeacherDevPersistData(
     val totalPromotions: Int = 0,
     val totalDepartures: Int = 0,
     val lastProcessedYear: Int = 0,
-    val lastProcessedMonth: Int = 0
+    val lastProcessedMonth: Int = 0,
+    val talentPoolYear: Int = 0,
+    val talentPool: List<TeacherTalentCandidate> = emptyList(),
+    val unlockedTalentChannels: Set<TalentChannel> = emptySet(),
+    val hiredAlumniIds: Set<String> = emptySet(),
+    val formerFaculty: List<FormerFacultyRecord> = emptyList()
 )
 
 @Serializable
@@ -819,13 +1058,16 @@ data class TeacherProfilePersist(
     val skillLevel: Float,
     val satisfaction: Float,
     val yearsOfService: Int,
+    val monthsOfService: Int = yearsOfService * 12,
     val monthsSinceLastPromotion: Int,
     val trainingCredits: Int,
     val evaluationScore: Float,
     val researchPoints: Int,
     val teachingAwards: Int,
     val isOnTraining: Boolean,
-    val turnoverRisk: String
+    val turnoverRisk: String,
+    val birthYear: Int = 1965,
+    val retirementAge: Int = 65
 )
 
 @Serializable

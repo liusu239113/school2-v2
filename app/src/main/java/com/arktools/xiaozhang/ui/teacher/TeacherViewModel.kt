@@ -117,6 +117,11 @@ class TeacherViewModel @Inject constructor(
     // ========== 教师发展相关 ==========
     val devState: StateFlow<TeacherDevState> = teacherDevManager.state
 
+    fun talentSourceLabel(teacherId: String): String =
+        teacherDevManager.state.value.talentPool.firstOrNull { it.id == teacherId }?.source?.let {
+            if (it == TalentSource.ALUMNI_RETURN) "校友返校" else "社会人才"
+        } ?: "年度人才池"
+
     fun clearError() {
         _errorMessage.value = null
     }
@@ -153,11 +158,25 @@ class TeacherViewModel @Inject constructor(
     fun onHireClick() {
         audioManager.playButtonClick()
         _showHireDialog.value = true
-        _candidates.value = emptyList()
         _selectedChannel.value = null
         viewModelScope.safeLaunch {
             val school = schoolRepository.getSchool()
             _schoolLevel.value = school?.campusLevel ?: 1
+            if (school != null) {
+                teacherDevManager.ensureAnnualTalentPool(
+                    school.currentYear,
+                    school.campusLevel,
+                    gameEngine.alumniNetwork.alumni.value,
+                    teacherRepository::generateCandidates
+                )
+                schoolRepository.mutateSchool { latest ->
+                    latest.teacherDevJson = teacherDevManager.toJson()
+                    true
+                }
+            }
+            _candidates.value = teacherDevManager.state.value.talentPool
+                .filter { it.status == TalentStatus.AVAILABLE }
+                .map { it.teacher.toTeacher() }
         }
     }
 
@@ -171,62 +190,57 @@ class TeacherViewModel @Inject constructor(
         audioManager.playButtonClick()
         viewModelScope.safeLaunch {
             _errorMessage.value = null
-            // 原子操作：检查余额 + 扣款，避免 TOCTOU 竞态
-            val result = schoolRepository.mutateSchool { school ->
-                if (school.cash < channel.cost) {
-                    _errorMessage.value = "资金不足! 需要${String.format("%.1f", channel.cost)}万"
-                    return@mutateSchool false
+            val talentChannel = when (channel) {
+                RecruitmentChannel.AD -> TalentChannel.AD
+                RecruitmentChannel.SCHOOL -> TalentChannel.SCHOOL
+                RecruitmentChannel.HEADHUNTER -> TalentChannel.HEADHUNTER
+            }
+            val visibleCandidates = teacherDevManager.candidatesForChannel(talentChannel)
+            if (visibleCandidates.isEmpty()) {
+                _errorMessage.value = "本年度该渠道人才名额已用完，请等待下一年度补充"
+                return@safeLaunch
+            }
+            val alreadyUnlocked = teacherDevManager.isChannelUnlocked(talentChannel)
+            val snapshot = teacherDevManager.snapshotState()
+            val result = if (alreadyUnlocked) {
+                schoolRepository.getSchool()
+            } else {
+                schoolRepository.mutateSchool { school ->
+                    if (school.cash < channel.cost) {
+                        _errorMessage.value = "资金不足! 需要${String.format("%.1f", channel.cost)}万"
+                        return@mutateSchool false
+                    }
+                    school.cash -= channel.cost
+                    teacherDevManager.unlockChannel(talentChannel)
+                    school.teacherDevJson = teacherDevManager.toJson()
+                    true
                 }
-                school.cash -= channel.cost
-                true
             }
             if (result != null) {
                 _selectedChannel.value = channel
-                generateCandidates(channel)
+                _candidates.value = visibleCandidates.map { it.teacher.toTeacher() }
+                if (_candidates.value.isEmpty()) {
+                    _errorMessage.value = "本年度该渠道人才名额已用完，请等待下一年度补充"
+                }
+            } else {
+                teacherDevManager.restoreSnapshot(snapshot)
             }
         }
-    }
-
-    private fun generateCandidates(channel: RecruitmentChannel) {
-        // 人脉影响候选人质量：人脉越高，高级教师出现概率越大
-        val connectionLevel = gameEngine.principal.connectionLevel
-        val connectionBonus = connectionLevel / 100.0 // 0.0 ~ 1.0
-
-        val candidates = when (channel) {
-            RecruitmentChannel.AD -> {
-                // 基础: C*3, B*2, A*1; 人脉高时加入更多B和A
-                val levels = mutableListOf(TeacherLevel.C, TeacherLevel.C, TeacherLevel.C, TeacherLevel.B, TeacherLevel.B, TeacherLevel.A)
-                if (connectionBonus > 0.3) levels.add(TeacherLevel.B) // 人脉>30: 多一个B
-                if (connectionBonus > 0.6) levels.add(TeacherLevel.A) // 人脉>60: 多一个A
-                val selectedLevels = (1..3).map { levels.random() }
-                selectedLevels.map { teacherRepository.generateCandidates(it, 1).first() }
-            }
-            RecruitmentChannel.SCHOOL -> {
-                val levels = mutableListOf(TeacherLevel.B, TeacherLevel.B, TeacherLevel.A, TeacherLevel.A, TeacherLevel.A, TeacherLevel.S)
-                if (connectionBonus > 0.4) levels.add(TeacherLevel.S) // 人脉>40: 多一个S
-                if (connectionBonus > 0.7) levels.add(TeacherLevel.S) // 人脉>70: 再多一个S
-                val selectedLevels = (1..3).map { levels.random() }
-                selectedLevels.map { teacherRepository.generateCandidates(it, 1).first() }
-            }
-            RecruitmentChannel.HEADHUNTER -> {
-                val levels = mutableListOf(TeacherLevel.A, TeacherLevel.A, TeacherLevel.A, TeacherLevel.S, TeacherLevel.S, TeacherLevel.S)
-                if (connectionBonus > 0.5) levels.add(TeacherLevel.S) // 人脉>50: 更多S
-                if (connectionBonus > 0.8) { levels.add(TeacherLevel.S); levels.add(TeacherLevel.S) } // 人脉>80: S占绝对多数
-                val selectedLevels = (1..3).map { levels.random() }
-                selectedLevels.map { teacherRepository.generateCandidates(it, 1).first() }
-            }
-        }
-        _candidates.value = candidates
     }
 
     fun hireTeacher(teacher: Teacher) {
         viewModelScope.safeLaunch {
-            val hiringFee = GameBalanceConfig.getHiringFee(teacher.level)
+            val hiredCandidate = teacherDevManager.consumeTalentCandidate(teacher.id)
+            if (hiredCandidate == null) {
+                _errorMessage.value = "该候选人已被聘用或年度人才池已刷新"
+                return@safeLaunch
+            }
+            val hiringFee = GameBalanceConfig.getHiringFee(hiredCandidate.level)
             // 原子操作：检查余额 + 扣款 + 获取游戏日期
             var gameDay = 0L
             val result = schoolRepository.mutateSchool { school ->
                 if (school.cash < hiringFee) {
-                    _errorMessage.value = "资金不足！招聘${teacher.level.name}级教师需要猎头费 ${hiringFee} 万元"
+                    _errorMessage.value = "资金不足！招聘${hiredCandidate.level.name}级教师需要猎头费 ${hiringFee} 万元"
                     return@mutateSchool false
                 }
                 school.cash -= hiringFee
@@ -234,19 +248,28 @@ class TeacherViewModel @Inject constructor(
                 true
             }
             if (result != null) {
-                // 设置入职日期为当前游戏绝对天数
-                teacher.hireDate = gameDay
-                teacherRepository.hireTeacher(teacher)
+                hiredCandidate.hireDate = gameDay
+                teacherRepository.hireTeacher(hiredCandidate)
+                schoolRepository.mutateSchool { school ->
+                    school.teacherDevJson = teacherDevManager.toJson()
+                    true
+                }
                 // 刷新课表，让新教师出现在对应科目的课程表中
                 gameEngine.refreshTimetablesForTeacherChange()
                 // 通知派系系统：招聘了教师（高薪=A/S级）
-                if (teacher.level in listOf(TeacherLevel.A, TeacherLevel.S)) {
+                if (hiredCandidate.level in listOf(TeacherLevel.A, TeacherLevel.S)) {
                     gameEngine.notifyFactionDecision(com.arktools.xiaozhang.domain.engine.SchoolDecision.HIRE_EXPENSIVE_TEACHER)
                 }
                 _showHireDialog.value = false
                 _candidates.value = emptyList()
                 _selectedChannel.value = null
                 audioManager.playTeacherHire()
+            } else {
+                teacherDevManager.restoreTalentCandidate(teacher.id)
+                schoolRepository.mutateSchool { school ->
+                    school.teacherDevJson = teacherDevManager.toJson()
+                    true
+                }
             }
         }
     }
