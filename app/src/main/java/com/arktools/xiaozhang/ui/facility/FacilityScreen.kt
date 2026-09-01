@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Upgrade
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider

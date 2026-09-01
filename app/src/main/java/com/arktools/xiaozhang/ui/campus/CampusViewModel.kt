@@ -941,29 +941,31 @@ class CampusViewModel @Inject constructor(
         pendingSpec?.let { spec ->
             val moving = moveId
             if (moving != null) {
-                val old = st.placed.firstOrNull { it.facilityId == moving || it.key == moving }
-                val specOld = old?.let { BT.specByKey(it.key) }
-                if (old != null && specOld != null) {
-                    val others = st.placed.filter { it != old }
-                    val err = canPlaceAt(spec, x, y, others, st.terrain, st.campusLevel, old.facilityId.ifBlank { old.key })
-                    if (err != null) {
-                        _state.value = _state.value.copy(message = err)
-                        audioManager.playEventNegative()
-                        return
+                viewModelScope.safeLaunch {
+                    val old = st.placed.firstOrNull { it.facilityId == moving || it.key == moving }
+                    val specOld = old?.let { BT.specByKey(it.key) }
+                    if (old != null && specOld != null) {
+                        val others = st.placed.filter { it != old }
+                        val err = canPlaceAt(spec, x, y, others, st.terrain, st.campusLevel, old.facilityId.ifBlank { old.key })
+                        if (err != null) {
+                            _state.value = _state.value.copy(message = err)
+                            audioManager.playEventNegative()
+                            return@safeLaunch
+                        }
+                        val moved = old.copy(x = x, y = y)
+                        val newPlaced = others + moved
+                        val persisted = persistLayoutResult(newPlaced, st.terrain)
+                        if (!persisted) {
+                            _state.value = _state.value.copy(message = "地图保存失败，搬移未生效")
+                            moveId = null
+                            pendingSpec = null
+                            return@safeLaunch
+                        }
+                        _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已搬移")
                     }
-                    val moved = old.copy(x = x, y = y)
-                    val newPlaced = others + moved
-                    val persisted = persistLayoutResult(newPlaced, st.terrain)
-                    if (!persisted) {
-                        _state.value = _state.value.copy(message = "地图保存失败，搬移未生效")
-                        moveId = null
-                        pendingSpec = null
-                        return
-                    }
-                    _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已搬移")
+                    moveId = null
+                    pendingSpec = null
                 }
-                moveId = null
-                pendingSpec = null
                 return
             }
             // 新建：附属医院由引擎在同一事务中登记地图与功能状态。
