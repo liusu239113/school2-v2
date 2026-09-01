@@ -157,7 +157,8 @@ class CampusViewModel @Inject constructor(
                 val terrain = BT.decodeTerrain(dev.terrainMap)
                 val decorKinds = setOf(
                     "FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN",
-                    "CHERRY_TREE", "MEMORIAL", "SCHOOL_SIGN", "FOUNTAIN"
+                    "CHERRY_TREE", "MEMORIAL", "SCHOOL_SIGN", "FOUNTAIN",
+                    "GINKGO", "BAMBOO", "LAMP", "PAVILION", "PARCEL", "FITNESS"
                 )
                 val bonuses = FacilityBonusCalculator.calculate(school.facilities)
                 _state.value = _state.value.copy(

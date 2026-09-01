@@ -69,8 +69,14 @@ object CampusBuildTypes {
         BENCH(0.4, 1, "长椅", R.drawable.deco_bench, 0.02, 0.03f),
         STATUE(1.0, 1, "雕像", R.drawable.deco_statue),
         CHERRY_TREE(0.6, 2, "樱花树", R.drawable.deco_cherry, 0.03, 0.05f, 1L),
+        GINKGO(0.8, 2, "银杏树", R.drawable.deco_ginkgo, 0.03, 0.05f, 1L),
+        BAMBOO(0.4, 1, "竹丛", R.drawable.deco_bamboo, 0.01, 0.03f),
+        LAMP(0.5, 1, "路灯", R.drawable.deco_lamp, 0.02, 0.02f, 1L),
         MEMORIAL(1.8, 2, "纪念碑", R.drawable.deco_memorial, 0.04, 0.05f, 3L),
         SCHOOL_SIGN(2.5, 2, "校名牌", R.drawable.deco_school_sign, 0.02, 0.03f, 3L),
+        PAVILION(3.0, 3, "凉亭", R.drawable.deco_pavilion, 0.06, 0.08f, 2L),
+        PARCEL(1.5, 2, "快递驿站", R.drawable.deco_parcel, 0.03, 0.06f),
+        FITNESS(1.2, 2, "健身角", R.drawable.deco_fitness, 0.04, 0.06f),
         FOUNTAIN(2.0, 3, "喷泉", R.drawable.deco_fountain, 0.10, 0.08f, 3L)
     }
 
@@ -118,6 +124,9 @@ object CampusBuildTypes {
         Spec("F_COMPUTER_LAB", "计算机房", 3, 2, 40.0, 2, R.drawable.bld_computer, facility = FacilityType.COMPUTER_LAB, buildDays = 3, prerequisiteColleges = listOf(CollegeType.ENGINEERING), downstream = "解锁编程课与数字化项目"),
         Spec("F_ART_STUDIO", "艺术工作室", 2, 2, 25.0, 2, R.drawable.bld_studio, facility = FacilityType.ART_STUDIO, buildDays = 3, prerequisiteColleges = listOf(CollegeType.ARTS), downstream = "解锁艺术实践与作品产出"),
         Spec("F_EMPLOYMENT", "就业指导中心", 3, 2, 45.0, 2, R.drawable.bld_employment, facility = FacilityType.EMPLOYMENT_CENTER, buildDays = 3, downstream = "提高毕业去向质量与校企合作"),
+        Spec("F_INCUBATOR", "校企合作中心", 3, 2, 80.0, 3, R.drawable.bld_incubator, facility = FacilityType.INCUBATOR, buildDays = 4, prerequisiteFacilities = listOf(FacilityType.EMPLOYMENT_CENTER), downstream = "创业与深造概率再提升，衔接校企实习资源"),
+        Spec("F_INTERNATIONAL", "国际交流中心", 3, 3, 90.0, 4, R.drawable.bld_intl, facility = FacilityType.INTERNATIONAL_CENTER, buildDays = 4, prerequisiteColleges = listOf(CollegeType.BUSINESS), downstream = "国际生学费收入与年度合作声誉提升"),
+        Spec("F_LOGISTICS", "后勤保障中心", 3, 2, 70.0, 2, R.drawable.bld_logistics, facility = FacilityType.LOGISTICS_CENTER, buildDays = 4, prerequisiteFacilities = listOf(FacilityType.CANTEEN), downstream = "降低全校设施维护成本"),
         Spec("F_CONFERENCE", "会议中心", 3, 3, 60.0, 3, R.drawable.bld_conference, facility = FacilityType.CONFERENCE_CENTER, buildDays = 4, prerequisiteFacilities = listOf(FacilityType.LIBRARY), downstream = "解锁学术会议与合作声誉"),
         Spec("F_AUDITORIUM", "大礼堂", 4, 3, 100.0, 3, R.drawable.bld_auditorium, facility = FacilityType.AUDITORIUM, buildDays = 5, prerequisiteFacilities = listOf(FacilityType.SPORTS_FIELD), downstream = "解锁大型文化节与校友活动")
     )

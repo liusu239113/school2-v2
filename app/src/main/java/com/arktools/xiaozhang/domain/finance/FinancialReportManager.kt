@@ -407,6 +407,7 @@ enum class ExpenseCategory(val displayName: String, val color: Long) {
     TRAINING_COST("培训费用", 0xFF00BCD4),
     EQUIPMENT("设备采购", 0xFF795548),
     UTILITIES("水电物业", 0xFF607D8B),
+    LIFE_SERVICE("生活服务", 0xFF009688),
     MARKETING("招生宣传", 0xFFE91E63),
     EXPANSION("校区建设", 0xFF4CAF50),
     TEACHING_OPERATION("教学运营", 0xFF9B59B6),

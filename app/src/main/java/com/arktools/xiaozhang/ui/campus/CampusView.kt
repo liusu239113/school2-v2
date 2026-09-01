@@ -158,7 +158,16 @@ fun CampusView(
             R.drawable.deco_cherry,
             R.drawable.deco_memorial,
             R.drawable.deco_school_sign,
-            R.drawable.deco_fountain
+            R.drawable.deco_fountain,
+            R.drawable.deco_ginkgo,
+            R.drawable.deco_bamboo,
+            R.drawable.deco_lamp,
+            R.drawable.deco_pavilion,
+            R.drawable.deco_parcel,
+            R.drawable.deco_fitness,
+            R.drawable.bld_incubator,
+            R.drawable.bld_intl,
+            R.drawable.bld_logistics
         )
         ids.associateWith { res ->
             BitmapFactory.decodeResource(context.resources, res).asImageBitmap()
@@ -361,8 +370,14 @@ fun CampusView(
                                     BT.TileKind.BENCH -> 0.92f
                                     BT.TileKind.FLOWERBED -> 0.92f
                                     BT.TileKind.CHERRY_TREE -> 0.95f
+                                    BT.TileKind.GINKGO -> 0.95f
+                                    BT.TileKind.BAMBOO -> 0.8f
+                                    BT.TileKind.LAMP -> 0.6f
                                     BT.TileKind.MEMORIAL -> 0.78f
                                     BT.TileKind.SCHOOL_SIGN -> 0.9f
+                                    BT.TileKind.PAVILION -> 1.0f
+                                    BT.TileKind.PARCEL -> 0.85f
+                                    BT.TileKind.FITNESS -> 0.88f
                                     BT.TileKind.FOUNTAIN -> 1.0f
                                     else -> 0.88f
                                 }

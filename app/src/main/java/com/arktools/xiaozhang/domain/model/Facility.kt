@@ -108,6 +108,14 @@ object FacilityCapacity {
     }
 
     fun canRepeat(type: FacilityType): Boolean = type.repeatable
+
+    /** 后勤保障中心等级对应的全校设施维护费系数（Lv0 不变，每级 -6%，封底 0.82）。 */
+    fun logisticsMaintenanceFactor(level: Int): Double =
+        (1.0 - 0.06 * level.coerceIn(0, 3)).coerceAtLeast(0.82)
+
+    /** 国际交流中心等级对应的国际生学费收入系数（每级 +10%）。 */
+    fun internationalIncomeMultiplier(level: Int): Double =
+        1.0 + 0.10 * level.coerceIn(0, 2)
 }
 
 enum class FacilityType(
@@ -136,6 +144,9 @@ enum class FacilityType(
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),
     CONFERENCE_CENTER("会议中心", "学术声誉+8%/级，事件奖励加成+10%/级", 60.0, 1.8, 3, FacilityCategory.PRESTIGE),
     EMPLOYMENT_CENTER("就业指导中心", "提升毕业去向质量：就业中心等级与政府评级会提高高质量去向概率", 45.0, 1.5, 3, FacilityCategory.SUPPORT),
+    INCUBATOR("校企合作中心", "就业体系升级：创业与深造概率再提升，衔接校企实习资源", 80.0, 2.2, 2, FacilityCategory.SUPPORT),
+    INTERNATIONAL_CENTER("国际交流中心", "国际生学费收入+10%/级，保障海外合作年度声誉", 90.0, 2.6, 2, FacilityCategory.SUPPORT),
+    LOGISTICS_CENTER("后勤保障中心", "全校设施月维护费-6%/级（最高-18%），降低运营压力", 70.0, 2.0, 3, FacilityCategory.SUPPORT),
     GARDEN("校园花园", "教师忠诚度衰减-20%/级，学生品德+。可重复布置园区", 12.0, 0.4, 3, FacilityCategory.PRESTIGE, repeatable = true),
     GATE("校门/门面", "学校形象，声誉增长+10%/级", 8.0, 0.2, 3, FacilityCategory.PRESTIGE)
 }

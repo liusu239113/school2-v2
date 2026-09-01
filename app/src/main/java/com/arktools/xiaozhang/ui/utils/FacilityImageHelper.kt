@@ -28,6 +28,9 @@ object FacilityImageHelper {
             FacilityType.GATE -> R.drawable.bld_gate
             FacilityType.CONFERENCE_CENTER -> R.drawable.bld_conference
             FacilityType.EMPLOYMENT_CENTER -> R.drawable.bld_employment
+            FacilityType.INCUBATOR -> R.drawable.bld_incubator
+            FacilityType.INTERNATIONAL_CENTER -> R.drawable.bld_intl
+            FacilityType.LOGISTICS_CENTER -> R.drawable.bld_logistics
         }
     }
 }

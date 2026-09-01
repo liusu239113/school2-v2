@@ -3676,12 +3676,17 @@ class GameEngine @Inject constructor(
             val employmentSupportLevel = school.facilities
                 .filter { it.type == FacilityType.EMPLOYMENT_CENTER && it.isOperational }
                 .maxOfOrNull { it.level } ?: 0
+            // 校企合作中心运营时，就业支持体系整体升一档（就业市场内封顶）
+            val incubatorRunning = school.facilities.any {
+                it.type == FacilityType.INCUBATOR && it.isOperational
+            }
+            val effectiveSupportLevel = if (incubatorRunning) employmentSupportLevel + 1 else employmentSupportLevel
             val totalGovBoost = govBoostForEmployment + academicEmploymentBoost
             st.employmentResult = employmentMarket.advanceMonth(
                 school.reputation.toLong(), school.currentYear, school.currentMonth,
                 governmentBoostFactor = totalGovBoost,
                 schoolLevel = school.campusLevel,
-                employmentSupportLevel = employmentSupportLevel
+                employmentSupportLevel = effectiveSupportLevel
             )
             // 扣除职业辅导费用（职业本科校企合作：企业分摊 4 成）
             val employmentTier = school.schoolTier()
@@ -4141,7 +4146,7 @@ class GameEngine @Inject constructor(
             }
             if (st.expLifeExpenses > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.UTILITIES, st.expLifeExpenses
+                    com.arktools.xiaozhang.domain.finance.ExpenseCategory.LIFE_SERVICE, st.expLifeExpenses
                 )
             }
             // 校友捐赠收入（已在本月确定）
@@ -6037,10 +6042,14 @@ class GameEngine @Inject constructor(
         }
         val baseRent = getMonthlyRent(school.campusLevel)
 
-        // Facility maintenance costs
+        // Facility maintenance costs（后勤保障中心按等级打折）
+        val logisticsLevel = school.facilities
+            .filter { it.type == FacilityType.LOGISTICS_CENTER && it.isOperational }
+            .maxOfOrNull { it.level } ?: 0
         val facilityMaintenance = school.facilities
             .filterNot { it.isConstructing }
-            .sumOf { it.maintenanceCost }
+            .sumOf { it.maintenanceCost } *
+            com.arktools.xiaozhang.domain.model.FacilityCapacity.logisticsMaintenanceFactor(logisticsLevel)
 
         // Apply inflation based on game year (difficulty curve)
         val salaryInflation = GameBalanceConfig.getSalaryInflation(school.currentYear)
@@ -7873,7 +7882,11 @@ class GameEngine @Inject constructor(
 
         // 月度推进 + 学费
         val (intlGrad, outBack) = im.advanceMonth()
-        val income = im.monthlyIncomeWan()
+        val intlCenterLevel = school.facilities
+            .filter { it.type == FacilityType.INTERNATIONAL_CENTER && it.isOperational }
+            .maxOfOrNull { it.level } ?: 0
+        val income = im.monthlyIncomeWan() *
+            com.arktools.xiaozhang.domain.model.FacilityCapacity.internationalIncomeMultiplier(intlCenterLevel)
         if (income > 0 || intlGrad > 0 || outBack > 0) {
             val rep = intlGrad * 80L + outBack * 25L
             schoolRepository.mutateSchool { s ->
