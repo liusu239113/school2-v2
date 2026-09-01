@@ -3228,17 +3228,17 @@ class GameEngine @Inject constructor(
      */
     private suspend fun runMonthlySettlement(school: School): Boolean {
         val st = MonthlySettlementState()
-            if (!managerStatesReadyForSave || managerRestoreFailedFields.isNotEmpty()) {
-                throw IllegalStateException(
-                    "Monthly settlement blocked: manager restore is incomplete; " +
-                        "failed=${managerRestoreFailedFields.joinToString()}"
-                )
-            }
-            // 重试发生在非1日（月结在1日推进日期后执行），此时跳过收入/支出避免重复扣费。
-            st.isRetrySettlement =
-                pendingMonthlySettlementRetry && school.currentDay != 1
-            pendingMonthlySettlementRetry = false
-            try {
+        if (!managerStatesReadyForSave || managerRestoreFailedFields.isNotEmpty()) {
+            throw IllegalStateException(
+                "Monthly settlement blocked: manager restore is incomplete; " +
+                    "failed=${managerRestoreFailedFields.joinToString()}"
+            )
+        }
+        // 重试发生在非1日（月结在1日推进日期后执行），此时跳过收入/支出避免重复扣费。
+        st.isRetrySettlement =
+            pendingMonthlySettlementRetry && school.currentDay != 1
+        pendingMonthlySettlementRetry = false
+        try {
             // 首次进入1日时，日常推进已在月结前完成。先持久化这个稳定基线，
             // 使月结失败并立即重启时不会重复或漏掉当日 Manager 推进。
             flushAllManagerStatesLocked()
@@ -3247,22 +3247,22 @@ class GameEngine @Inject constructor(
             msStage3(school, st)
             msStage4(school, st)
             msStage5(school, st)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                android.util.Log.e(
-                    "GameEngine",
-                    "Monthly settlement failed; will retry on next tick",
-                    e
-                )
-                pendingMonthlySettlementRetry = true
-                _gameDaySignal.tryEmit(Unit)
-                return false
-            }
-            if (isPaused) {
-                _gameDaySignal.tryEmit(Unit)
-                return false
-            }
-            return true
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            android.util.Log.e(
+                "GameEngine",
+                "Monthly settlement failed; will retry on next tick",
+                e
+            )
+            pendingMonthlySettlementRetry = true
+            _gameDaySignal.tryEmit(Unit)
+            return false
+        }
+        if (isPaused) {
+            _gameDaySignal.tryEmit(Unit)
+            return false
+        }
+        return true
     }
 
     private suspend fun msStage1(school: School, st: MonthlySettlementState) {
