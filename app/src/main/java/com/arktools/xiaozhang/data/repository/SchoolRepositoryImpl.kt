@@ -187,6 +187,10 @@ class SchoolRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deductCash(amount: Double) {
+        if (!amount.isFinite() || amount < 0.0) {
+            android.util.Log.e("SchoolRepo", "Rejected invalid cash deduction: $amount")
+            return
+        }
         withSchoolLock {
             inWriteTransaction {
                 val school = schoolDao.getSchoolCore()?.let { loadSchool(it) } ?: return@inWriteTransaction

@@ -1,6 +1,7 @@
 package com.arktools.xiaozhang.ui.story
 
-import androidx.compose.foundation.Image
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -21,9 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arktools.xiaozhang.R
@@ -41,6 +45,7 @@ fun OpeningStoryScreen(
     data class Panel(val res: Int, val speaker: String, val text: String)
     val p = principalName.ifBlank { "校长" }
     val s = schoolName.ifBlank { "新大学" }
+    val context = LocalContext.current
     val panels = remember(p, s) {
         listOf(
             Panel(R.drawable.opening_p1, p, "终于把办学资质提交上去了！"),
@@ -108,21 +113,41 @@ fun OpeningStoryScreen(
     var index by remember { mutableIntStateOf(0) }
     val panel = panels[index]
     val pageIndex = index / 6 + 1
+    val cellIndex = index % 6
+    val pageImage = remember(panel.res) {
+        BitmapFactory.decodeResource(context.resources, panel.res).asImageBitmap()
+    }
+    val sourceRect = when (cellIndex) {
+        0 -> IntOffset(16, 16) to IntSize(348, 318)
+        1 -> IntOffset(372, 16) to IntSize(332, 318)
+        2 -> IntOffset(16, 340) to IntSize(688, 312)
+        3 -> IntOffset(16, 664) to IntSize(348, 292)
+        4 -> IntOffset(372, 664) to IntSize(332, 292)
+        else -> IntOffset(16, 974) to IntSize(688, 292)
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0F1A))
-            .clickable {
-                if (index < panels.lastIndex) index++ else onDone()
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0B0F1A))) {
+        pageImage?.let { image ->
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 56.dp, bottom = 150.dp)
+                    .clickable {
+                        if (index < panels.lastIndex) index++ else onDone()
+                    }
+            ) {
+                val srcOffset = sourceRect.first
+                val srcSize = sourceRect.second
+                drawImage(
+                    image = image,
+                    srcOffset = srcOffset,
+                    srcSize = srcSize,
+                    dstOffset = IntOffset.Zero,
+                    dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                    filterQuality = FilterQuality.None
+                )
             }
-    ) {
-        Image(
-            painter = painterResource(id = panel.res),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        }
 
         Row(
             modifier = Modifier

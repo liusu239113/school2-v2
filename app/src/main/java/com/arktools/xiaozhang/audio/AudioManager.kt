@@ -28,6 +28,7 @@ class AudioManager @Inject constructor(
 
     private var soundPool: SoundPool? = null
     private val soundMap = mutableMapOf<SoundType, Int>()
+    private val loadedSoundIds = mutableSetOf<Int>()
     private var sfxVolume: Float = 0.7f
     private var bgmVolume: Float = 0.5f
     private var initialized = false
@@ -36,6 +37,7 @@ class AudioManager @Inject constructor(
     private var mediaPlayer: MediaPlayer? = null
     private var isBgmPlaying = false
     private var currentBgmRes: String = ""
+    private var pausedBgmRes: String = ""
 
     enum class SoundType {
         BUTTON_CLICK,
@@ -131,6 +133,13 @@ class AudioManager @Inject constructor(
             .setMaxStreams(8)
             .setAudioAttributes(audioAttributes)
             .build()
+        soundPool?.setOnLoadCompleteListener { _, sampleId, status ->
+            if (status == 0) {
+                loadedSoundIds.add(sampleId)
+            } else {
+                android.util.Log.e("AudioManager", "Sound load failed: sampleId=$sampleId status=$status")
+            }
+        }
 
         soundResNames.forEach { (type, name) ->
             val resId = getResId(name)
@@ -159,7 +168,7 @@ class AudioManager @Inject constructor(
             if (!settingsDataStore.soundEnabled.first()) return@launch
 
             val soundId = soundMap[type] ?: return@launch
-            if (soundId == 0) return@launch
+            if (soundId == 0 || soundId !in loadedSoundIds) return@launch
 
             soundPool?.play(soundId, sfxVolume, sfxVolume, 1, 0, 1.0f)
         }
@@ -185,6 +194,12 @@ class AudioManager @Inject constructor(
                     isLooping = true
                     setVolume(bgmVolume, bgmVolume)
                     start()
+                }
+                if (mediaPlayer == null) {
+                    isBgmPlaying = false
+                    currentBgmRes = ""
+                    android.util.Log.e("AudioManager", "BGM creation failed: $resName")
+                    return@launch
                 }
                 isBgmPlaying = true
                 currentBgmRes = resName
@@ -217,6 +232,7 @@ class AudioManager @Inject constructor(
         scope.launch {
             try {
                 mediaPlayer?.pause()
+                if (mediaPlayer != null) pausedBgmRes = currentBgmRes
                 isBgmPlaying = false
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -228,8 +244,12 @@ class AudioManager @Inject constructor(
         scope.launch {
             if (!settingsDataStore.musicEnabled.first()) return@launch
             try {
-                mediaPlayer?.start()
-                isBgmPlaying = true
+                if (mediaPlayer == null && pausedBgmRes.isNotBlank()) {
+                    startBgm(pausedBgmRes)
+                } else if (mediaPlayer != null) {
+                    mediaPlayer?.start()
+                    isBgmPlaying = true
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -294,6 +314,7 @@ class AudioManager @Inject constructor(
         soundPool?.release()
         soundPool = null
         soundMap.clear()
+        loadedSoundIds.clear()
         initialized = false
     }
 }

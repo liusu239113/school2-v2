@@ -160,7 +160,10 @@ class MainViewModel @Inject constructor(
      * 双倍收益：看广告成功，额外发放一份月收入
      */
     fun onDoubleIncomeRewarded() {
-        val bonus = _pendingBonusAmount.value
+        var bonus = _pendingBonusAmount.value
+        while (bonus > 0.0 && !_pendingBonusAmount.compareAndSet(bonus, 0.0)) {
+            bonus = _pendingBonusAmount.value
+        }
         if (bonus > 0) {
             viewModelScope.safeLaunch {
                 schoolRepository.addCash(bonus)

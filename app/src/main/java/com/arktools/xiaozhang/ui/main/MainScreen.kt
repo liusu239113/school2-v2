@@ -87,6 +87,7 @@ import com.arktools.xiaozhang.ui.minigame.MiniGameContainer
 import com.arktools.xiaozhang.ui.event.EventScreen
 import com.arktools.xiaozhang.ui.overview.OverviewScreen
 import com.arktools.xiaozhang.ui.ranking.RankingScreen
+import com.arktools.xiaozhang.ui.navigation.Screen
 import com.arktools.xiaozhang.ui.research.ResearchScreen
 import com.arktools.xiaozhang.ui.stock.StockScreen
 import com.arktools.xiaozhang.ui.teacher.TeacherListScreen
@@ -173,8 +174,8 @@ fun MainScreen(
     val disciplinaryPause by viewModel.disciplinaryPause.collectAsState()
     val hasSaveData by menuViewModel.hasSaveData.collectAsState()
     val needsRestart by viewModel.needsRestart.collectAsState()
-    var selectedTab by rememberSaveable { mutableStateOf(0) }
-    var navStack by rememberSaveable { mutableStateOf(listOf(0)) }
+    var selectedTab by rememberSaveable { mutableStateOf(Screen.OVERVIEW) }
+    var navStack by rememberSaveable { mutableStateOf(listOf(Screen.OVERVIEW)) }
     var showSettings by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var showConfetti by remember { mutableStateOf(false) }
@@ -189,11 +190,9 @@ fun MainScreen(
         if (navStack.size > 1) {
             navStack = navStack.dropLast(1)
             selectedTab = navStack.last()
-            return
-        }
-        if (selectedTab > 3) {
-            selectedTab = 1
-            navStack = listOf(1)
+        } else if (Screen.isSubPage(selectedTab)) {
+            selectedTab = Screen.OVERVIEW
+            navStack = listOf(Screen.OVERVIEW)
         } else {
             showExitDialog = true
         }
@@ -649,7 +648,7 @@ fun MainScreen(
                     containerColor = Color(0xCC0B2038)
                 ),
                 navigationIcon = {
-                    if (selectedTab > 3 || navStack.size > 1) {
+                    if (Screen.isSubPage(selectedTab) || navStack.size > 1) {
                         IconButton(onClick = { navigateBack() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -661,12 +660,12 @@ fun MainScreen(
                 title = {
                     Column {
                         Text(
-                            text = if (selectedTab > 4) getSubPageTitle(selectedTab) else (school?.name ?: "大学时代"),
+                            text = if (Screen.isSubPage(selectedTab)) getSubPageTitle(selectedTab) else (school?.name ?: "大学时代"),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = Color.White
                         )
-                        if (selectedTab <= 4) {
+                        if (!Screen.isSubPage(selectedTab)) {
                             Text(
                                 text = "${school?.currentYear ?: "--"}年 ${school?.currentMonth ?: "-"}月 ${school?.currentDay ?: "-"}日" +
                                     (school?.let {
