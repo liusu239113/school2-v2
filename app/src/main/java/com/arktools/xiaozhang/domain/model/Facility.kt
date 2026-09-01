@@ -222,6 +222,9 @@ object FacilityBonusCalculator {
                             eventReward += 0.10f * levelMultiplier
                         }
                         FacilityType.EMPLOYMENT_CENTER -> reputationGrowth += 0.06f * levelMultiplier
+                        FacilityType.INCUBATOR -> enrollment += 0.03f * levelMultiplier
+                        FacilityType.INTERNATIONAL_CENTER -> reputationGrowth += 0.06f * levelMultiplier
+                        FacilityType.LOGISTICS_CENTER -> { /* 效果体现在维护费折扣，不在加成面板 */ }
                     }
                 }
             }

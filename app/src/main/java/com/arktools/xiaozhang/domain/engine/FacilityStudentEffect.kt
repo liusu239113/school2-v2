@@ -69,6 +69,23 @@ object FacilityStudentEffect {
                         dSocial = effectivePower * 0.12f * traitMods.socialMod
                     )
                 }
+                FacilityType.INCUBATOR -> {
+                    // 校企合作中心: 创业实践与实习项目 → 社交/品德成长
+                    attrs = attrs.applyDelta(
+                        dSocial = effectivePower * 0.08f * traitMods.socialMod,
+                        dMorality = effectivePower * 0.04f * traitMods.moralityMod
+                    )
+                }
+                FacilityType.INTERNATIONAL_CENTER -> {
+                    // 国际交流中心: 跨文化活动与语言角 → 社交/创造力成长
+                    attrs = attrs.applyDelta(
+                        dSocial = effectivePower * 0.08f * traitMods.socialMod,
+                        dCreativity = effectivePower * 0.06f * traitMods.creativityMod
+                    )
+                }
+                FacilityType.LOGISTICS_CENTER -> {
+                    // 后勤保障中心: 面向运营而非学生个体，无直接成长效果
+                }
                 FacilityType.CANTEEN -> {
                     // 食堂: 体力恢复 + 社交（吃饭聊天） + 饮食质量
                     mealQ = (mealQ + effectivePower * CANTEEN_MEAL_QUALITY_GAIN).coerceAtMost(100f)
