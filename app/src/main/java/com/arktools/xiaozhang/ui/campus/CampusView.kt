@@ -778,6 +778,77 @@ fun CampusView(
             }
         }
 
+        // 道路/装扮详情面板：查看效果并可拆除
+        state.selectedTile?.let { tile ->
+            val sheetState = rememberModalBottomSheetState()
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.clearTileSelection() },
+                sheetState = sheetState,
+                containerColor = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (tile.drawableRes != 0) {
+                            Image(
+                                painter = painterResource(id = tile.drawableRes),
+                                contentDescription = tile.displayName,
+                                modifier = Modifier.size(56.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                tile.displayName,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF182635)
+                            )
+                            Text(
+                                "造价 ${tile.costWan}万 · 月维护 ${tile.monthlyMaintenanceWan}万",
+                                fontSize = 12.sp,
+                                color = Color(0xFF617386)
+                            )
+                            if (tile.satisfactionBonus > 0f) {
+                                Text(
+                                    "学生满意度 +${(tile.satisfactionBonus * 100).toInt()}%",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF2E9B78)
+                                )
+                            }
+                            if (tile.reputationBonus > 0) {
+                                Text(
+                                    "每月声誉 +${tile.reputationBonus}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF1E96C8)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = { viewModel.clearTileSelection() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("关闭")
+                        }
+                        Button(
+                            onClick = { viewModel.removeSelectedTile() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("拆除（返还${"%.1f".format(tile.costWan * 0.5)}万）")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
+
         val pickingAdvisor by viewModel.pickingAdvisorClass.collectAsState()
         pickingAdvisor?.let { classId ->
             val options by viewModel.advisorOptions.collectAsState()

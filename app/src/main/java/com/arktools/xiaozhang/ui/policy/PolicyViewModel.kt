@@ -17,10 +17,23 @@ import com.arktools.xiaozhang.util.safeLaunch
 class PolicyViewModel @Inject constructor(
     private val policyManager: SchoolPolicyManager,
     private val gameEngine: GameEngine,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    schoolRepository: com.arktools.xiaozhang.domain.repository.SchoolRepository
 ) : ViewModel() {
 
     val policies: StateFlow<SchoolPolicies> = policyManager.policies
+
+    private val _campusLevel = MutableStateFlow(1)
+    /** 当前校园等级：年度目标达标条件按等级换算展示。 */
+    val campusLevel: StateFlow<Int> = _campusLevel.asStateFlow()
+
+    init {
+        viewModelScope.safeLaunch {
+            schoolRepository.getSchoolFlow().collect { school ->
+                if (school != null) _campusLevel.value = school.campusLevel
+            }
+        }
+    }
 
     private val _operationMessage = MutableStateFlow<String?>(null)
     val operationMessage: StateFlow<String?> = _operationMessage.asStateFlow()

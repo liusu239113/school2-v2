@@ -799,7 +799,28 @@ enum class UniversityStrategy(
     TEACHING_FIRST("教学优先", "📚", "强化课堂质量，科研推进稍慢。", 1.12f, 0.97f, 1.04f, 4L, 0.04f, 0),
     RESEARCH_FIRST("科研优先", "🔬", "加快研究进度，日常教学略受挤压。", 0.94f, 0.96f, 1.08f, 6L, 0.02f, 1),
     EMPLOYMENT_FIRST("就业优先", "💼", "重视毕业出口和社会评价，招生更稳。", 1.02f, 1.04f, 1.03f, 8L, 0.06f, 0),
-    EXPANSION_FIRST("扩张优先", "🏗️", "扩大规模和容量，短期质量承压。", 0.92f, 1.10f, 1.10f, -2L, -0.02f, 0)
+    EXPANSION_FIRST("扩张优先", "🏗️", "扩大规模和容量，短期质量承压。", 0.92f, 1.10f, 1.10f, -2L, -0.02f, 0);
+
+    /** 具体数值效果摘要（供政策页展示，让选择有明确反馈）。 */
+    val effectSummary: String
+        get() {
+            fun pct(v: Float): String {
+                val n = ((v - 1f) * 100f).toInt()
+                return if (n >= 0) "+$n%" else "$n%"
+            }
+            val parts = buildList {
+                add("培养质量 ${pct(qualityMultiplier)}")
+                add("招生 ${pct(enrollmentMultiplier)}")
+                add("支出 ${pct(expenseMultiplier)}")
+                if (reputationModifier != 0L) add("月声誉 ${if (reputationModifier > 0) "+" else ""}$reputationModifier")
+                if (graduationQualityBonus != 0f) {
+                    val g = (graduationQualityBonus * 100f).toInt()
+                    add("毕业质量 ${if (g > 0) "+" else ""}$g%")
+                }
+                if (extraResearchDays > 0) add("每周科研 +$extraResearchDays 天")
+            }
+            return parts.joinToString(" · ")
+        }
 }
 
 /**
@@ -1063,6 +1084,19 @@ enum class AnnualGoal(
     EMPLOYMENT_QUALITY("就业质量", "💼", "毕业出口和就业率必须达标。"),
     CAMPUS_LIFE("校园体验", "🏠", "学生满意度必须明显高于去年。"),
     SOCIAL_INFLUENCE("社会影响", "📣", "声誉必须明显高于去年。");
+
+    /** 年底考核达标条件摘要（按当前校园等级换算）。 */
+    fun requirementSummary(campusLevel: Int): String = when (this) {
+        BALANCED_GROWTH -> "达标：在校生≥${40 + campusLevel * 20} 且 科研≥$campusLevel 项 且 满意度≥62%"
+        RESEARCH_BREAKTHROUGH -> "达标：科研项目比去年多至少 1 项"
+        EMPLOYMENT_QUALITY -> "达标：就业/升学率≥${(0.42f + campusLevel * 0.04f).toInt() * 100}%"
+        CAMPUS_LIFE -> "达标：学生满意度比去年至少高 4 个百分点"
+        SOCIAL_INFLUENCE -> "达标：声誉比去年至少高 ${40 + campusLevel * 10}"
+    }
+
+    /** 达标奖励与未达标惩罚摘要。 */
+    fun rewardSummary(campusLevel: Int): String =
+        "达标奖励：声誉+${18 + campusLevel * 4}、经费+${8 + campusLevel * 4}万；未达标：声誉-${8 + campusLevel * 2}"
 
     fun evaluate(
         campusLevel: Int,

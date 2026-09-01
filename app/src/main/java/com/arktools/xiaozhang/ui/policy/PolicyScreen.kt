@@ -183,7 +183,7 @@ fun PolicyScreen(
                     PolicyOption(
                         icon = strategy.icon,
                         name = strategy.displayName,
-                        description = strategy.description,
+                        description = strategy.description + "\n" + strategy.effectSummary,
                         isSelected = policies.universityStrategy == strategy,
                         onClick = { viewModel.setUniversityStrategy(strategy) }
                     )
@@ -264,11 +264,14 @@ fun PolicyScreen(
                 title = "本学年目标",
                 description = "6月会按这项考核。达标给声誉和专项拨款，未达标扣声誉。"
             ) {
+                val campusLevel by viewModel.campusLevel.collectAsState()
                 AnnualGoal.entries.forEach { goal ->
                     PolicyOption(
                         icon = goal.icon,
                         name = goal.displayName,
-                        description = goal.description,
+                        description = goal.description + "\n" +
+                            goal.requirementSummary(campusLevel) + "\n" +
+                            goal.rewardSummary(campusLevel),
                         isSelected = policies.collegeDevelopment.annualGoal == goal,
                         onClick = { viewModel.setAnnualGoal(goal) }
                     )

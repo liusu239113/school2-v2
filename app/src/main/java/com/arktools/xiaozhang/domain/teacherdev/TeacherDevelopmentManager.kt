@@ -45,7 +45,10 @@ class TeacherDevelopmentManager @Inject constructor() {
         alumni: List<Alumnus>,
         generator: (TeacherLevel, Int) -> List<Teacher>
     ) {
-        if (_state.value.talentPoolYear == currentYear) return
+        val st = _state.value
+        // 同年且池非空 → 直接复用（招满也等次年，保住年度名额设计）
+        // 同年但池为空（新档竞态/存档恢复覆盖导致丢失）→ 自动重建，避免整年无才可招
+        if (st.talentPoolYear == currentYear && st.talentPool.isNotEmpty()) return
         val counts = when (campusLevel.coerceIn(1, 6)) {
             1 -> mapOf(TeacherLevel.C to 5, TeacherLevel.B to 2)
             2 -> mapOf(TeacherLevel.C to 5, TeacherLevel.B to 3, TeacherLevel.A to 1)

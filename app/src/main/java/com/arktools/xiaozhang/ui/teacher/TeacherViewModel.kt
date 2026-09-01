@@ -155,25 +155,27 @@ class TeacherViewModel @Inject constructor(
         }
     }
 
+    private suspend fun ensureTalentPoolReady() {
+        val school = schoolRepository.getSchool() ?: return
+        teacherDevManager.ensureAnnualTalentPool(
+            school.currentYear,
+            school.campusLevel,
+            gameEngine.alumniNetwork.alumni.value,
+            teacherRepository::generateCandidates
+        )
+        schoolRepository.mutateSchool { latest ->
+            latest.teacherDevJson = teacherDevManager.toJson()
+            true
+        }
+    }
+
     fun onHireClick() {
         audioManager.playButtonClick()
         _showHireDialog.value = true
         _selectedChannel.value = null
         viewModelScope.safeLaunch {
-            val school = schoolRepository.getSchool()
-            _schoolLevel.value = school?.campusLevel ?: 1
-            if (school != null) {
-                teacherDevManager.ensureAnnualTalentPool(
-                    school.currentYear,
-                    school.campusLevel,
-                    gameEngine.alumniNetwork.alumni.value,
-                    teacherRepository::generateCandidates
-                )
-                schoolRepository.mutateSchool { latest ->
-                    latest.teacherDevJson = teacherDevManager.toJson()
-                    true
-                }
-            }
+            _schoolLevel.value = schoolRepository.getSchool()?.campusLevel ?: 1
+            ensureTalentPoolReady()
             _candidates.value = teacherDevManager.state.value.talentPool
                 .filter { it.status == TalentStatus.AVAILABLE }
                 .map { it.teacher.toTeacher() }
@@ -195,6 +197,8 @@ class TeacherViewModel @Inject constructor(
                 RecruitmentChannel.SCHOOL -> TalentChannel.SCHOOL
                 RecruitmentChannel.HEADHUNTER -> TalentChannel.HEADHUNTER
             }
+            // 先确保年度人才池就绪，避免新档竞态导致误报“名额已用完”
+            ensureTalentPoolReady()
             val visibleCandidates = teacherDevManager.candidatesForChannel(talentChannel)
             if (visibleCandidates.isEmpty()) {
                 _errorMessage.value = "本年度该渠道人才名额已用完，请等待下一年度补充"

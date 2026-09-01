@@ -70,6 +70,8 @@ class CampusViewModel @Inject constructor(
         val maxFacilities: Int = 5,
         val selected: CampusBuilding? = null,
         val selectedPlaced: BT.PlacedBuilding? = null,
+        val selectedTile: BT.TileKind? = null,
+        val selectedTilePos: Pair<Int, Int>? = null,
         val showBuildMenu: Boolean = false,
         val message: String? = null,
         val studentCount: Int = 0,
@@ -1051,6 +1053,49 @@ class CampusViewModel @Inject constructor(
                 else -> CampusBuilding.Kind.FACILITY
             }
             viewModelSelect(b, spec, facility, displayKind)
+            return
+        }
+        // 查看道路/装扮：展示效果并提供拆除
+        st.terrain[y * 1000L + x]?.let { tile ->
+            audioManager.playCardOpen()
+            _state.value = st.copy(
+                selectedTile = tile,
+                selectedTilePos = x to y
+            )
+        }
+    }
+
+    fun clearTileSelection() {
+        _state.value = _state.value.copy(selectedTile = null, selectedTilePos = null)
+    }
+
+    /** 拆除选中的道路/装扮，返还 50% 造价。 */
+    fun removeSelectedTile() {
+        val st = _state.value
+        val tile = st.selectedTile
+        val pos = st.selectedTilePos
+        if (tile == null || pos == null) return
+        viewModelScope.safeLaunch {
+            val key = pos.second * 1000L + pos.first
+            val newTerrain = st.terrain - key
+            val refund = tile.costWan * 0.5
+            val persisted = if (refund > 0.0) {
+                schoolRepository.mutateSchool { school ->
+                    school.cash += refund
+                    true
+                } != null
+            } else true
+            if (!persisted) {
+                _state.value = st.copy(message = "拆除失败，请稍后重试")
+                return@safeLaunch
+            }
+            _state.value = st.copy(
+                terrain = newTerrain,
+                selectedTile = null,
+                selectedTilePos = null,
+                message = "已拆除${tile.displayName}，返还 ${"%.1f".format(refund)} 万"
+            )
+            persistLayout(st.placed, newTerrain)
         }
     }
 
