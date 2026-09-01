@@ -39,6 +39,24 @@ class AudioManager @Inject constructor(
     private var currentBgmRes: String = ""
     private var pausedBgmRes: String = ""
 
+    enum class CampusTrack(
+        val displayName: String,
+        val resName: String,
+        val unlockDescription: String
+    ) {
+        MAIN("大学时代", "v2_bgm_campus", "默认解锁"),
+        MORNING("校园晨光", "v2_bgm_morning", "校园 Lv2 解锁"),
+        RELAXED("假日漫步", "v2_bgm_relax", "校园 Lv3 解锁"),
+        ACADEMIC("学术星河", "v2_bgm_academic", "校园 Lv5 或研究生院解锁");
+
+        fun isUnlocked(campusLevel: Int, graduateProgram: Boolean): Boolean = when (this) {
+            MAIN -> true
+            MORNING -> campusLevel >= 2
+            RELAXED -> campusLevel >= 3
+            ACADEMIC -> campusLevel >= 5 || graduateProgram
+        }
+    }
+
     enum class SoundType {
         BUTTON_CLICK,
         CARD_OPEN,

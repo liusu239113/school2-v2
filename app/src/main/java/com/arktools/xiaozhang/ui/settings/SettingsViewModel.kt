@@ -15,7 +15,8 @@ import com.arktools.xiaozhang.util.safeLaunch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    val audioManager: AudioManager
+    val audioManager: AudioManager,
+    private val policyManager: com.arktools.xiaozhang.domain.policy.SchoolPolicyManager
 ) : ViewModel() {
 
     private val _darkMode = MutableStateFlow(false)
@@ -36,6 +37,9 @@ class SettingsViewModel @Inject constructor(
     private val _bgmVolume = MutableStateFlow(0.5f)
     val bgmVolume: StateFlow<Float> = _bgmVolume.asStateFlow()
 
+    private val _selectedCampusBgm = MutableStateFlow(AudioManager.CampusTrack.MAIN.resName)
+    val selectedCampusBgm: StateFlow<String> = _selectedCampusBgm.asStateFlow()
+
     // 文字颜色模式: "auto" | "dark" | "light"
     private val _textColorMode = MutableStateFlow("auto")
     val textColorMode: StateFlow<String> = _textColorMode.asStateFlow()
@@ -49,6 +53,9 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.safeLaunch {
             settingsDataStore.musicEnabled.collect { _musicEnabled.value = it }
+        }
+        viewModelScope.safeLaunch {
+            settingsDataStore.selectedCampusBgm.collect { _selectedCampusBgm.value = it }
         }
         viewModelScope.safeLaunch {
             settingsDataStore.gameSpeed.collect { _gameSpeed.value = it }
@@ -78,6 +85,30 @@ class SettingsViewModel @Inject constructor(
             } else {
                 audioManager.startBgm()
             }
+        }
+    }
+
+    fun isGraduateProgramActive(): Boolean =
+        policyManager.policies.value.collegeDevelopment.graduateProgram
+
+    fun availableCampusTracks(
+        campusLevel: Int,
+        graduateProgram: Boolean
+    ): Map<AudioManager.CampusTrack, Boolean> =
+        AudioManager.CampusTrack.entries.associateWith {
+            it.isUnlocked(campusLevel, graduateProgram)
+        }
+
+    fun selectCampusBgm(
+        track: AudioManager.CampusTrack,
+        campusLevel: Int,
+        graduateProgram: Boolean
+    ) {
+        if (!track.isUnlocked(campusLevel, graduateProgram)) return
+        _selectedCampusBgm.value = track.resName
+        viewModelScope.safeLaunch {
+            settingsDataStore.setSelectedCampusBgm(track.resName)
+            if (_musicEnabled.value) audioManager.startBgm(track.resName)
         }
     }
 

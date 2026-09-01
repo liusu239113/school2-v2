@@ -211,7 +211,9 @@ class MainViewModel @Inject constructor(
      */
     private fun startLoadedGame() {
         gameEngine.start()
-        audioManager.startBgm()
+        viewModelScope.safeLaunch {
+            audioManager.startBgm(settingsDataStore.selectedCampusBgm.first())
+        }
         _isGameRunning.value = true
         _isPaused.value = false
         viewModelScope.safeLaunch {
@@ -225,7 +227,9 @@ class MainViewModel @Inject constructor(
      */
     fun resumeAfterLoad() {
         _justLoadedSave.value = false
-        audioManager.startBgm()
+        viewModelScope.safeLaunch {
+            audioManager.startBgm(settingsDataStore.selectedCampusBgm.first())
+        }
         gameEngine.resume()
     }
 
@@ -276,24 +280,27 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private var lastBgmType: AudioManager.BgmType? = null
+    private var lastBgmRes: String = ""
 
     private fun updateBgmByState(school: School) {
-        val bgmType = when {
-            school.cash < 50.0 -> AudioManager.BgmType.CRISIS       // 资金低于5万 → 紧张
-            school.reputation > 500 && school.cash > 100 -> AudioManager.BgmType.BUSY  // 高声誉高资金 → 繁忙
-            school.currentMonth in listOf(7, 8, 1, 2) -> AudioManager.BgmType.RELAXED  // 假期月份 → 轻松
-            else -> AudioManager.BgmType.MAIN                       // 默认主题
-        }
-        if (bgmType != lastBgmType) {
-            lastBgmType = bgmType
-            audioManager.switchBgm(bgmType)
+        viewModelScope.safeLaunch {
+            val bgmRes = if (school.cash < 50.0) {
+                AudioManager.BgmType.CRISIS.resName
+            } else {
+                settingsDataStore.selectedCampusBgm.first()
+            }
+            if (bgmRes != lastBgmRes) {
+                lastBgmRes = bgmRes
+                audioManager.startBgm(bgmRes)
+            }
         }
     }
 
     fun startGame() {
         gameEngine.start()
-        audioManager.startBgm()
+        viewModelScope.safeLaunch {
+            audioManager.startBgm(settingsDataStore.selectedCampusBgm.first())
+        }
         _isGameRunning.value = true
     }
 
@@ -315,7 +322,9 @@ class MainViewModel @Inject constructor(
 
     fun markOpeningStorySeen() {
         _showOpeningStory.value = OpeningStoryState()
-        audioManager.startBgm()
+        viewModelScope.safeLaunch {
+            audioManager.startBgm(settingsDataStore.selectedCampusBgm.first())
+        }
         viewModelScope.safeLaunch {
             val pm = gameEngine.policyManager
             pm.replaceCollegeDevelopment(

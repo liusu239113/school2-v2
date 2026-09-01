@@ -20,6 +20,7 @@ class SettingsDataStore(private val context: Context) {
     companion object {
         val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
         val MUSIC_ENABLED = booleanPreferencesKey("music_enabled")
+        val SELECTED_CAMPUS_BGM = stringPreferencesKey("selected_campus_bgm")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         val LAST_PLAY_TIME = longPreferencesKey("last_play_time")
         val SCHOOL_ID = stringPreferencesKey("school_id")
@@ -27,6 +28,9 @@ class SettingsDataStore(private val context: Context) {
 
     val soundEnabled: Flow<Boolean> = context.dataStore.data.map { it[SOUND_ENABLED] ?: true }
     val musicEnabled: Flow<Boolean> = context.dataStore.data.map { it[MUSIC_ENABLED] ?: true }
+    val selectedCampusBgm: Flow<String> = context.dataStore.data.map {
+        it[SELECTED_CAMPUS_BGM] ?: "v2_bgm_campus"
+    }
     val darkMode: Flow<Boolean> = context.dataStore.data.map { it[DARK_MODE] ?: false }
     val lastPlayTime: Flow<Long> = context.dataStore.data.map { it[LAST_PLAY_TIME] ?: 0L }
     val schoolId: Flow<String?> = context.dataStore.data.map { it[SCHOOL_ID] }
@@ -37,6 +41,10 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setMusicEnabled(enabled: Boolean) {
         context.dataStore.edit { it[MUSIC_ENABLED] = enabled }
+    }
+
+    suspend fun setSelectedCampusBgm(resName: String) {
+        context.dataStore.edit { it[SELECTED_CAMPUS_BGM] = resName }
     }
 
     suspend fun setDarkMode(enabled: Boolean) {

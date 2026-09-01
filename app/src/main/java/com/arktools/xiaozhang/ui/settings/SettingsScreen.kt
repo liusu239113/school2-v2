@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.arktools.xiaozhang.audio.AudioManager
 import com.arktools.xiaozhang.ui.components.PixelNineSlice
 import com.arktools.xiaozhang.R
 import com.arktools.xiaozhang.ui.main.MainViewModel
@@ -58,6 +59,7 @@ fun SettingsScreen(
     val musicEnabled by settingsViewModel.musicEnabled.collectAsState()
     val sfxVolume by settingsViewModel.sfxVolume.collectAsState()
     val bgmVolume by settingsViewModel.bgmVolume.collectAsState()
+    val selectedCampusBgm by settingsViewModel.selectedCampusBgm.collectAsState()
     val gameSpeed by settingsViewModel.gameSpeed.collectAsState()
 
     Scaffold(
@@ -122,6 +124,34 @@ fun SettingsScreen(
                 }
                 if (musicEnabled) {
                     VolumeSlider("音乐音量", bgmVolume, settingsViewModel::setBgmVolume)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("校园曲目", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "危机和剧情音乐会临时覆盖；恢复经营后继续播放所选曲目。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val campusLevel = school?.campusLevel ?: 1
+                    val graduateProgram = settingsViewModel.isGraduateProgramActive()
+                    val trackAvailability = settingsViewModel.availableCampusTracks(
+                        campusLevel,
+                        graduateProgram
+                    )
+                    AudioManager.CampusTrack.entries.forEach { track ->
+                        val unlocked = trackAvailability[track] == true
+                        TextColorOption(
+                            label = if (unlocked) track.displayName else "${track.displayName} · ${track.unlockDescription}",
+                            selected = selectedCampusBgm == track.resName,
+                            onClick = {
+                                if (unlocked) {
+                                    settingsViewModel.selectCampusBgm(track, campusLevel, graduateProgram)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
                 }
             }
 
