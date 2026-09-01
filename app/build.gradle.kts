@@ -1,4 +1,4 @@
-import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,6 +10,14 @@ plugins {
     alias(libs.plugins.serialization)
 }
 
+val releaseStoreFile = providers.gradleProperty("RELEASE_STORE_FILE").orNull
+val releaseStorePassword = providers.gradleProperty("RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").orNull
+val releaseTaskRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+
 android {
     namespace = "com.arktools.xiaozhang"
     compileSdk = 35
@@ -19,13 +27,35 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 200
-        versionName = "2.0.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseTaskRequested) {
+                if (
+                    releaseStoreFile == null || releaseStorePassword == null ||
+                    releaseKeyAlias == null || releaseKeyPassword == null
+                ) {
+                    throw GradleException(
+                        "Release signing is not configured. Set RELEASE_STORE_FILE, " +
+                            "RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS and RELEASE_KEY_PASSWORD."
+                    )
+                }
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeType = "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

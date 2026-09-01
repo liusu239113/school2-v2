@@ -1,81 +1,52 @@
-name: Android CI - Build APK
+name: Android Debug CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-    - name: Run Lint
-      run: ./gradlew lintDebug
-      continue-on-error: true
+      - name: Grant execute permission
+        run: chmod +x ./gradlew
 
-    - name: Inspect Cloud Save SDK classes
-      run: |
-        ./gradlew dependencies --configuration releaseRuntimeClasspath | grep cloudsave || true
-        find ~/.gradle/caches -name "tap-cloudsave*.aar" -o -name "tap-cloudsave*.jar" | head -5 | while read f; do
-          echo "=== $f ==="
-          if [[ "$f" == *.aar ]]; then
-            unzip -l "$f" | grep classes.jar && unzip -p "$f" classes.jar > /tmp/classes.jar && jar tf /tmp/classes.jar | grep -i "archive\|CloudSave" | sort
-          else
-            jar tf "$f" | grep -i "archive\|CloudSave" | sort
-          fi
-        done
-      continue-on-error: true
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-    - name: Build Release APK
-      run: ./gradlew assembleDebug
+      - name: Run lint
+        run: ./gradlew lintDebug --no-daemon --stacktrace
 
-    - name: Upload APK to Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-release-apk
-        path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-    - name: Get version and date
-      id: version
-      run: |
-        echo "version=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-
-    - name: Create Release
-      id: create_release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: Release v${{ steps.version.outputs.version }}
-        files: |
-          app/build/outputs/apk/debug/app-debug.apk
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Output Download Link
-      run: |
-        echo ""
-        echo "========================================"
-        echo "  APK Download Link:"
-        echo "  https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
-        echo "========================================"
-        echo ""
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: school2-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

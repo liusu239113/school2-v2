@@ -14,5 +14,10 @@ local.properties
 *.aab
 app/keystore/
 *.jks
+*.keystore
 *.p12
+*.pfx
+keystore.properties
+release-keystore.properties
+signing.properties
 .tmp/

@@ -3,6 +3,7 @@ package com.arktools.xiaozhang.domain.engine
 import com.arktools.xiaozhang.domain.model.StatisticsManager
 import com.arktools.xiaozhang.domain.model.CourseProject
 import com.arktools.xiaozhang.domain.model.CourseStatus
+import com.arktools.xiaozhang.domain.model.ClassOfficers
 import com.arktools.xiaozhang.domain.model.ClassTier
 import com.arktools.xiaozhang.domain.model.SchoolOwnership
 import com.arktools.xiaozhang.domain.model.SchoolTier
