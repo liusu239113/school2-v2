@@ -100,6 +100,28 @@ class StudentYearEndRecoveryTest {
     }
 
     @Test
+    fun fourYearStudentGraduatesInFifthCalendarYear() {
+        assertFalse(
+            isStudentGraduationDue(
+                gradeLevel = GradeLevel.GRADE_4,
+                enrollYear = 2024,
+                processingYear = 2027,
+                processingMonth = 12,
+                graduationGrade = GradeLevel.GRADE_4
+            )
+        )
+        assertTrue(
+            isStudentGraduationDue(
+                gradeLevel = GradeLevel.GRADE_4,
+                enrollYear = 2024,
+                processingYear = 2028,
+                processingMonth = 6,
+                graduationGrade = GradeLevel.GRADE_4
+            )
+        )
+    }
+
+    @Test
     fun monthlySettlementRecoversAcrossYearBoundary() {
         assertTrue(
             isMonthlySettlementDue(
