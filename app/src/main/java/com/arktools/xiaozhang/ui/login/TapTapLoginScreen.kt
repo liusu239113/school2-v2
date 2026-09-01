@@ -103,13 +103,13 @@ fun TapTapLoginScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Image(
                         painter = painterResource(id = R.drawable.logo_game_v2),
-                        contentDescription = "校长我来当 2：大学时代",
+                        contentDescription = "校长我来当 2",
                         modifier = Modifier.size(180.dp),
                         contentScale = ContentScale.Fit
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "校长我来当 2：大学时代",
+                        text = "校长我来当 2",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Primary,

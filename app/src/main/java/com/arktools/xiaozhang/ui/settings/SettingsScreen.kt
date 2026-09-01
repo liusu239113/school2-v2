@@ -247,7 +247,7 @@ fun SettingsScreen(
                 }
             }
             Text(
-                text = "校长我来当 2：大学时代 · v${com.arktools.xiaozhang.BuildConfig.VERSION_NAME}",
+                text = "校长我来当 2 · v${com.arktools.xiaozhang.BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally)

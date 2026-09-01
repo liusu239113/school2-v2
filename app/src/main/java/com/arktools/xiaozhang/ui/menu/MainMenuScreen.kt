@@ -153,7 +153,7 @@ private fun TitleScreen(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.logo_game_v2),
-                contentDescription = "校长我来当 2：大学时代",
+                contentDescription = "校长我来当 2",
                 modifier = Modifier.size(176.dp).scale(logoScale),
                 contentScale = ContentScale.Fit
             )

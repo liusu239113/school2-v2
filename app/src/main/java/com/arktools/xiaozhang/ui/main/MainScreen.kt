@@ -240,8 +240,9 @@ fun MainScreen(
     // TapTap 登录状态
     var isTapLoggedIn by remember { mutableStateOf(false) }
     // ═══ 测试期开关 ═══
-    // debug 包直接进入游戏（跳过 TapTap 登录与防沉迷）；上线 release 包自动恢复三层门控
-    val skipLoginAndCompliance = BuildConfig.DEBUG
+    // 【临时】全版本跳过 TapTap 登录与防沉迷（应用商店合规接入完成后再恢复）。
+    // 恢复方法：改回 val skipLoginAndCompliance = BuildConfig.DEBUG
+    val skipLoginAndCompliance = true
 
     // 防沉迷状态：只有收到 LOGIN_SUCCESS(500) 才为 true
     var compliancePassed by remember { mutableStateOf(false) }
@@ -443,7 +444,7 @@ fun MainScreen(
         // 隐私政策弹窗
         if (showPrivacyDialog) {
             PrivacyPolicyDialog(
-                appName = "校长我来当 2：大学时代",
+                appName = "校长我来当 2",
                 onAccepted = {
                     showPrivacyDialog = false
                     privacyAccepted = true
@@ -660,7 +661,7 @@ fun MainScreen(
                 title = {
                     Column {
                         Text(
-                            text = if (Screen.isSubPage(selectedTab)) getSubPageTitle(selectedTab) else (school?.name ?: "大学时代"),
+                            text = if (Screen.isSubPage(selectedTab)) getSubPageTitle(selectedTab) else (school?.name ?: "校长我来当 2"),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = Color.White
@@ -1092,7 +1093,7 @@ private fun getSubPageTitle(tab: Int): String {
         48 -> "教师团队"
         46 -> "研究生院"
         47 -> "国际交流"
-        else -> "校长我来当 2：大学时代"
+        else -> "校长我来当 2"
     }
 }
 
