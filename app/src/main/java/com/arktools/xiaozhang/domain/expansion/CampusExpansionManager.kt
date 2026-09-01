@@ -25,16 +25,18 @@ enum class CampusZoneType(
     val buildMonths: Int,
     val description: String
 ) {
-    TEACHING_BUILDING("教学楼", "🏫", 200, 200.0, 6, "标准教学楼，含教室和办公室"),
-    LABORATORY("实验楼", "🔬", 80, 350.0, 8, "配备先进实验设备的专业楼"),
-    DORMITORY("学生宿舍", "🏠", 300, 150.0, 5, "标准化学生公寓"),
-    LIBRARY("图书馆", "📚", 150, 280.0, 7, "综合型现代图书馆"),
-    SPORTS_CENTER("体育中心", "🏟️", 500, 500.0, 10, "包含体育馆、游泳池、运动场"),
-    CAFETERIA("餐饮中心", "🍽️", 400, 120.0, 4, "大型食堂综合体"),
-    ARTS_CENTER("艺术中心", "🎭", 120, 300.0, 7, "音乐厅、美术馆、排练厅"),
-    RESEARCH_CENTER("科研中心", "🧪", 60, 600.0, 12, "高端科研实验基地"),
-    ADMIN_BUILDING("行政楼", "🏢", 50, 100.0, 4, "行政办公与接待中心"),
-    GARDEN("校园花园", "🌳", 0, 80.0, 3, "美化校园环境，提升满意度")
+    // 区片开发是宏观土地承载：决定全校招生总容量上限；
+    // 具体的床位、餐位、班槽等服务容量由校园地图上的单体建筑提供。
+    TEACHING_BUILDING("教学区开发", "🏫", 200, 200.0, 6, "成片开发教学承载区，扩大全校招生总容量"),
+    LABORATORY("科研实验区", "🔬", 80, 350.0, 8, "规划科研实验承载区，扩大全校招生总容量"),
+    DORMITORY("生活区开发", "🏠", 300, 150.0, 5, "成片开发生活承载区，扩大全校招生总容量"),
+    LIBRARY("文献信息区", "📚", 150, 280.0, 7, "规划文献信息承载区，扩大全校招生总容量"),
+    SPORTS_CENTER("体育运动区", "🏟️", 500, 500.0, 10, "成片开发体育承载区，扩大全校招生总容量"),
+    CAFETERIA("餐饮服务区", "🍽️", 400, 120.0, 4, "规划餐饮服务承载区，扩大全校招生总容量"),
+    ARTS_CENTER("艺术展演区", "🎭", 120, 300.0, 7, "规划艺术展演承载区，扩大全校招生总容量"),
+    RESEARCH_CENTER("重点科研基地", "🧪", 60, 600.0, 12, "高端科研基地，显著扩大全校招生总容量"),
+    ADMIN_BUILDING("行政服务区", "🏢", 50, 100.0, 4, "行政办公与接待承载区"),
+    GARDEN("生态景观区", "🌳", 0, 80.0, 3, "美化校园环境，提升满意度")
 }
 
 enum class ConstructionPhase(val displayName: String, val progressPercent: Float) {
@@ -536,6 +538,40 @@ class CampusExpansionManager @Inject constructor() {
             )
         } catch (e: Exception) {
             throw IllegalArgumentException("CampusExpansionManager.restoreFromJson failed", e)
+        }
+    }
+
+    companion object {
+        /**
+         * 区片开工所需的校园地图设施（type -> 最少运营数量）。
+         * 宏观区片必须落在真实校园之上：先在地图上建设施，再开发对应区片。
+         */
+        fun requiredFacilities(type: CampusZoneType): List<Pair<com.arktools.xiaozhang.domain.model.FacilityType, Int>> = when (type) {
+            CampusZoneType.TEACHING_BUILDING -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.CLASSROOM to 2)
+            CampusZoneType.LABORATORY -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.LABORATORY to 1)
+            CampusZoneType.DORMITORY -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.DORMITORY to 2)
+            CampusZoneType.LIBRARY -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.LIBRARY to 1)
+            CampusZoneType.SPORTS_CENTER -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.SPORTS_FIELD to 1)
+            CampusZoneType.CAFETERIA -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.CANTEEN to 1)
+            CampusZoneType.ARTS_CENTER -> listOf(com.arktools.xiaozhang.domain.model.FacilityType.ART_STUDIO to 1)
+            CampusZoneType.RESEARCH_CENTER -> listOf(
+                com.arktools.xiaozhang.domain.model.FacilityType.LABORATORY to 2,
+                com.arktools.xiaozhang.domain.model.FacilityType.LIBRARY to 1
+            )
+            CampusZoneType.ADMIN_BUILDING -> emptyList()
+            CampusZoneType.GARDEN -> emptyList()
+        }
+
+        /** 校验区片开工前置，返回 null 表示通过，否则返回阻断文案。 */
+        fun checkPrerequisites(
+            type: CampusZoneType,
+            facilities: List<com.arktools.xiaozhang.domain.model.Facility>
+        ): String? {
+            return requiredFacilities(type).firstOrNull { (required, minCount) ->
+                facilities.count { it.type == required && it.isOperational } < minCount
+            }?.let { (required, minCount) ->
+                "开发${type.displayName}需要 ${minCount} 处${required.displayName}投入运营，请先在校园地图建设"
+            }
         }
     }
 }

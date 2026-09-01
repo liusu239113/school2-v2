@@ -1158,6 +1158,14 @@ class GameEngine @Inject constructor(
         name: String,
         quality: Int
     ): ManagedOperationResult = engineOperationMutex.withLock {
+        // 区片开发必须落在真实校园之上：对应地图设施投入运营后才能开工
+        val school = schoolRepository.getSchool()
+            ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
+        val blocked = com.arktools.xiaozhang.domain.expansion.CampusExpansionManager
+            .checkPrerequisites(type, school.facilities)
+        if (blocked != null) {
+            return@withLock ManagedOperationResult(false, blocked)
+        }
         commitExpansionOperationLocked {
             val zone = campusExpansionManager.startConstruction(
                 type,

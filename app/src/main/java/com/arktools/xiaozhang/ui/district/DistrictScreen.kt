@@ -828,6 +828,11 @@ private fun CampusOverviewCard(state: CampusExpansionState) {
             Column {
                 Text("校园扩建", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(state.currentLevel.displayName, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "区片开发决定全校招生总容量上限；床位、餐位、班槽等服务容量由校园地图上的单体建筑提供",
+                    color = Color.White.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelSmall
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -1230,6 +1235,17 @@ private fun BuildDialog(
                                     "¥${type.baseCostWan.toInt()}万 · ${type.buildMonths}月 · +${type.baseCapacity}容量",
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                                val required = com.arktools.xiaozhang.domain.expansion.CampusExpansionManager
+                                    .requiredFacilities(type)
+                                if (required.isNotEmpty()) {
+                                    Text(
+                                        "开工需先在校园地图建成：" +
+                                            required.joinToString("、") { (t, n) -> "${t.displayName}×$n" } +
+                                            "（运营中）",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
