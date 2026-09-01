@@ -213,7 +213,7 @@ class SchoolPolicyManager @Inject constructor(
         if (facilityId.isBlank() || constructionDaysLeft < 0) return false
         val current = _policies.value.collegeDevelopment
         val buildings = decodePlacedBuildings(current.placedBuildings).toMutableList()
-        if (buildings.any { it.facilityId == facilityId || (it.key == key && it.x == position.first && it.y == position.second) }) {
+        if (buildings.any { it.facilityId == facilityId || (it.x == position.first && it.y == position.second) }) {
             return false
         }
         buildings += PersistedCampusBuilding(
