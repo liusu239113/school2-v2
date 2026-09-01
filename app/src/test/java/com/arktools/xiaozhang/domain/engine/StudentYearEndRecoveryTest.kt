@@ -14,7 +14,8 @@ class StudentYearEndRecoveryTest {
                 gradeLevel = GradeLevel.GRADE_3,
                 enrollYear = 1988,
                 processingYear = 1991,
-                processingMonth = 5
+                processingMonth = 5,
+                graduationGrade = GradeLevel.GRADE_3
             )
         )
     }
@@ -26,7 +27,8 @@ class StudentYearEndRecoveryTest {
                 gradeLevel = GradeLevel.GRADE_3,
                 enrollYear = 1988,
                 processingYear = 1991,
-                processingMonth = 6
+                processingMonth = 6,
+                graduationGrade = GradeLevel.GRADE_3
             )
         )
     }
@@ -38,7 +40,8 @@ class StudentYearEndRecoveryTest {
                 gradeLevel = GradeLevel.GRADE_3,
                 enrollYear = 1988,
                 processingYear = 1992,
-                processingMonth = 1
+                processingMonth = 1,
+                graduationGrade = GradeLevel.GRADE_3
             )
         )
     }
@@ -50,7 +53,8 @@ class StudentYearEndRecoveryTest {
                 gradeLevel = GradeLevel.GRADE_3,
                 enrollYear = 0,
                 processingYear = 1991,
-                processingMonth = 5
+                processingMonth = 5,
+                graduationGrade = GradeLevel.GRADE_3
             )
         )
         assertTrue(
@@ -58,13 +62,14 @@ class StudentYearEndRecoveryTest {
                 gradeLevel = GradeLevel.GRADE_3,
                 enrollYear = 0,
                 processingYear = 1991,
-                processingMonth = 6
+                processingMonth = 6,
+                graduationGrade = GradeLevel.GRADE_3
             )
         )
     }
 
     @Test
-    fun monthlySettlementRunsOnlyForUncompletedFirstDay() {
+    fun monthlySettlementRecoversWhenFirstDayWasMissed() {
         assertTrue(
             isMonthlySettlementDue(
                 currentYear = 1991,
@@ -83,7 +88,7 @@ class StudentYearEndRecoveryTest {
                 lastSettlementMonth = 6
             )
         )
-        assertFalse(
+        assertTrue(
             isMonthlySettlementDue(
                 currentYear = 1991,
                 currentMonth = 6,
