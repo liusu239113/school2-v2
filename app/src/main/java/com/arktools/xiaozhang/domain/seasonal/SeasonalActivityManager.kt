@@ -205,6 +205,7 @@ class SeasonalActivityManager @Inject constructor() {
         _state.value = SeasonalActivityState()
         lastGeneratedYear = -1
         miniGameScores.clear()
+        _monthlyExpenses = 0L
     }
 
     fun getSeason(month: Int): Season {
@@ -589,7 +590,8 @@ class SeasonalActivityManager @Inject constructor() {
                 yearlyTotalSatisfactionBoosted = state.yearlyStats.totalSatisfactionBoosted,
                 yearlyBestActivity = state.yearlyStats.bestActivity,
                 lastGeneratedYear = lastGeneratedYear,
-                monthlyExpenses = _monthlyExpenses
+                monthlyExpenses = _monthlyExpenses,
+                miniGameScores = miniGameScores.toMap()
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -623,6 +625,8 @@ class SeasonalActivityManager @Inject constructor() {
             val completed = data.completedThisYear.mapNotNull { restoreActivity(it) }
             lastGeneratedYear = data.lastGeneratedYear
             _monthlyExpenses = data.monthlyExpenses
+            miniGameScores.clear()
+            miniGameScores.putAll(data.miniGameScores.mapValues { it.value.coerceIn(0f, 1f) })
             _state.value = SeasonalActivityState(
                 currentSeason = season,
                 activities = activities,
@@ -652,7 +656,8 @@ data class SeasonalPersistData(
     val yearlyTotalSatisfactionBoosted: Float = 0f,
     val yearlyBestActivity: String? = null,
     val lastGeneratedYear: Int = -1,
-    val monthlyExpenses: Long = 0L
+    val monthlyExpenses: Long = 0L,
+    val miniGameScores: Map<String, Float> = emptyMap()
 )
 
 @Serializable

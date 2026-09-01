@@ -45,24 +45,12 @@ class SeasonalViewModel @Inject constructor(
                 return@safeLaunch
             }
             val pre = gameEngine.seasonalActivityManager.hostNow(type, school.currentYear, school.currentMonth)
-            if (pre.first.not()) {
+            if (!pre.first) {
                 _hostMessage.value = pre.second
                 return@safeLaunch
             }
-            val paid = schoolRepository.mutateSchool { s ->
-                if (s.cash < costWan) {
-                    _hostMessage.value = "资金不足！举办" + type.displayName + "需要 " + costWan.toInt() + " 万"
-                    return@mutateSchool false
-                }
-                s.cash -= costWan
-                true
-            }
-            if (paid == null) {
-                // 扣款失败则撤销活动
-                gameEngine.seasonalActivityManager.cancelHostNow(type)
-                return@safeLaunch
-            }
-            audioManager.playCashLose()
+            // 活动结束时由 GameEngine 统一扣除 actualCost，避免立即举办路径重复扣款。
+            audioManager.playBuildFacility()
             _hostMessage.value = pre.second
         }
     }

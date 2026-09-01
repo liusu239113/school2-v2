@@ -138,7 +138,8 @@ class ClubActivityManager @Inject constructor(
      * 月度推进
      */
     fun advanceMonth(currentYear: Int, currentMonth: Int, schoolReputation: Long): ClubActivityMonthlyResult {
-        var totalExpenses = 0L
+        var activityBudgetYuan = 0L
+        var competitionRegistrationWan = 0L
         var totalReputationGain = 0L
         val newAwards = mutableListOf<Award>()
         val newEvents = mutableListOf<ActivityEvent>()
@@ -167,7 +168,7 @@ class ClubActivityManager @Inject constructor(
                 }
                 ActivityStatus.IN_PROGRESS -> {
                     // 执行完成 → 结算
-                    totalExpenses += activity.budgetAllocated
+                    activityBudgetYuan += activity.budgetAllocated
                     val quality = calculateActivityQuality(activity)
                     val repGain = (quality * activity.activityType.reputationMultiplier).toLong()
                     totalReputationGain += repGain
@@ -215,7 +216,7 @@ class ClubActivityManager @Inject constructor(
                         val placement = determinePlacement(newScore, entry.level)
                         val repGain = placement.reputationReward * (entry.level.ordinal + 1)
                         totalReputationGain += repGain
-                        totalExpenses += entry.registrationFee
+                        competitionRegistrationWan += entry.registrationFee
 
                         if (placement != CompetitionPlacement.ELIMINATED) {
                             val award = Award(
@@ -284,12 +285,13 @@ class ClubActivityManager @Inject constructor(
                 recentEvents = (newEvents + state.recentEvents).take(MAX_EVENTS_LOG),
                 totalAwardsCount = state.totalAwardsCount + newAwards.size,
                 totalReputationFromActivities = state.totalReputationFromActivities + totalReputationGain,
-                monthlyBudgetSpent = totalExpenses
+                monthlyBudgetSpent = activityBudgetYuan + competitionRegistrationWan * 10000L
             )
         }
 
         return ClubActivityMonthlyResult(
-            expenses = totalExpenses,
+            activityBudgetYuan = activityBudgetYuan,
+            competitionRegistrationWan = competitionRegistrationWan.toDouble(),
             reputationGain = totalReputationGain,
             newAwards = newAwards,
             events = newEvents
@@ -707,11 +709,15 @@ enum class ActivityEventType {
 }
 
 data class ClubActivityMonthlyResult(
-    val expenses: Long = 0L,
+    val activityBudgetYuan: Long = 0L,
+    val competitionRegistrationWan: Double = 0.0,
     val reputationGain: Long = 0L,
     val newAwards: List<Award> = emptyList(),
     val events: List<ActivityEvent> = emptyList()
-)
+) {
+    val totalExpenseWan: Double
+        get() = activityBudgetYuan.toDouble() / 10000.0 + competitionRegistrationWan
+}
 
 @Serializable
 data class ClubActivityPersistData(

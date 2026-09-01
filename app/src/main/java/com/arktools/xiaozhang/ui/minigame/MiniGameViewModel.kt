@@ -57,17 +57,30 @@ class MiniGameViewModel @Inject constructor(
 
     private var raceAnimationJob: Job? = null
 
-    /** 记录小游戏触发前游戏是否在运行（用于关闭后恢复） */
+    /** 同日多个活动按 FIFO 顺序展示，避免覆盖当前小游戏。 */
+    private val pendingActivities = ArrayDeque<SeasonalActivity>()
+
+    /** 只在队列首次启动时记录暂停前状态。 */
     private var wasRunningBeforeMiniGame = false
+    private var pausedByMiniGame = false
 
     // ===================== 公共方法 =====================
 
     /** 触发迷你游戏（由 GameEngine / EventViewModel 调用） */
     fun triggerMiniGame(activity: SeasonalActivity) {
-        // 暂停游戏循环，防止小游戏期间时间继续推进
-        wasRunningBeforeMiniGame = !gameEngine.isPausedFlow.value
-        gameEngine.pause()
+        if (_activeActivity.value != null) {
+            if (pendingActivities.none { it.id == activity.id }) pendingActivities.addLast(activity)
+            return
+        }
+        if (!pausedByMiniGame) {
+            wasRunningBeforeMiniGame = !gameEngine.isPausedFlow.value
+            gameEngine.pause()
+            pausedByMiniGame = true
+        }
+        showActivity(activity)
+    }
 
+    private fun showActivity(activity: SeasonalActivity) {
         _activeActivity.value = activity
         _miniGameResult.value = null
         when (activity.type) {
@@ -86,8 +99,7 @@ class MiniGameViewModel @Inject constructor(
                 )
                 // 将表现分数回传给季节活动系统，影响活动结算奖励
                 gameEngine.seasonalActivityManager.applyMiniGamePerformance(activity.id, defaultScore)
-                resumeAfterMiniGame()
-                _activeActivity.value = null
+                finishCurrentMiniGame()
             }
         }
     }
@@ -99,17 +111,21 @@ class MiniGameViewModel @Inject constructor(
         return r
     }
 
-    /** 恢复小游戏前的游戏运行状态 */
-    private fun resumeAfterMiniGame() {
-        if (wasRunningBeforeMiniGame) {
-            gameEngine.resume()
+    private fun finishCurrentMiniGame() {
+        raceAnimationJob?.cancel()
+        _activeActivity.value = null
+        val next = pendingActivities.removeFirstOrNull()
+        if (next != null) {
+            showActivity(next)
+            return
         }
+        if (pausedByMiniGame && wasRunningBeforeMiniGame) gameEngine.resume()
+        pausedByMiniGame = false
+        wasRunningBeforeMiniGame = false
     }
 
     fun dismissMiniGame() {
-        raceAnimationJob?.cancel()
-        resumeAfterMiniGame()
-        _activeActivity.value = null
+        finishCurrentMiniGame()
     }
 
     // ===================== 运动会逻辑 =====================
@@ -502,8 +518,7 @@ class MiniGameViewModel @Inject constructor(
 
     fun closeSportsDay() {
         raceAnimationJob?.cancel()
-        resumeAfterMiniGame()
-        _activeActivity.value = null
+        finishCurrentMiniGame()
     }
 
     // ===================== 辩论赛逻辑 =====================
@@ -756,8 +771,7 @@ class MiniGameViewModel @Inject constructor(
     }
 
     fun closeDebate() {
-        resumeAfterMiniGame()
-        _activeActivity.value = null
+        finishCurrentMiniGame()
     }
 
     private fun generateArgumentHand(isProSide: Boolean): List<ArgumentCard> {
@@ -1115,8 +1129,7 @@ class MiniGameViewModel @Inject constructor(
     }
 
     fun closeScienceFair() {
-        resumeAfterMiniGame()
-        _activeActivity.value = null
+        finishCurrentMiniGame()
     }
 
     // ===================== 文艺汇演逻辑 =====================
@@ -1298,7 +1311,6 @@ class MiniGameViewModel @Inject constructor(
 
     fun closeCulturalFest() {
         raceAnimationJob?.cancel()
-        resumeAfterMiniGame()
-        _activeActivity.value = null
+        finishCurrentMiniGame()
     }
 }

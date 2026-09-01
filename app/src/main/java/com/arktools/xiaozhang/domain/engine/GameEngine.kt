@@ -3882,9 +3882,8 @@ class GameEngine @Inject constructor(
                 val clubActResult = clubActivityManager.advanceMonth(
                     school.currentYear, school.currentMonth, school.reputation
                 )
-                if (clubActResult.expenses > 0) {
-                    // clubActResult.expenses 单位是元（来自UI输入"预算(元)"），需转换为万元
-                    val clubActExpenseWan = clubActResult.expenses.toDouble() / 10000.0
+                val clubActExpenseWan = clubActResult.totalExpenseWan
+                if (clubActExpenseWan > 0.0) {
                     schoolRepository.deductCash(clubActExpenseWan)
                     st.expClubActivity += clubActExpenseWan
                 }
