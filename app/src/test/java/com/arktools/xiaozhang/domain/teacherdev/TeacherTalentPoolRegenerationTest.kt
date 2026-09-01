@@ -40,8 +40,8 @@ class TeacherTalentPoolRegenerationTest {
         val manager = newManager()
         manager.ensureAnnualTalentPool(2026, 1, emptyList(), ::generator)
         assertTrue(availablePool(manager) > 0)
-        // Lv1：C5+B2，广告渠道（C/B）应能看到候选
-        assertEquals(7, manager.candidatesForChannel(TalentChannel.AD).size)
+        // Lv1：C5+B2，广告渠道（C/B）单次最多展示 6 名候选
+        assertEquals(6, manager.candidatesForChannel(TalentChannel.AD).size)
     }
 
     @Test
