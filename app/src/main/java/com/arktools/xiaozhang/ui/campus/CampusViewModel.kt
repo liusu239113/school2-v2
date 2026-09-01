@@ -6,6 +6,10 @@ import com.arktools.xiaozhang.audio.AudioManager
 import com.arktools.xiaozhang.domain.engine.GameBalanceConfig
 import com.arktools.xiaozhang.domain.engine.GameEngine
 import com.arktools.xiaozhang.domain.engine.SchoolDecision
+import com.arktools.xiaozhang.domain.model.ClassFacilityAssignments
+import com.arktools.xiaozhang.domain.model.ClassOfficer
+import com.arktools.xiaozhang.domain.model.ClassOfficerRole
+import com.arktools.xiaozhang.domain.model.ClassOfficers
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
 import com.arktools.xiaozhang.domain.model.FacilityType
@@ -107,11 +111,18 @@ class CampusViewModel @Inject constructor(
         val name: String,
         val studentCount: Int,
         val advisorName: String?,
-        val monitorName: String?,
+        val officers: Map<ClassOfficerRole, String>,
         val facilityId: String
     )
 
-    data class StudentOption(val id: String, val name: String)
+    data class StudentOption(
+        val id: String,
+        val name: String,
+        val qualificationScore: Int,
+        val eligible: Boolean
+    )
+
+    data class OfficerPickerTarget(val classId: String, val role: ClassOfficerRole)
 
     private val _classRows = MutableStateFlow<List<ClassRow>>(emptyList())
     val classRows: StateFlow<List<ClassRow>> = _classRows.asStateFlow()
@@ -128,8 +139,8 @@ class CampusViewModel @Inject constructor(
     private val _pickingAdvisorClass = MutableStateFlow<String?>(null)
     val pickingAdvisorClass = _pickingAdvisorClass.asStateFlow()
 
-    private val _pickingMonitorClass = MutableStateFlow<String?>(null)
-    val pickingMonitorClass = _pickingMonitorClass.asStateFlow()
+    private val _pickingOfficer = MutableStateFlow<OfficerPickerTarget?>(null)
+    val pickingOfficer = _pickingOfficer.asStateFlow()
 
     private val _state = MutableStateFlow(CampusUiState())
     val state: StateFlow<CampusUiState> = _state.asStateFlow()
@@ -237,20 +248,37 @@ class CampusViewModel @Inject constructor(
         val rooms = st.placed
             .filter { it.key == "F_CLASSROOM" && !it.isConstructing }
             .sortedBy { it.facilityId }
-        val officers = com.arktools.xiaozhang.domain.model.ClassOfficers.decode(
+        val officers = ClassOfficers.decode(
             policyManager.policies.value.collegeDevelopment.classOfficersJson
         )
+        val dev = policyManager.policies.value.collegeDevelopment
+        val existingAssignments = ClassFacilityAssignments.decode(dev.classFacilityMapJson)
+        val roomCapacities = rooms.mapNotNull { room ->
+            val facility = st.facilities.firstOrNull { it.id == room.facilityId } ?: return@mapNotNull null
+            room.facilityId to com.arktools.xiaozhang.domain.model.FacilityCapacity.classSlots(facility.level)
+        }
+        val assignments = ClassFacilityAssignments.reconcile(
+            gameEngine.classes.map { it.id },
+            roomCapacities,
+            existingAssignments
+        )
+        if (assignments != existingAssignments) {
+            policyManager.replaceCollegeDevelopment(
+                dev.copy(classFacilityMapJson = ClassFacilityAssignments.encode(assignments))
+            )
+            schoolRepository.mutateSchool { school -> school.policyJson = policyManager.toJson(); true }
+        }
         val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
-        val rows = gameEngine.classes.mapIndexed { idx, cls ->
-            val room = if (rooms.isEmpty()) null else rooms[idx % rooms.size]
+        val rows = gameEngine.classes.map { cls ->
+            val roomId = assignments[cls.id].orEmpty()
             val advisor = cls.headTeacherId?.let { id -> teachers.firstOrNull { it.id == id } }
             ClassRow(
                 classId = cls.id,
                 name = cls.displayName,
                 studentCount = cls.studentCount,
                 advisorName = advisor?.name,
-                monitorName = officers[cls.id]?.second,
-                facilityId = room?.facilityId.orEmpty()
+                officers = officers[cls.id].orEmpty().mapValues { it.value.name },
+                facilityId = roomId
             )
         }
         _classRows.value = rows
@@ -285,39 +313,68 @@ class CampusViewModel @Inject constructor(
         }
     }
 
-    fun openMonitorPicker(classId: String) {
+    fun openOfficerPicker(classId: String, role: ClassOfficerRole) {
         audioManager.playButtonClick()
         viewModelScope.safeLaunch {
             val students = runCatching { studentRepository.getStudentsByClass(classId) }
                 .getOrDefault(emptyList())
-            _studentOptions.value = students.map { StudentOption(it.id, it.name) }
-            _pickingMonitorClass.value = classId
+            _studentOptions.value = students.map { student ->
+                val q = role.qualification(student)
+                StudentOption(student.id, student.name, q.score.toInt(), q.eligible)
+            }.sortedWith(compareByDescending<StudentOption> { it.eligible }.thenByDescending { it.qualificationScore })
+            _pickingOfficer.value = OfficerPickerTarget(classId, role)
         }
     }
 
-    fun appointMonitor(classId: String, studentId: String, studentName: String) {
+    fun appointOfficer(classId: String, role: ClassOfficerRole, studentId: String) {
         audioManager.playButtonClick()
         viewModelScope.safeLaunch {
+            if (gameEngine.classes.none { it.id == classId }) return@safeLaunch
+            val students = studentRepository.getStudentsByClass(classId)
+            val student = students.firstOrNull { it.id == studentId } ?: return@safeLaunch
+            val qualification = role.qualification(student)
+            if (!qualification.eligible) {
+                _officerMessage.value = "${student.name}未达到${role.displayName}任职要求"
+                audioManager.playEventNegative()
+                return@safeLaunch
+            }
             val dev = policyManager.policies.value.collegeDevelopment
-            val officers = com.arktools.xiaozhang.domain.model.ClassOfficers
-                .decode(dev.classOfficersJson).toMutableMap()
-            officers[classId] = studentId to studentName
+            val all = ClassOfficers.decode(dev.classOfficersJson).toMutableMap()
+            val roles = all[classId].orEmpty().toMutableMap()
+            roles.entries.removeAll { (_, officer) -> officer.studentId == student.id }
+            roles[role] = ClassOfficer(student.id, student.name)
+            all[classId] = roles
             policyManager.replaceCollegeDevelopment(
-                dev.copy(classOfficersJson = com.arktools.xiaozhang.domain.model.ClassOfficers.encode(officers))
+                dev.copy(classOfficersJson = ClassOfficers.encode(all))
             )
-            schoolRepository.mutateSchool { s ->
-                s.policyJson = policyManager.toJson()
+            schoolRepository.mutateSchool { school ->
+                school.policyJson = policyManager.toJson()
                 true
             }
-            _pickingMonitorClass.value = null
-            _officerMessage.value = studentName + " 已当选班长"
+            _pickingOfficer.value = null
+            _officerMessage.value = "${student.name} 已任命为${role.displayName}"
+            gameEngine.notifyClassesChanged()
+            rebuildClassRows()
+        }
+    }
+
+    fun removeOfficer(classId: String, role: ClassOfficerRole) {
+        viewModelScope.safeLaunch {
+            val dev = policyManager.policies.value.collegeDevelopment
+            val all = ClassOfficers.decode(dev.classOfficersJson).toMutableMap()
+            val roles = all[classId].orEmpty().toMutableMap()
+            roles.remove(role)
+            if (roles.isEmpty()) all.remove(classId) else all[classId] = roles
+            policyManager.replaceCollegeDevelopment(dev.copy(classOfficersJson = ClassOfficers.encode(all)))
+            schoolRepository.mutateSchool { school -> school.policyJson = policyManager.toJson(); true }
+            _officerMessage.value = "已撤销${role.displayName}"
             rebuildClassRows()
         }
     }
 
     fun closePickers() {
         _pickingAdvisorClass.value = null
-        _pickingMonitorClass.value = null
+        _pickingOfficer.value = null
     }
 
     fun consumeOfficerMessage() {

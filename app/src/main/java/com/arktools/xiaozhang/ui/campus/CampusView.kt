@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiaozhang.R
+import com.arktools.xiaozhang.domain.model.ClassOfficerRole
 import com.arktools.xiaozhang.domain.model.FacilityType
 import com.arktools.xiaozhang.domain.policy.CollegeType
 import com.arktools.xiaozhang.ui.theme.PrimaryDark
@@ -791,12 +792,12 @@ fun CampusView(
             )
         }
 
-        val pickingMonitor by viewModel.pickingMonitorClass.collectAsState()
-        pickingMonitor?.let { classId ->
+        val pickingOfficer by viewModel.pickingOfficer.collectAsState()
+        pickingOfficer?.let { target ->
             val options by viewModel.studentOptions.collectAsState()
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { viewModel.closePickers() },
-                title = { Text("任命班长") },
+                title = { Text("任命${target.role.displayName}") },
                 text = {
                     Column(
                         modifier = Modifier
@@ -804,16 +805,27 @@ fun CampusView(
                             .verticalScroll(rememberScrollState())
                     ) {
                         if (options.isEmpty()) Text("本班暂无学生", fontSize = 13.sp)
-                        options.forEach { stu ->
-                            Text(
-                                stu.name,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
+                        options.forEach { student ->
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { viewModel.appointMonitor(classId, stu.id, stu.name) }
-                                    .padding(vertical = 10.dp)
-                            )
+                                    .clickable(enabled = student.eligible) {
+                                        viewModel.appointOfficer(target.classId, target.role, student.id)
+                                    }
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Text(
+                                    student.name,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (student.eligible) Color(0xFF182635) else Color(0xFF9AA5AF)
+                                )
+                                Text(
+                                    "资格分 ${student.qualificationScore} · ${if (student.eligible) "符合要求" else "未达到要求"}",
+                                    fontSize = 11.sp,
+                                    color = if (student.eligible) Color(0xFF14648C) else Color(0xFFB15A54)
+                                )
+                            }
                         }
                     }
                 },
@@ -1062,8 +1074,10 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.CLASSROOM -> {
                             val myClasses = viewModel.classesInBuilding(building.id)
+                            val roomLevel = facility.level
+                            val roomCapacity = com.arktools.xiaozhang.domain.model.FacilityCapacity.classSlots(roomLevel)
                             Text(
-                                "本楼容纳 ${state.classSlotRule} 个教学班 · 在校 ${state.studentCount} 人",
+                                "本楼 Lv.$roomLevel · 容纳 $roomCapacity 个教学班 · 已绑定 ${myClasses.size} 班",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
@@ -1073,7 +1087,7 @@ private fun BuildingPanelContent(
                                 color = Color(0xFF617386)
                             )
                             if (myClasses.isEmpty()) {
-                                Text("本楼暂无挂靠班级（系统按顺序自动分配）", fontSize = 11.sp, color = Color(0xFF617386))
+                                Text("本楼暂无绑定班级（新班会按实际教室容量自动分配）", fontSize = 11.sp, color = Color(0xFF617386))
                             }
                             myClasses.forEach { row ->
                                 Column(
@@ -1084,15 +1098,44 @@ private fun BuildingPanelContent(
                                 ) {
                                     Text(row.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
                                     Text(
-                                        (row.advisorName?.let { "导师：" + it } ?: "导师：未安排")
-                                            + " · " + row.studentCount + " 人"
-                                            + (row.monitorName?.let { " · 班长：" + it } ?: ""),
+                                        (row.advisorName?.let { "导师：$it" } ?: "导师：未安排") +
+                                            " · ${row.studentCount} 人",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF617386)
+                                    )
+                                    val officerSummary = ClassOfficerRole.entries.mapNotNull { role ->
+                                        row.officers[role]?.let { "${role.displayName}：$it" }
+                                    }
+                                    Text(
+                                        if (officerSummary.isEmpty()) "班干部：尚未任命" else officerSummary.joinToString(" · "),
                                         fontSize = 11.sp,
                                         color = Color(0xFF617386)
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         PanelButtonSmall("换导师") { viewModel.openAdvisorPicker(row.classId) }
-                                        PanelButtonSmall("任班长") { viewModel.openMonitorPicker(row.classId) }
+                                    }
+                                    ClassOfficerRole.entries.forEach { role ->
+                                        val currentOfficer = row.officers[role]
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "${role.displayName}：${currentOfficer ?: "未任命"}",
+                                                modifier = Modifier.weight(1f),
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF617386)
+                                            )
+                                            PanelButtonSmall(if (currentOfficer == null) "任命" else "更换") {
+                                                viewModel.openOfficerPicker(row.classId, role)
+                                            }
+                                            if (currentOfficer != null) {
+                                                PanelButtonSmall("撤销") {
+                                                    viewModel.removeOfficer(row.classId, role)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

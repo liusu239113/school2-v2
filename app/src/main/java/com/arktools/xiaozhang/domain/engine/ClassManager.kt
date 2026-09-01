@@ -277,7 +277,8 @@ class ClassManager @Inject constructor() {
     fun updateClassMetrics(
         classes: List<SchoolClass>,
         allStudents: List<Student>,
-        teachers: List<Teacher>
+        teachers: List<Teacher>,
+        officersByClass: Map<String, Map<ClassOfficerRole, ClassOfficer>> = emptyMap()
     ) {
         val studentsByClass = allStudents
             .filter { it.classId != null && it.status in listOf(StudentStatus.ENROLLED, StudentStatus.STUDYING) }
@@ -315,6 +316,47 @@ class ClassManager @Inject constructor() {
                 baseSpirit += effect.satisfactionBoost * 100f
                 baseDiscipline += effect.disciplineBoost
                 baseCohesion += effect.socialBoost * 50f
+            }
+
+            val validOfficers = ClassOfficers.validForClass(
+                schoolClass.id,
+                officersByClass,
+                classStudents
+            )
+            validOfficers[ClassOfficerRole.MONITOR]?.second?.let { student ->
+                baseSpirit += ((student.attributes.social - 50f) / 10f).coerceIn(0f, 4f)
+                baseCohesion += ((student.attributes.morality - 50f) / 8f).coerceIn(0f, 5f)
+            }
+            validOfficers[ClassOfficerRole.STUDY_COMMITTEE]?.second?.let { student ->
+                schoolClass.avgAcademicScore = (
+                    schoolClass.avgAcademicScore +
+                        ((student.attributes.intelligence - 55f) / 10f).coerceIn(0f, 3f)
+                    ).coerceIn(0f, 100f)
+            }
+            validOfficers[ClassOfficerRole.LIFE_COMMITTEE]?.second?.let { student ->
+                schoolClass.avgSatisfaction = (
+                    schoolClass.avgSatisfaction +
+                        ((student.attributes.social - 55f) / 15f).coerceIn(0f, 2f)
+                    ).coerceIn(0f, 100f)
+                baseCohesion += 1f
+            }
+            validOfficers[ClassOfficerRole.ARTS_COMMITTEE]?.second?.let { student ->
+                baseSpirit += ((student.attributes.creativity - 55f) / 12f).coerceIn(0f, 3f)
+            }
+            validOfficers[ClassOfficerRole.SPORTS_COMMITTEE]?.second?.let { student ->
+                schoolClass.avgSatisfaction = (
+                    schoolClass.avgSatisfaction +
+                        ((student.attributes.physical - 55f) / 15f).coerceIn(0f, 2f)
+                    ).coerceIn(0f, 100f)
+                baseCohesion += 1f
+            }
+            validOfficers[ClassOfficerRole.MENTAL_HEALTH_COMMITTEE]?.second?.let { student ->
+                schoolClass.avgSatisfaction = (
+                    schoolClass.avgSatisfaction +
+                        ((student.attributes.social + student.attributes.morality - 110f) / 15f)
+                            .coerceIn(0f, 3f)
+                    ).coerceIn(0f, 100f)
+                baseDiscipline += 1f
             }
 
             schoolClass.classSpirit = baseSpirit.coerceIn(0f, 100f)

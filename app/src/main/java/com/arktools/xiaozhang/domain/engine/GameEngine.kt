@@ -3290,7 +3290,14 @@ class GameEngine @Inject constructor(
                 val allTeachersForClass = st.allTeachersCache
 
                 // 更新班级聚合指标（平均五维、满意度、人数等）——在招生前确保容量准确
-                classManager.updateClassMetrics(st.currentClasses, st.allCurrentStudents, allTeachersForClass)
+                classManager.updateClassMetrics(
+                    st.currentClasses,
+                    st.allCurrentStudents,
+                    allTeachersForClass,
+                    ClassOfficers.decode(
+                        policyManager.policies.value.collegeDevelopment.classOfficersJson
+                    )
+                )
 
                 // 清除已禁用班型的空班（用户把某班型数量设为0后，对应的无学生班级应被移除）
                 val activeDistribution = teachingManager.config.classDistribution

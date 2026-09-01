@@ -397,7 +397,8 @@ class SchoolPolicyManager @Inject constructor(
                 tutorialDone = p.collegeDevelopment.tutorialDone,
                 openingStoryDone = p.collegeDevelopment.openingStoryDone,
                 disciplinesJson = p.collegeDevelopment.disciplinesJson,
-                classOfficersJson = p.collegeDevelopment.classOfficersJson
+                classOfficersJson = p.collegeDevelopment.classOfficersJson,
+                classFacilityMapJson = p.collegeDevelopment.classFacilityMapJson
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -444,7 +445,8 @@ class SchoolPolicyManager @Inject constructor(
                     tutorialDone = data.tutorialDone,
                     openingStoryDone = data.openingStoryDone,
                     disciplinesJson = data.disciplinesJson,
-                    classOfficersJson = data.classOfficersJson
+                    classOfficersJson = data.classOfficersJson,
+                    classFacilityMapJson = data.classFacilityMapJson
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -785,7 +787,8 @@ data class PolicyPersistData(
     val tutorialDone: Boolean = false,
     val openingStoryDone: Boolean = false,
     val disciplinesJson: String = "",
-    val classOfficersJson: String = ""
+    val classOfficersJson: String = "",
+    val classFacilityMapJson: String = ""
 )
 
 data class ManagedCollegeResult(
@@ -814,6 +817,7 @@ data class CollegeDevelopment(
     val openingStoryDone: Boolean = false,
     val disciplinesJson: String = "",
     val classOfficersJson: String = "",
+    val classFacilityMapJson: String = "",
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,
