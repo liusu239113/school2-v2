@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v1.0.0"
+      - "v1.0.0-r*"
 
 permissions:
   contents: write
@@ -78,32 +78,33 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging \
             app/build/outputs/apk/release/app-release.apk | tee "$RUNNER_TEMP/apk-badging.txt"
           grep -F "name='com.arktools.xiaozhang.v2'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "versionCode='201'" "$RUNNER_TEMP/apk-badging.txt"
           grep -F "versionName='1.0.0'" "$RUNNER_TEMP/apk-badging.txt"
 
       - name: Rename and checksum APK
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/release/app-release.apk school2-v1.0.0-release.apk
-          sha256sum school2-v1.0.0-release.apk | tee school2-v1.0.0-release.apk.sha256
+          cp app/build/outputs/apk/release/app-release.apk school2-v1.0.0-r2-release.apk
+          sha256sum school2-v1.0.0-r2-release.apk | tee school2-v1.0.0-r2-release.apk.sha256
 
       - name: Upload signed release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: school2-v1.0.0-signed
+          name: school2-v1.0.0-r2-signed
           path: |
-            school2-v1.0.0-release.apk
-            school2-v1.0.0-release.apk.sha256
+            school2-v1.0.0-r2-release.apk
+            school2-v1.0.0-r2-release.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
-      - name: Create v1.0.0 release
+      - name: Create v1.0.0-r2 release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: 校长我来当 2 v1.0.0
+          tag_name: v1.0.0-r2
+          name: 校长我来当 2 v1.0.0 修订版 2
           files: |
-            school2-v1.0.0-release.apk
-            school2-v1.0.0-release.apk.sha256
+            school2-v1.0.0-r2-release.apk
+            school2-v1.0.0-r2-release.apk.sha256
           generate_release_notes: true
           make_latest: true
         env:
