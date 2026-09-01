@@ -278,8 +278,8 @@ fun PolicyScreen(
 
         item {
             PolicySection(
-                title = "学院建设",
-                description = "成立学院会立刻花钱，之后每月持续抽走办学成本，同时改变招生、科研、就业和口碑。"
+                title = "学院经营",
+                description = "学院建设统一从校园地图选址并施工；本页只查看已竣工学院，并管理其课程与后续项目。"
             ) {
                 operationMessage?.let { message ->
                     Text(
@@ -291,10 +291,11 @@ fun PolicyScreen(
                 }
                 CollegeType.entries.forEach { type ->
                     val founded = policies.collegeDevelopment.founded.contains(type)
+                    val constructionDays = policies.collegeDevelopment.constructingColleges[type.name]
                     CollegeFoundRow(
                         type = type,
                         founded = founded,
-                        onFound = { viewModel.foundCollege(type) }
+                        constructionDays = constructionDays
                     )
                 }
                 if (policies.collegeDevelopment.founded.contains(CollegeType.MEDICINE)) {
@@ -320,9 +321,7 @@ fun PolicyScreen(
                         if (policies.collegeDevelopment.affiliatedHospital) {
                             Text("已建成", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
                         } else {
-                            OutlinedButton(onClick = { viewModel.buildAffiliatedHospital() }) {
-                                Text("建设")
-                            }
+                            Text("请在校园地图建造", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -632,7 +631,7 @@ private fun AdmissionTrackRow(
 private fun CollegeFoundRow(
     type: CollegeType,
     founded: Boolean,
-    onFound: () -> Unit
+    constructionDays: Int?
 ) {
     Row(
         modifier = Modifier
@@ -649,17 +648,17 @@ private fun CollegeFoundRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(type.displayName, fontWeight = FontWeight.SemiBold)
             Text(
-                "${type.description} 校园${type.unlockLevel}级解锁 · 成立 ${type.foundingCostWan.toInt()}万 · 每月 ${"%.1f".format(type.monthlyCostWan)}万",
+                "${type.description} 校园${type.unlockLevel}级解锁 · 地图开工 ${type.foundingCostWan.toInt()}万 · 每月 ${"%.1f".format(type.monthlyCostWan)}万",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         if (founded) {
-            Text("已成立", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+            Text("已竣工", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+        } else if (constructionDays != null) {
+            Text("施工中 ${constructionDays}天", color = Color(0xFFE08A2E), fontWeight = FontWeight.Bold)
         } else {
-            OutlinedButton(onClick = onFound) {
-                Text("成立")
-            }
+            Text("请到校园地图开工", color = Color(0xFF617386), fontWeight = FontWeight.Bold)
         }
     }
 }

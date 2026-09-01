@@ -182,6 +182,7 @@ class PressureSystemManager @Inject constructor() {
     fun checkFacilityMaintenance(facilities: List<Facility>, campusLevel: Int): List<MaintenanceEvent> {
         val events = mutableListOf<MaintenanceEvent>()
         for (facility in facilities) {
+            if (facility.isConstructing) continue
             // 自然衰减：每月 condition -1.5~-3（等级越高衰减越慢但维修费越高）
             val decay = (3.5f - facility.level * 0.3f).coerceAtLeast(1.0f)
             facility.condition = (facility.condition - decay).coerceAtLeast(0f)

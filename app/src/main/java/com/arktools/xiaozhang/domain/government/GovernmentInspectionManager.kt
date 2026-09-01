@@ -89,6 +89,7 @@ data class GovernmentState(
     val warnings: List<String> = emptyList(),
     val subsidyReceived: Double = 0.0,
     val finesAccumulated: Double = 0.0,
+    val activeEnrollmentCap: Int = 0,
     val recentEvents: List<String> = emptyList()
 )
 
@@ -276,6 +277,10 @@ class GovernmentInspectionManager @Inject constructor() {
                     consecutiveGoodGrades = consecutive,
                     subsidyReceived = current.subsidyReceived + subsidy,
                     finesAccumulated = current.finesAccumulated + fine,
+                    activeEnrollmentCap = when {
+                        grade == SchoolGrade.C || grade == SchoolGrade.D -> enrollmentCap
+                        else -> 0
+                    },
                     recentEvents = events
                 )
             }
@@ -544,7 +549,8 @@ class GovernmentInspectionManager @Inject constructor() {
                 consecutiveGoodGrades = state.consecutiveGoodGrades,
                 warnings = state.warnings,
                 subsidyReceived = state.subsidyReceived,
-                finesAccumulated = state.finesAccumulated
+                finesAccumulated = state.finesAccumulated,
+                activeEnrollmentCap = state.activeEnrollmentCap
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -590,6 +596,7 @@ class GovernmentInspectionManager @Inject constructor() {
                 warnings = data.warnings,
                 subsidyReceived = data.subsidyReceived,
                 finesAccumulated = data.finesAccumulated,
+                activeEnrollmentCap = data.activeEnrollmentCap,
                 recentEvents = emptyList()
             )
         } catch (e: Exception) {
@@ -607,7 +614,8 @@ data class GovernmentPersistData(
     val consecutiveGoodGrades: Int = 0,
     val warnings: List<String> = emptyList(),
     val subsidyReceived: Double = 0.0,
-    val finesAccumulated: Double = 0.0
+    val finesAccumulated: Double = 0.0,
+    val activeEnrollmentCap: Int = 0
 )
 
 @Serializable

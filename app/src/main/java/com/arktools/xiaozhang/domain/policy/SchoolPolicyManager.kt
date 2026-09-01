@@ -139,6 +139,170 @@ class SchoolPolicyManager @Inject constructor(
         )
     }
 
+    fun startCollegeConstruction(
+        type: CollegeType,
+        buildDays: Int,
+        buildingKey: String,
+        position: Pair<Int, Int>
+    ): ManagedCollegeResult {
+        if (buildDays < 1 || buildingKey.isBlank() || position.first < 0 || position.second < 0) {
+            return ManagedCollegeResult(false, "${type.displayName}建筑参数无效")
+        }
+        val current = _policies.value.collegeDevelopment
+        if (current.founded.contains(type)) {
+            return ManagedCollegeResult(false, "${type.displayName}已经成立")
+        }
+        if (type.name in current.constructingColleges) {
+            return ManagedCollegeResult(false, "${type.displayName}已经在建设中")
+        }
+        val normalizedBuildDays = buildDays
+        val buildings = decodePlacedBuildings(current.placedBuildings).toMutableList()
+        if (buildings.any { it.key == buildingKey || (it.x == position.first && it.y == position.second) }) {
+            return ManagedCollegeResult(false, "${type.displayName}的校园建筑记录已存在")
+        }
+        buildings += PersistedCampusBuilding(
+            key = buildingKey,
+            x = position.first,
+            y = position.second,
+            level = 1,
+            constructionDaysLeft = normalizedBuildDays
+        )
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = current.copy(
+                placedBuildings = encodePlacedBuildings(buildings),
+                constructingColleges = current.constructingColleges +
+                    (type.name to normalizedBuildDays)
+            )
+        )
+        return ManagedCollegeResult(true, "${type.displayName}已开工")
+    }
+
+    /** 在同一学校变更事务中登记不关联 Facility 的校园建筑。 */
+    fun addPlacedBuilding(
+        key: String,
+        position: Pair<Int, Int>,
+        level: Int = 1,
+        constructionDaysLeft: Int = 0
+    ): Boolean {
+        if (key.isBlank() || position.first < 0 || position.second < 0 || constructionDaysLeft < 0) return false
+        val current = _policies.value.collegeDevelopment
+        val buildings = decodePlacedBuildings(current.placedBuildings).toMutableList()
+        if (buildings.any { it.key == key || (it.x == position.first && it.y == position.second) }) {
+            return false
+        }
+        buildings += PersistedCampusBuilding(
+            key = key,
+            x = position.first,
+            y = position.second,
+            level = level,
+            constructionDaysLeft = constructionDaysLeft
+        )
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = current.copy(placedBuildings = encodePlacedBuildings(buildings))
+        )
+        return true
+    }
+    /** 在同一学校变更事务中登记设施的地图建筑。 */
+    fun addPlacedFacility(
+        key: String,
+        position: Pair<Int, Int>,
+        level: Int,
+        facilityId: String,
+        constructionDaysLeft: Int
+    ): Boolean {
+        if (facilityId.isBlank() || constructionDaysLeft < 0) return false
+        val current = _policies.value.collegeDevelopment
+        val buildings = decodePlacedBuildings(current.placedBuildings).toMutableList()
+        if (buildings.any { it.facilityId == facilityId || (it.key == key && it.x == position.first && it.y == position.second) }) {
+            return false
+        }
+        buildings += PersistedCampusBuilding(
+            key = key,
+            x = position.first,
+            y = position.second,
+            level = level,
+            facilityId = facilityId,
+            constructionDaysLeft = constructionDaysLeft
+        )
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = current.copy(placedBuildings = encodePlacedBuildings(buildings))
+        )
+        return true
+    }
+
+    /** 在同一学校变更事务中移除设施对应的地图建筑。 */
+    fun removePlacedFacility(key: String, facilityId: String): Boolean {
+        val current = _policies.value.collegeDevelopment
+        val buildings = decodePlacedBuildings(current.placedBuildings)
+        val filtered = buildings.filterNot {
+            if (facilityId.isNotBlank()) it.facilityId == facilityId else it.key == key
+        }
+        if (filtered.size == buildings.size) return false
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = current.copy(placedBuildings = encodePlacedBuildings(filtered))
+        )
+        return true
+    }
+
+    private fun decodePlacedBuildings(raw: String): List<PersistedCampusBuilding> =
+        if (raw.isBlank()) emptyList()
+        else runCatching {
+            Json { ignoreUnknownKeys = true }
+                .decodeFromString<List<PersistedCampusBuilding>>(raw)
+        }.getOrDefault(emptyList())
+
+    private fun collegeTypeForBuildingKey(key: String): CollegeType? = when (key) {
+        "C_LIBERAL" -> CollegeType.LIBERAL_ARTS
+        "C_SCIENCE" -> CollegeType.SCIENCE
+        "C_ENGINEERING" -> CollegeType.ENGINEERING
+        "C_BUSINESS" -> CollegeType.BUSINESS
+        "C_ART" -> CollegeType.ARTS
+        "C_MEDICINE" -> CollegeType.MEDICINE
+        else -> null
+    }
+    private fun encodePlacedBuildings(buildings: List<PersistedCampusBuilding>): String =
+        Json.encodeToString(buildings)
+
+    fun advanceCollegeConstructionDay(): List<CollegeType> {
+        val current = _policies.value.collegeDevelopment
+        if (current.constructingColleges.isEmpty()) return emptyList()
+        val completed = mutableListOf<CollegeType>()
+        val remaining = linkedMapOf<String, Int>()
+        val invalid = mutableListOf<String>()
+        current.constructingColleges.forEach { (name, days) ->
+            val type = runCatching { CollegeType.valueOf(name) }.getOrNull()
+            if (type == null || days < 1) {
+                invalid += name
+                return@forEach
+            }
+            val next = days - 1
+            if (next == 0) completed += type else remaining[name] = next
+        }
+        if (invalid.isNotEmpty()) {
+            throw IllegalArgumentException("无效的学院施工记录：${invalid.joinToString("、")}")
+        }
+        val updatedBuildings = decodePlacedBuildings(current.placedBuildings).map { building ->
+            val college = collegeTypeForBuildingKey(building.key)
+            val days = college?.let { current.constructingColleges[it.name] }
+            if (days == null) {
+                building
+            } else {
+                building.copy(constructionDaysLeft = (days - 1).coerceAtLeast(0))
+            }
+        }
+        _policies.value = _policies.value.copy(
+            collegeDevelopment = current.copy(
+                founded = (current.founded + completed).distinct(),
+                placedBuildings = encodePlacedBuildings(updatedBuildings),
+                constructingColleges = remaining
+            )
+        )
+        return completed
+    }
+
+    fun collegeConstructionDays(type: CollegeType): Int? =
+        _policies.value.collegeDevelopment.constructingColleges[type.name]
+
     fun setAffiliatedHospital(built: Boolean) {
         _policies.value = _policies.value.copy(
             collegeDevelopment = _policies.value.collegeDevelopment.copy(affiliatedHospital = built)
@@ -160,6 +324,10 @@ class SchoolPolicyManager @Inject constructor(
         if (current.founded.contains(type)) {
             return ManagedCollegeResult(false, "${type.displayName}已经成立")
         }
+        if (type.name in current.constructingColleges) {
+            val days = current.constructingColleges[type.name] ?: 0
+            return ManagedCollegeResult(false, "${type.displayName}正在建设中，还需${days}天")
+        }
         if (campusLevel < type.unlockLevel) {
             return ManagedCollegeResult(
                 false,
@@ -175,19 +343,6 @@ class SchoolPolicyManager @Inject constructor(
         return ManagedCollegeResult(
             true,
             "成立${type.displayName}将投入 ${type.foundingCostWan.toInt()}万，此后每月约 ${"%.1f".format(type.monthlyCostWan)}万"
-        )
-    }
-
-    fun tryFoundCollege(type: CollegeType, campusLevel: Int, cash: Double): ManagedCollegeResult {
-        val preview = previewFoundCollege(type, campusLevel, cash)
-        if (!preview.success) return preview
-        val current = _policies.value.collegeDevelopment
-        _policies.value = _policies.value.copy(
-            collegeDevelopment = current.copy(founded = current.founded + type)
-        )
-        return ManagedCollegeResult(
-            true,
-            "已成立${type.displayName}，投入 ${type.foundingCostWan.toInt()}万，此后每月约 ${"%.1f".format(type.monthlyCostWan)}万"
         )
     }
 
@@ -398,7 +553,8 @@ class SchoolPolicyManager @Inject constructor(
                 openingStoryDone = p.collegeDevelopment.openingStoryDone,
                 disciplinesJson = p.collegeDevelopment.disciplinesJson,
                 classOfficersJson = p.collegeDevelopment.classOfficersJson,
-                classFacilityMapJson = p.collegeDevelopment.classFacilityMapJson
+                classFacilityMapJson = p.collegeDevelopment.classFacilityMapJson,
+                constructingColleges = p.collegeDevelopment.constructingColleges
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -446,7 +602,8 @@ class SchoolPolicyManager @Inject constructor(
                     openingStoryDone = data.openingStoryDone,
                     disciplinesJson = data.disciplinesJson,
                     classOfficersJson = data.classOfficersJson,
-                    classFacilityMapJson = data.classFacilityMapJson
+                    classFacilityMapJson = data.classFacilityMapJson,
+                    constructingColleges = data.constructingColleges
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -748,6 +905,16 @@ data class PolicyEffects(
 )
 
 @Serializable
+data class PersistedCampusBuilding(
+    val key: String,
+    val x: Int,
+    val y: Int,
+    val level: Int = 1,
+    val facilityId: String = "",
+    val constructionDaysLeft: Int = 0
+)
+
+@Serializable
 data class PolicyPersistData(
     val tuitionLevel: String = "STANDARD",
     val examDifficulty: String = "MODERATE",
@@ -788,7 +955,8 @@ data class PolicyPersistData(
     val openingStoryDone: Boolean = false,
     val disciplinesJson: String = "",
     val classOfficersJson: String = "",
-    val classFacilityMapJson: String = ""
+    val classFacilityMapJson: String = "",
+    val constructingColleges: Map<String, Int> = emptyMap()
 )
 
 data class ManagedCollegeResult(
@@ -818,6 +986,7 @@ data class CollegeDevelopment(
     val disciplinesJson: String = "",
     val classOfficersJson: String = "",
     val classFacilityMapJson: String = "",
+    val constructingColleges: Map<String, Int> = emptyMap(),
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,

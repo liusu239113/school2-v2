@@ -61,6 +61,7 @@ class CampusViewModel @Inject constructor(
         val reputation: Long = 0,
         val campusLevel: Int = 1,
         val foundedColleges: List<CollegeType> = emptyList(),
+        val constructingColleges: Map<CollegeType, Int> = emptyMap(),
         val affiliatedHospital: Boolean = false,
         val facilities: List<Facility> = emptyList(),
         val placed: List<BT.PlacedBuilding> = emptyList(),
@@ -154,7 +155,10 @@ class CampusViewModel @Inject constructor(
                 val students = runCatching { studentRepository.getActiveStudents() }.getOrDefault(emptyList())
                 val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
                 val terrain = BT.decodeTerrain(dev.terrainMap)
-                val decorKinds = setOf("FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN")
+                val decorKinds = setOf(
+                    "FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN",
+                    "CHERRY_TREE", "MEMORIAL", "SCHOOL_SIGN", "FOUNTAIN"
+                )
                 val bonuses = FacilityBonusCalculator.calculate(school.facilities)
                 _state.value = _state.value.copy(
                     cash = school.cash,
@@ -164,7 +168,17 @@ class CampusViewModel @Inject constructor(
                     maxFacilities = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel),
                     placed = BT.decodeBuildings(dev.placedBuildings).map { b ->
                         val f = school.facilities.firstOrNull { it.id == b.facilityId }
-                        if (f != null) b.copy(constructionDaysLeft = f.constructionDaysLeft) else b
+                        val collegeDays = collegeTypeForBuildingKey(b.key)
+                            ?.let { dev.constructingColleges[it.name] }
+                        when {
+                            f != null -> b.copy(
+                                level = f.level,
+                                constructionDaysLeft = f.constructionDaysLeft
+                            )
+                            collegeTypeForBuildingKey(b.key) != null ->
+                                b.copy(constructionDaysLeft = collegeDays ?: 0)
+                            else -> b
+                        }
                     },
                     terrain = terrain.associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
                     tutorialDone = dev.tutorialDone,
@@ -219,10 +233,22 @@ class CampusViewModel @Inject constructor(
                 val dev = p.collegeDevelopment
                 _state.value = _state.value.copy(
                     foundedColleges = dev.founded,
+                    constructingColleges = dev.constructingColleges.mapNotNull { (name, days) ->
+                        runCatching { CollegeType.valueOf(name) }.getOrNull()?.let { it to days }
+                    }.toMap(),
                     affiliatedHospital = dev.affiliatedHospital,
                     placed = BT.decodeBuildings(dev.placedBuildings).map { b ->
                         val f = _state.value.facilities.firstOrNull { it.id == b.facilityId }
-                        if (f != null) b.copy(constructionDaysLeft = f.constructionDaysLeft) else b
+                        val collegeType = collegeTypeForBuildingKey(b.key)
+                        val collegeDays = collegeType?.let { dev.constructingColleges[it.name] }
+                        when {
+                            f != null -> b.copy(
+                                level = f.level,
+                                constructionDaysLeft = f.constructionDaysLeft
+                            )
+                            collegeType != null -> b.copy(constructionDaysLeft = collegeDays ?: 0)
+                            else -> b
+                        }
                     },
                     terrain = BT.decodeTerrain(dev.terrainMap)
                         .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
@@ -383,10 +409,10 @@ class CampusViewModel @Inject constructor(
 
     private suspend fun tickConstruction() {
         val st = _state.value
-        val constructing = st.placed.any { it.isConstructing } ||
-            st.facilities.any { it.isConstructing }
+        val constructing = st.facilities.any { it.isConstructing }
         if (!constructing) return
         var finishedName: String? = null
+        var updatedFacilities: List<Facility> = st.facilities
         schoolRepository.mutateSchool { school ->
             school.facilities.forEach { f ->
                 if (f.constructionDaysLeft > 0) {
@@ -396,20 +422,33 @@ class CampusViewModel @Inject constructor(
                     }
                 }
             }
+            updatedFacilities = school.facilities.toList()
             true
         }
         val nextPlaced = st.placed.map { b ->
-            if (!b.isConstructing) b
-            else {
-                val left = (b.constructionDaysLeft - 1).coerceAtLeast(0)
-                if (left == 0) finishedName = finishedName ?: BT.specByKey(b.key)?.displayName
-                b.copy(constructionDaysLeft = left)
-            }
+            val facility = updatedFacilities.firstOrNull { it.id == b.facilityId }
+            if (facility != null) {
+                b.copy(level = facility.level, constructionDaysLeft = facility.constructionDaysLeft)
+            } else b
         }
         val msg = finishedName?.let { "${it}竣工，开始投入使用" }
-        _state.value = st.copy(placed = nextPlaced, message = msg ?: st.message)
+        _state.value = st.copy(
+            facilities = updatedFacilities,
+            placed = nextPlaced,
+            message = msg ?: st.message
+        )
         if (finishedName != null) audioManager.playConstructionDone()
         updateLayoutSuspend(nextPlaced, st.terrain)
+    }
+
+    private fun collegeTypeForBuildingKey(key: String): CollegeType? = when (key) {
+        "C_LIBERAL" -> CollegeType.LIBERAL_ARTS
+        "C_SCIENCE" -> CollegeType.SCIENCE
+        "C_ENGINEERING" -> CollegeType.ENGINEERING
+        "C_BUSINESS" -> CollegeType.BUSINESS
+        "C_ART" -> CollegeType.ARTS
+        "C_MEDICINE" -> CollegeType.MEDICINE
+        else -> null
     }
 
     private fun tileKindOf(name: String): BT.TileKind =
@@ -501,7 +540,7 @@ class CampusViewModel @Inject constructor(
         return if (changed) result else placed
     }
 
-    private fun migrateIfNeeded(school: com.arktools.xiaozhang.domain.model.School, placedRaw: String, terrainRaw: String) {
+    private suspend fun migrateIfNeeded(school: com.arktools.xiaozhang.domain.model.School, placedRaw: String, terrainRaw: String) {
         if (placedRaw.isNotBlank()) {
             val existing = BT.decodeBuildings(placedRaw)
             val terrain = BT.decodeTerrain(terrainRaw)
@@ -532,27 +571,28 @@ class CampusViewModel @Inject constructor(
         persistLayout(placed, terrainMap)
     }
 
-    private fun persistLayout(
+    private suspend fun persistLayoutResult(
+        placed: List<BT.PlacedBuilding>,
+        terrain: Map<Long, BT.TileKind>
+    ): Boolean {
+        return schoolRepository.mutateSchool { school ->
+            val dev = policyManager.policies.value.collegeDevelopment
+            val cellList = terrain.map { (k, kind) -> BT.TerrainCell((k % 1000L).toInt(), (k / 1000L).toInt(), kind.name) }
+            val updated = dev.copy(
+                placedBuildings = BT.encodeBuildings(placed),
+                terrainMap = BT.encodeTerrain(cellList)
+            )
+            policyManager.replaceCollegeDevelopment(updated)
+            school.policyJson = policyManager.toJson()
+            true
+        } != null
+    }
+
+    private suspend fun persistLayout(
         placed: List<BT.PlacedBuilding>,
         terrain: Map<Long, BT.TileKind>
     ) {
-        viewModelScope.safeLaunch {
-            schoolRepository.mutateSchool { school ->
-                val dev = policyManager.policies.value.collegeDevelopment
-                var target = school
-                val cellList = terrain.map { (k, kind) -> BT.TerrainCell((k % 1000L).toInt(), (k / 1000L).toInt(), kind.name) }
-                // 写入 CollegeDevelopment 两字段并同步 policyJson
-                target.policyJson = run {
-                    val updated = dev.copy(
-                        placedBuildings = BT.encodeBuildings(placed),
-                        terrainMap = BT.encodeTerrain(cellList)
-                    )
-                    policyManager.replaceCollegeDevelopment(updated)
-                    policyManager.toJson()
-                }
-                true
-            }
-        }
+        persistLayoutResult(placed, terrain)
     }
 
     private fun updateLayoutSuspend(
@@ -568,8 +608,12 @@ class CampusViewModel @Inject constructor(
         if (st.placed.any { it.key == "HOSPITAL" }) return
         val spot = firstFree(BT.HOSPITAL, st.placed, st.terrain, st.campusLevel) ?: return
         val newPlaced = st.placed + BT.PlacedBuilding("HOSPITAL", spot.first, spot.second)
+        val snapshot = policyManager.toJson()
+        if (!persistLayoutResult(newPlaced, st.terrain)) {
+            policyManager.restoreFromJson(snapshot)
+            return
+        }
         _state.value = _state.value.copy(placed = newPlaced)
-        updateLayoutSuspend(newPlaced, st.terrain)
     }
 
     // ===== 查询 =====
@@ -638,45 +682,105 @@ class CampusViewModel @Inject constructor(
     fun foundCollege(spec: BT.Spec, at: Pair<Int, Int>? = null) {
         val college = spec.college ?: return
         viewModelScope.safeLaunch {
-            val result = gameEngine.foundCollege(college)
+            val before = _state.value
+            val spot = if (at != null && canPlaceAt(
+                    spec, at.first, at.second, before.placed, before.terrain, before.campusLevel
+                ) == null
+            ) {
+                at
+            } else {
+                firstFree(spec, before.placed, before.terrain, before.campusLevel)
+            }
+            if (spot == null) {
+                _state.value = before.copy(message = "${spec.displayName}没有合法空位，未扣款。请先清理道路或扩建校园")
+                return@safeLaunch
+            }
+            val result = gameEngine.foundCollege(
+                type = college,
+                buildDays = spec.buildDays,
+                buildingKey = spec.key,
+                position = spot
+            )
             if (result.success) {
                 audioManager.playCollegeFound()
                 gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
-                val st = _state.value
-                // 优先放在玩家选定的格子；未指定时才自动找空位
-                val spot = if (at != null && canPlaceAt(spec, at.first, at.second, st.placed, st.terrain, st.campusLevel) == null) {
-                    at
-                } else {
-                    firstFree(spec, st.placed, st.terrain, st.campusLevel)
-                }
-                if (spot != null) {
-                    val days = spec.buildDays
-                    val newPlaced = st.placed + BT.PlacedBuilding(
-                        spec.key, spot.first, spot.second, 1, "", days
-                    )
-                    val msg = if (days > 0) "${spec.displayName}开工，还需 ${days} 天竣工" else "${spec.displayName}已落成"
-                    _state.value = _state.value.copy(placed = newPlaced, message = msg)
-                    updateLayoutSuspend(newPlaced, st.terrain)
-                } else {
-                    _state.value = _state.value.copy(message = "${spec.displayName}已成立，但校园没有空位，请清理后再摆放")
-                }
+                val days = spec.buildDays
+                val newPlaced = before.placed
+                    .filterNot { it.key == spec.key }
+                    .plus(BT.PlacedBuilding(spec.key, spot.first, spot.second, 1, "", days))
+                val msg = if (days > 0) "${spec.displayName}开工，还需 ${days} 天竣工" else "${spec.displayName}已落成"
+                _state.value = before.copy(placed = newPlaced, message = msg)
             } else {
                 audioManager.playEventNegative()
-                _state.value = _state.value.copy(message = result.message)
+                _state.value = before.copy(message = result.message)
             }
         }
     }
 
-    // ===== 建造：设施 =====
+    fun claimHospitalConstruction(spec: BT.Spec, at: Pair<Int, Int>? = null) {
+        if (spec.key != BT.HOSPITAL.key) return
+        viewModelScope.safeLaunch {
+            val before = _state.value
+            if (before.affiliatedHospital || before.placed.any { it.key == spec.key }) {
+                _state.value = before.copy(message = "附属医院已存在")
+                return@safeLaunch
+            }
+            val spot = at?.takeIf {
+                canPlaceAt(spec, it.first, it.second, before.placed, before.terrain, before.campusLevel) == null
+            } ?: firstFree(spec, before.placed, before.terrain, before.campusLevel)
+            if (spot == null) {
+                _state.value = before.copy(message = "附属医院没有合法空位，未扣款")
+                return@safeLaunch
+            }
+            val result = gameEngine.buildAffiliatedHospital(spec.key, spot)
+            if (!result.success) {
+                _state.value = before.copy(message = result.message)
+                return@safeLaunch
+            }
+            val newPlaced = before.placed + BT.PlacedBuilding(spec.key, spot.first, spot.second)
+            _state.value = before.copy(placed = newPlaced, affiliatedHospital = true, message = result.message)
+            audioManager.playBuildFacility()
+            gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
+        }
+    }
+
 
     fun buildFacility(spec: BT.Spec, at: Pair<Int, Int>? = null) {
         val type = spec.facility ?: return
         viewModelScope.safeLaunch {
+            val before = _state.value
+            val spot = if (at != null && canPlaceAt(
+                    spec, at.first, at.second, before.placed, before.terrain, before.campusLevel
+                ) == null
+            ) {
+                at
+            } else {
+                firstFree(spec, before.placed, before.terrain, before.campusLevel)
+            }
+            if (spot == null) {
+                _state.value = before.copy(message = "${spec.displayName}没有合法空位，未扣款。请先清理道路或扩建校园")
+                return@safeLaunch
+            }
             var newFacility: Facility? = null
+            val policySnapshot = policyManager.toJson()
             val result = schoolRepository.mutateSchool { school ->
                 val max = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel)
                 if (school.facilities.size >= max) {
                     _state.value = _state.value.copy(message = "建筑数量已达当前等级上限（${max}），先升级校园")
+                    return@mutateSchool false
+                }
+                val missingCollege = spec.prerequisiteColleges.firstOrNull { required ->
+                    !policyManager.policies.value.collegeDevelopment.founded.contains(required)
+                }
+                if (missingCollege != null) {
+                    _state.value = _state.value.copy(message = "${type.displayName}需要${missingCollege.displayName}竣工")
+                    return@mutateSchool false
+                }
+                val missingFacility = spec.prerequisiteFacilities.firstOrNull { required ->
+                    school.facilities.none { it.type == required && it.isOperational }
+                }
+                if (missingFacility != null) {
+                    _state.value = _state.value.copy(message = "${type.displayName}需要${missingFacility.displayName}投入使用")
                     return@mutateSchool false
                 }
                 val existingCount = school.facilities.count { it.type == type }
@@ -689,33 +793,37 @@ class CampusViewModel @Inject constructor(
                     _state.value = _state.value.copy(message = "资金不足！需要 ${cost.toInt()} 万元")
                     return@mutateSchool false
                 }
-                school.cash -= cost
                 val f = Facility(type = type, level = 1, condition = 100f, constructionDaysLeft = spec.buildDays)
+                if (!policyManager.addPlacedFacility(
+                        key = spec.key,
+                        position = spot,
+                        level = f.level,
+                        facilityId = f.id,
+                        constructionDaysLeft = f.constructionDaysLeft
+                    )
+                ) {
+                    _state.value = _state.value.copy(message = "地图建筑记录冲突，未扣款")
+                    return@mutateSchool false
+                }
+                school.cash -= cost
                 school.facilities.add(f)
                 newFacility = f
+                school.policyJson = policyManager.toJson()
                 true
+            }
+            if (result == null) {
+                policyManager.restoreFromJson(policySnapshot)
             }
             if (result != null) {
                 audioManager.playBuildFacility()
                 gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
+                val msg = if (spec.buildDays > 0) "${spec.displayName}开工，还需 ${spec.buildDays} 天竣工" else "${spec.displayName}已落成"
                 val f = newFacility
-                val st = _state.value
                 if (f != null) {
-                    // 优先放在玩家选定的格子；未指定时才自动找空位
-                    val spot = if (at != null && canPlaceAt(spec, at.first, at.second, st.placed, st.terrain, st.campusLevel) == null) {
-                        at
-                    } else {
-                        firstFree(spec, st.placed, st.terrain, st.campusLevel)
-                    }
-                    if (spot != null) {
-                        val days = spec.buildDays
-                        val newPlaced = st.placed + BT.PlacedBuilding(
-                            spec.key, spot.first, spot.second, 1, f.id, days
-                        )
-                        val msg = if (days > 0) "${spec.displayName}开工，还需 ${days} 天竣工" else "${spec.displayName}已落成"
-                        _state.value = _state.value.copy(placed = newPlaced, message = msg)
-                        updateLayoutSuspend(newPlaced, st.terrain)
-                    }
+                    val newPlaced = before.placed + BT.PlacedBuilding(
+                        spec.key, spot.first, spot.second, 1, f.id, spec.buildDays
+                    )
+                    _state.value = before.copy(placed = newPlaced, message = msg)
                 }
             } else {
                 audioManager.playEventNegative()
@@ -757,8 +865,13 @@ class CampusViewModel @Inject constructor(
 
     fun startMove(placed: BT.PlacedBuilding) {
         val spec = BT.specByKey(placed.key) ?: return
+        if (spec.key == BT.HOSPITAL.key) {
+            _state.value = _state.value.copy(message = "附属医院不能搬移")
+            return
+        }
         _state.value = _state.value.copy(
-            selected = null, selectedPlaced = null,
+            selected = null,
+            selectedPlaced = null,
             message = "拖动地图并点击绿色空位，搬移${spec.displayName}"
         )
         moveId = placed.facilityId.ifBlank { placed.key }
@@ -768,20 +881,39 @@ class CampusViewModel @Inject constructor(
 
     fun removePlaced(placed: BT.PlacedBuilding) {
         val spec = BT.specByKey(placed.key) ?: return
+        if (placed.key == BT.HOSPITAL.key) {
+            _state.value = _state.value.copy(message = "附属医院不可拆除")
+            return
+        }
         if (!spec.removable) {
             _state.value = _state.value.copy(message = "${spec.displayName}不可拆除")
             return
         }
         viewModelScope.safeLaunch {
             var refund = 0.0
-            var facilityRemoved = false
+            val policySnapshot = policyManager.toJson()
             val result = schoolRepository.mutateSchool { school ->
                 refund = spec.costWan * 0.3
-                school.cash += refund
-                if (spec.facility != null) {
-                    facilityRemoved = school.facilities.removeAll { it.id == placed.facilityId }
+                if (spec.facility != null &&
+                    !policyManager.removePlacedFacility(spec.key, placed.facilityId)
+                ) {
+                    _state.value = _state.value.copy(message = "地图建筑记录缺失，未拆除")
+                    return@mutateSchool false
                 }
+                school.cash += refund
+                var removed = false
+                if (spec.facility != null) {
+                    removed = school.facilities.removeAll { it.id == placed.facilityId }
+                    if (!removed) {
+                        _state.value = _state.value.copy(message = "设施记录缺失，未拆除")
+                        return@mutateSchool false
+                    }
+                }
+                school.policyJson = policyManager.toJson()
                 true
+            }
+            if (result == null) {
+                policyManager.restoreFromJson(policySnapshot)
             }
             if (result != null) {
                 audioManager.playCashEarn()
@@ -821,14 +953,25 @@ class CampusViewModel @Inject constructor(
                     }
                     val moved = old.copy(x = x, y = y)
                     val newPlaced = others + moved
+                    val persisted = persistLayoutResult(newPlaced, st.terrain)
+                    if (!persisted) {
+                        _state.value = _state.value.copy(message = "地图保存失败，搬移未生效")
+                        moveId = null
+                        pendingSpec = null
+                        return
+                    }
                     _state.value = _state.value.copy(placed = newPlaced, message = "${spec.displayName}已搬移")
-                    updateLayoutSuspend(newPlaced, st.terrain)
                 }
                 moveId = null
                 pendingSpec = null
                 return
             }
-            // 新建：学院/设施走各自扣费流程，放置成功由流程内 firstFree 决定
+            // 新建：附属医院由引擎在同一事务中登记地图与功能状态。
+            if (spec.key == BT.HOSPITAL.key) {
+                claimHospitalConstruction(spec, x to y)
+                pendingSpec = null
+                return
+            }
             val err = canPlaceAt(spec, x, y, st.placed, st.terrain, st.campusLevel)
             if (err != null) {
                 _state.value = _state.value.copy(message = err)

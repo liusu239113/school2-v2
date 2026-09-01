@@ -645,7 +645,9 @@ class EmploymentMarket @Inject constructor() {
      */
     fun advanceMonth(
         schoolReputation: Long, currentYear: Int, currentMonth: Int,
-        governmentBoostFactor: Float = 1f, schoolLevel: Int = 1
+        governmentBoostFactor: Float = 1f,
+        schoolLevel: Int = 1,
+        employmentSupportLevel: Int = 0
     ): EmploymentMonthlyResult {
         val events = mutableListOf<EmploymentEvent>()
         var newEmployments = 0
@@ -660,7 +662,11 @@ class EmploymentMarket @Inject constructor() {
                         val updated = grad.copy(monthsInUniversity = grad.monthsInUniversity + 1)
                         // 大学毕业检查
                         if (updated.monthsInUniversity >= updated.universityDuration) {
-                            val result = assignPostUniversityCareer(updated)
+                            val result = assignPostUniversityCareer(
+                                updated,
+                                governmentBoostFactor,
+                                employmentSupportLevel
+                            )
                             newEmployments++
                             events.add(EmploymentEvent.UniversityGraduation(
                                 studentName = result.studentName,
@@ -721,7 +727,15 @@ class EmploymentMarket @Inject constructor() {
     /**
      * 大学毕业后分配职业
      */
-    private fun assignPostUniversityCareer(graduate: GraduateRecord): GraduateRecord {
+    private fun assignPostUniversityCareer(
+        graduate: GraduateRecord,
+        governmentBoostFactor: Float = 1f,
+        employmentSupportLevel: Int = 0
+    ): GraduateRecord {
+        val supportLevel = employmentSupportLevel.coerceIn(0, 3)
+        val qualityBoostChance = (
+            (governmentBoostFactor - 1f).coerceAtLeast(0f) * 0.7f + supportLevel * 0.06f
+        ).coerceIn(0f, 0.30f)
         // 清北/顶尖985高概率继续深造
         val furtherStudyChance = when (graduate.universityTier) {
             UniversityTier.QINGBEI -> 0.5f
@@ -729,7 +743,8 @@ class EmploymentMarket @Inject constructor() {
             UniversityTier.NORMAL_985 -> 0.15f
             else -> 0.05f
         }
-        if (random.nextFloat() < furtherStudyChance) {
+        val boostedFurtherStudyChance = (furtherStudyChance + qualityBoostChance * 0.25f).coerceAtMost(0.75f)
+        if (random.nextFloat() < boostedFurtherStudyChance) {
             return graduate.copy(
                 status = GraduateStatus.FURTHER_STUDY,
                 feedbackScore = 4  // 深造=对母校高评价
@@ -738,7 +753,8 @@ class EmploymentMarket @Inject constructor() {
 
         // 创业概率
         val startupChance = if (graduate.universityTier.ordinal <= UniversityTier.NORMAL_985.ordinal) 0.08f else 0.03f
-        if (random.nextFloat() < startupChance) {
+        val boostedStartupChance = (startupChance + qualityBoostChance * 0.15f).coerceAtMost(0.20f)
+        if (random.nextFloat() < boostedStartupChance) {
             return graduate.copy(
                 status = GraduateStatus.SELF_EMPLOYED,
                 industry = com.arktools.xiaozhang.domain.model.UniversityAcademicCatalog.pickIndustry(
@@ -751,7 +767,8 @@ class EmploymentMarket @Inject constructor() {
         }
 
         // 正常就业：大学层次决定薪资和行业
-        val (industry, salary) = assignIndustryAndSalary(graduate.universityTier, graduate.courseId)
+        val (industry, baseSalary) = assignIndustryAndSalary(graduate.universityTier, graduate.courseId)
+        val salary = upgradeSalaryTier(baseSalary, qualityBoostChance)
         val feedback = when (graduate.universityTier) {
             UniversityTier.QINGBEI, UniversityTier.TOP_985 -> random.nextInt(3) + 3  // 3~5
             UniversityTier.NORMAL_985, UniversityTier.TOP_211 -> random.nextInt(3) + 1  // 1~3
@@ -785,6 +802,12 @@ class EmploymentMarket @Inject constructor() {
             random
         )
         return industry to salary
+    }
+
+    private fun upgradeSalaryTier(base: SalaryTier, chance: Float): SalaryTier {
+        if (chance <= 0f || random.nextFloat() >= chance) return base
+        val nextOrdinal = (base.ordinal + 1).coerceAtMost(SalaryTier.entries.lastIndex)
+        return SalaryTier.entries[nextOrdinal]
     }
 
     private fun calculateGraduationRepBonus(tier: UniversityTier): Int {

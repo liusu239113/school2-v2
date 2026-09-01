@@ -15,7 +15,7 @@ data class Facility(
     var constructionDaysLeft: Int = 0
 ) {
     val maintenanceCost: Double
-        get() = type.baseMaintenance * level
+        get() = if (isConstructing) 0.0 else type.baseMaintenance * level
 
     val isOperational: Boolean
         get() = condition > 20f && constructionDaysLeft <= 0
@@ -62,7 +62,8 @@ object FacilityCapacity {
     }
 
     fun stacked(facilities: List<Facility>, type: FacilityType, perLevel: (Int) -> Int): Int {
-        return facilities.filter { it.type == type && it.isOperational }
+        return facilities
+            .filter { it.type == type && it.isOperational }
             .sortedByDescending { it.level }
             .mapIndexed { index, facility -> (perLevel(facility.level) * diminishing(index)).toInt().coerceAtLeast(1) }
             .sum()
@@ -134,7 +135,7 @@ enum class FacilityType(
     // Prestige facilities
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),
     CONFERENCE_CENTER("会议中心", "学术声誉+8%/级，事件奖励加成+10%/级", 60.0, 1.8, 3, FacilityCategory.PRESTIGE),
-    EMPLOYMENT_CENTER("就业指导中心", "毕业就业率+6%/级，学生社交+", 45.0, 1.5, 3, FacilityCategory.SUPPORT),
+    EMPLOYMENT_CENTER("就业指导中心", "提升毕业去向质量：就业中心等级与政府评级会提高高质量去向概率", 45.0, 1.5, 3, FacilityCategory.SUPPORT),
     GARDEN("校园花园", "教师忠诚度衰减-20%/级，学生品德+。可重复布置园区", 12.0, 0.4, 3, FacilityCategory.PRESTIGE, repeatable = true),
     GATE("校门/门面", "学校形象，声誉增长+10%/级", 8.0, 0.2, 3, FacilityCategory.PRESTIGE)
 }

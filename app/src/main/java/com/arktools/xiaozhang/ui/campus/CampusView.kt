@@ -154,7 +154,11 @@ fun CampusView(
             R.drawable.deco_lantern,
             R.drawable.deco_bench,
             R.drawable.deco_statue,
-            R.drawable.deco_water
+            R.drawable.deco_water,
+            R.drawable.deco_cherry,
+            R.drawable.deco_memorial,
+            R.drawable.deco_school_sign,
+            R.drawable.deco_fountain
         )
         ids.associateWith { res ->
             BitmapFactory.decodeResource(context.resources, res).asImageBitmap()
@@ -356,6 +360,10 @@ fun CampusView(
                                     BT.TileKind.LANTERN -> 0.62f
                                     BT.TileKind.BENCH -> 0.92f
                                     BT.TileKind.FLOWERBED -> 0.92f
+                                    BT.TileKind.CHERRY_TREE -> 0.95f
+                                    BT.TileKind.MEMORIAL -> 0.78f
+                                    BT.TileKind.SCHOOL_SIGN -> 0.9f
+                                    BT.TileKind.FOUNTAIN -> 1.0f
                                     else -> 0.88f
                                 }
                                 var dh = dw / aspect
@@ -991,7 +999,9 @@ private fun BuildingPanelContent(
                         fontSize = 13.sp,
                         color = Color(0xFF617386)
                     )
-                    PanelButton("教学与招生管理") { onOpenTeaching() }
+                    if (placed?.isConstructing != true) {
+                        PanelButton("教学与招生管理") { onOpenTeaching() }
+                    }
                     if (college == CollegeType.MEDICINE) {
                         Text(
                             "附属医院可在下方「建造」菜单扩建成后出现",
@@ -1002,7 +1012,7 @@ private fun BuildingPanelContent(
                 }
             }
             CampusViewModel.CampusBuilding.Kind.HOSPITAL -> {
-                Text("附属医院每 6 月学年评估时提供诊疗收入与声誉加成。", fontSize = 13.sp, color = Color(0xFF182635))
+                Text("附属医院投入后每月提供诊疗收入与声誉加成。", fontSize = 13.sp, color = Color(0xFF182635))
             }
             CampusViewModel.CampusBuilding.Kind.FACILITY -> {
                 val facility = building.facility
@@ -1048,7 +1058,7 @@ private fun BuildingPanelContent(
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("就业中心影响毕业去向、校友捐赠和招生口碑。", fontSize = 12.sp, color = Color(0xFF617386))
+                            Text("就业中心与政府评级会共同影响毕业去向质量、薪资档位和雇主反馈。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("就业与校友") { onOpenEmployment() }
                         }
                         FacilityType.CONFERENCE_CENTER -> {
@@ -1176,7 +1186,12 @@ private fun BuildingPanelContent(
                         color = Color(0xFF617386)
                     )
                     if (facility.level < facility.type.maxLevel) {
-                        PanelButton("升级") { onUpgradeFacility() }
+                        val panelButtonText = if (placed?.isConstructing == true) {
+                            "施工中：还需 ${placed.constructionDaysLeft} 天"
+                        } else {
+                            "升级"
+                        }
+                        PanelButton(panelButtonText) { if (placed?.isConstructing != true) onUpgradeFacility() }
                     } else {
                         Text("已达最大等级", fontSize = 13.sp, color = Color(0xFF2E9B78))
                     }
@@ -1241,11 +1256,13 @@ private fun BuildMenuContent(
         BT.COLLEGE_SPECS.forEach { spec ->
             val college = spec.college ?: return@forEach
             val founded = state.foundedColleges.contains(college)
-            val shortOfCash = !founded && state.cash < spec.costWan
-            val levelLocked = !founded && state.campusLevel < spec.unlockLevel
-            val locked = shortOfCash || levelLocked
+            val constructionDays = state.constructingColleges[college]
+            val shortOfCash = !founded && constructionDays == null && state.cash < spec.costWan
+            val levelLocked = !founded && constructionDays == null && state.campusLevel < spec.unlockLevel
+            val locked = shortOfCash || levelLocked || constructionDays != null
             val lockedText = when {
                 founded -> null
+                constructionDays != null -> "施工中 ${constructionDays}天"
                 levelLocked -> "校园 Lv.${spec.unlockLevel}"
                 shortOfCash -> "钱不够"
                 else -> null
@@ -1268,6 +1285,26 @@ private fun BuildMenuContent(
             fontSize = 12.sp,
             color = Color(0xFF617386)
         )
+        val hospitalLocked = state.campusLevel < BT.HOSPITAL.unlockLevel ||
+            CollegeType.MEDICINE !in state.foundedColleges || state.affiliatedHospital ||
+            state.cash < BT.HOSPITAL.costWan
+        val hospitalLockText = when {
+            state.affiliatedHospital -> "已建成"
+            CollegeType.MEDICINE !in state.foundedColleges -> "需医学院竣工"
+            state.campusLevel < BT.HOSPITAL.unlockLevel -> "校园 Lv.${BT.HOSPITAL.unlockLevel}"
+            state.cash < BT.HOSPITAL.costWan -> "钱不够"
+            else -> null
+        }
+        BuildRow(
+            title = BT.HOSPITAL.displayName,
+            subtitle = "医学院临床实习与诊疗收入 · 占地 ${BT.HOSPITAL.w}×${BT.HOSPITAL.h}",
+            rightText = "300万",
+            locked = hospitalLocked,
+            lockedText = hospitalLockText,
+            done = state.affiliatedHospital,
+            previewRes = BT.HOSPITAL.drawableRes,
+            onClick = { if (!hospitalLocked) onBuyFacility(BT.HOSPITAL) }
+        )
         BT.FACILITY_SPECS.forEach { spec ->
             val type = spec.facility ?: return@forEach
             val owned = state.facilities.count { it.type == type }
@@ -1276,10 +1313,17 @@ private fun BuildMenuContent(
             val shortOfCash = !uniqueDone && state.cash < nextCost
             val levelLocked = owned == 0 && state.campusLevel < spec.unlockLevel
             val capLocked = !uniqueDone && state.facilities.size >= state.maxFacilities
-            val locked = uniqueDone || shortOfCash || levelLocked || capLocked
+            val prerequisiteCollege = spec.prerequisiteColleges.firstOrNull { it !in state.foundedColleges }
+            val prerequisiteFacility = spec.prerequisiteFacilities.firstOrNull { required ->
+                state.facilities.none { it.type == required && it.isOperational }
+            }
+            val prerequisiteLocked = prerequisiteCollege != null || prerequisiteFacility != null
+            val locked = uniqueDone || shortOfCash || levelLocked || capLocked || prerequisiteLocked
             val lockedText = when {
                 uniqueDone -> "已建成"
                 levelLocked -> "校园 Lv.${spec.unlockLevel}"
+                prerequisiteCollege != null -> "需${prerequisiteCollege.displayName}竣工"
+                prerequisiteFacility != null -> "需${prerequisiteFacility.displayName}"
                 capLocked -> "建筑已满"
                 shortOfCash -> "钱不够"
                 else -> null
@@ -1297,7 +1341,8 @@ private fun BuildMenuContent(
             }
             BuildRow(
                 title = spec.displayName,
-                subtitle = "$capacityHint · 占地 ${spec.w}×${spec.h}",
+                subtitle = "$capacityHint · 占地 ${spec.w}×${spec.h}" +
+                    (spec.downstream.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
                 rightText = if (type.repeatable && owned > 0) "再建 ${nextCost.toInt()}万" else "${nextCost.toInt()}万",
                 locked = locked,
                 lockedText = lockedText,

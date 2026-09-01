@@ -19,14 +19,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Upgrade
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -41,7 +38,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,10 +48,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.mutableStateOf
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiaozhang.domain.model.Facility
 import com.arktools.xiaozhang.domain.model.FacilityBonusCalculator
@@ -149,40 +141,8 @@ fun FacilityScreen(
                             facility = facility,
                             onUpgrade = { viewModel.upgradeFacility(facility.id) },
                             onRepair = { viewModel.repairFacility(facility.id) },
-                            onDemolish = { viewModel.demolishFacility(facility.id) },
                             cash = state.cash
                         )
-                    }
-                }
-            }
-
-            // Available to buy
-            if (state.availableToBuy.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "可建设设施",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "建设新设施为学校提供加成（剩余 ${state.maxFacilities - state.facilities.size} 个名额）",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                val availableByCategory = state.availableToBuy.groupBy { it.category }
-                FacilityCategory.values().forEach { category ->
-                    val types = availableByCategory[category]
-                    if (!types.isNullOrEmpty()) {
-                        items(types, key = { it.name }) { type ->
-                            BuyFacilityCard(
-                                type = type,
-                                onBuy = { viewModel.buyFacility(type) },
-                                canAfford = state.cash >= type.baseCost
-                            )
-                        }
                     }
                 }
             }
@@ -309,36 +269,8 @@ private fun OwnedFacilityCard(
     facility: Facility,
     onUpgrade: () -> Unit,
     onRepair: () -> Unit,
-    onDemolish: () -> Unit,
     cash: Double
 ) {
-    var showDemolishDialog by remember { mutableStateOf(false) }
-
-    if (showDemolishDialog) {
-        val refund = facility.type.baseCost * 0.3
-        AlertDialog(
-            onDismissRequest = { showDemolishDialog = false },
-            title = { Text("确认拆除") },
-            text = {
-                Text("确定要拆除「${facility.type.displayName} Lv.${facility.level}」吗？\n\n拆除后将回收 ${String.format("%.1f", refund)} 万元（建设费30%）。\n\n此操作不可撤销。")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDemolishDialog = false
-                        onDemolish()
-                    }
-                ) {
-                    Text("确认拆除", color = AccentRed)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDemolishDialog = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
     val conditionColor = when {
         facility.condition >= 70f -> AccentGreen
         facility.condition >= 40f -> AccentOrange
@@ -415,7 +347,11 @@ private fun OwnedFacilityCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "状态",
+                    text = if (facility.isConstructing) {
+                        "施工中：还需 ${facility.constructionDaysLeft} 天"
+                    } else {
+                        "状态"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -470,20 +406,14 @@ private fun OwnedFacilityCard(
                         Text("维修 ${String.format("%.1f", repairCost)}万", style = MaterialTheme.typography.labelSmall)
                     }
                 }
-
-                // 拆除按钮
-                OutlinedButton(
-                    onClick = { showDemolishDialog = true },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = AccentRed
-                    )
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("拆除", style = MaterialTheme.typography.labelSmall)
-                }
             }
+
+            Text(
+                text = "拆除和搬移请在校园地图中操作，避免地图位置与设施状态脱节。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
 
             // Per-facility bonus labels
             val bonusLabels = getFacilityBonusLabels(facility)
@@ -562,7 +492,7 @@ private fun getFacilityBonusLabels(facility: Facility): List<Pair<String, Color>
             result.add("声誉+${8 * lv}%" to Color(0xFF1E96C8))
         }
         FacilityType.EMPLOYMENT_CENTER -> {
-            result.add("招生+${6 * lv}%" to Color(0xFF2196F3))
+            result.add("去向质量+${6 * lv}%" to Color(0xFF2196F3))
         }
         FacilityType.AUDITORIUM -> {
             result.add("事件+${20 * lv}%" to Color(0xFF00BCD4))
@@ -664,67 +594,6 @@ private fun BonusChip(label: String, value: String, color: Color) {
                 style = MaterialTheme.typography.labelSmall,
                 color = color.copy(alpha = 0.8f)
             )
-        }
-    }
-}
-
-@Composable
-private fun BuyFacilityCard(
-    type: FacilityType,
-    onBuy: () -> Unit,
-    canAfford: Boolean
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = FacilityImageHelper.getImageResId(type)),
-                contentDescription = type.displayName,
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = type.displayName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = type.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "月维护: ${type.baseMaintenance} 万 | 最大等级: ${type.maxLevel}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Button(
-                onClick = onBuy,
-                enabled = canAfford,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (canAfford) AccentGreen else MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("${type.baseCost}万")
-            }
         }
     }
 }

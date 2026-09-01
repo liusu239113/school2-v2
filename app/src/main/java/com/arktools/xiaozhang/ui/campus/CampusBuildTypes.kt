@@ -55,16 +55,23 @@ object CampusBuildTypes {
         val costWan: Double,
         val unlockLevel: Int,
         val displayName: String,
-        val drawableRes: Int = 0
+        val drawableRes: Int = 0,
+        val monthlyMaintenanceWan: Double = 0.0,
+        val satisfactionBonus: Float = 0f,
+        val reputationBonus: Long = 0L
     ) {
         ROAD(0.5, 1, "水泥路", R.drawable.tile_path),
         PLAZA(1.0, 2, "广场砖", R.drawable.tile_path),
         WATER(2.0, 3, "水系", R.drawable.deco_water),
-        FLOWERBED(0.3, 1, "花坛", R.drawable.deco_flowerbed),
-        TREE(0.2, 1, "松树", R.drawable.deco_tree),
-        LANTERN(0.8, 1, "石灯笼", R.drawable.deco_lantern),
-        BENCH(0.4, 1, "长椅", R.drawable.deco_bench),
-        STATUE(1.0, 1, "雕像", R.drawable.deco_statue)
+        FLOWERBED(0.3, 1, "花坛", R.drawable.deco_flowerbed, 0.02, 0.02f),
+        TREE(0.2, 1, "松树", R.drawable.deco_tree, 0.01, 0.01f),
+        LANTERN(0.8, 1, "石灯笼", R.drawable.deco_lantern, 0.03, 0.02f, 1L),
+        BENCH(0.4, 1, "长椅", R.drawable.deco_bench, 0.02, 0.03f),
+        STATUE(1.0, 1, "雕像", R.drawable.deco_statue),
+        CHERRY_TREE(0.6, 2, "樱花树", R.drawable.deco_cherry, 0.03, 0.05f, 1L),
+        MEMORIAL(1.8, 2, "纪念碑", R.drawable.deco_memorial, 0.04, 0.05f, 3L),
+        SCHOOL_SIGN(2.5, 2, "校名牌", R.drawable.deco_school_sign, 0.02, 0.03f, 3L),
+        FOUNTAIN(2.0, 3, "喷泉", R.drawable.deco_fountain, 0.10, 0.08f, 3L)
     }
 
     /** 建筑规格 */
@@ -80,7 +87,10 @@ object CampusBuildTypes {
         val facility: FacilityType? = null,
         val movable: Boolean = true,
         val removable: Boolean = true,
-        val buildDays: Int = 3
+        val buildDays: Int = 3,
+        val prerequisiteColleges: List<CollegeType> = emptyList(),
+        val prerequisiteFacilities: List<FacilityType> = emptyList(),
+        val downstream: String = ""
     )
 
     val ADMIN = Spec(
@@ -104,16 +114,18 @@ object CampusBuildTypes {
         Spec("F_GARDEN", "校园花园", 2, 2, 12.0, 1, R.drawable.bld_garden, facility = FacilityType.GARDEN, buildDays = 2),
         Spec("F_GATE", "校门", 4, 3, 8.0, 1, R.drawable.bld_gate, facility = FacilityType.GATE, buildDays = 2),
         Spec("F_SPORTS_FIELD", "体育馆", 4, 3, 45.0, 2, R.drawable.bld_sports, facility = FacilityType.SPORTS_FIELD, buildDays = 5),
-        Spec("F_LABORATORY", "实验室", 3, 2, 50.0, 2, R.drawable.bld_lab, facility = FacilityType.LABORATORY, buildDays = 4),
-        Spec("F_COMPUTER_LAB", "计算机房", 3, 2, 40.0, 2, R.drawable.bld_computer, facility = FacilityType.COMPUTER_LAB, buildDays = 3),
-        Spec("F_ART_STUDIO", "艺术工作室", 2, 2, 25.0, 2, R.drawable.bld_studio, facility = FacilityType.ART_STUDIO, buildDays = 3),
-        Spec("F_EMPLOYMENT", "就业指导中心", 3, 2, 45.0, 2, R.drawable.bld_employment, facility = FacilityType.EMPLOYMENT_CENTER, buildDays = 3),
-        Spec("F_CONFERENCE", "会议中心", 3, 3, 60.0, 3, R.drawable.bld_conference, facility = FacilityType.CONFERENCE_CENTER, buildDays = 4),
-        Spec("F_AUDITORIUM", "大礼堂", 4, 3, 100.0, 3, R.drawable.bld_auditorium, facility = FacilityType.AUDITORIUM, buildDays = 5)
+        Spec("F_LABORATORY", "实验室", 3, 2, 50.0, 2, R.drawable.bld_lab, facility = FacilityType.LABORATORY, buildDays = 4, prerequisiteColleges = listOf(CollegeType.SCIENCE), downstream = "解锁理科实验课与应用科研"),
+        Spec("F_COMPUTER_LAB", "计算机房", 3, 2, 40.0, 2, R.drawable.bld_computer, facility = FacilityType.COMPUTER_LAB, buildDays = 3, prerequisiteColleges = listOf(CollegeType.ENGINEERING), downstream = "解锁编程课与数字化项目"),
+        Spec("F_ART_STUDIO", "艺术工作室", 2, 2, 25.0, 2, R.drawable.bld_studio, facility = FacilityType.ART_STUDIO, buildDays = 3, prerequisiteColleges = listOf(CollegeType.ARTS), downstream = "解锁艺术实践与作品产出"),
+        Spec("F_EMPLOYMENT", "就业指导中心", 3, 2, 45.0, 2, R.drawable.bld_employment, facility = FacilityType.EMPLOYMENT_CENTER, buildDays = 3, downstream = "提高毕业去向质量与校企合作"),
+        Spec("F_CONFERENCE", "会议中心", 3, 3, 60.0, 3, R.drawable.bld_conference, facility = FacilityType.CONFERENCE_CENTER, buildDays = 4, prerequisiteFacilities = listOf(FacilityType.LIBRARY), downstream = "解锁学术会议与合作声誉"),
+        Spec("F_AUDITORIUM", "大礼堂", 4, 3, 100.0, 3, R.drawable.bld_auditorium, facility = FacilityType.AUDITORIUM, buildDays = 5, prerequisiteFacilities = listOf(FacilityType.SPORTS_FIELD), downstream = "解锁大型文化节与校友活动")
     )
     val HOSPITAL = Spec(
-        "HOSPITAL", "附属医院", 3, 3, 0.0, 4,
-        R.drawable.bld_hospital, movable = true, removable = false
+        "HOSPITAL", "附属医院", 3, 3, 300.0, 4,
+        R.drawable.bld_hospital, movable = false, removable = false, buildDays = 0,
+        prerequisiteColleges = listOf(CollegeType.MEDICINE),
+        downstream = "解锁临床实习、诊疗收入与医学声誉"
     )
 
     fun allBuildingSpecs(): List<Spec> = listOf(ADMIN) + COLLEGE_SPECS + FACILITY_SPECS + listOf(HOSPITAL)

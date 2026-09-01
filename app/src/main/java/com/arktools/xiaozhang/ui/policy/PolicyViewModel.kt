@@ -64,19 +64,6 @@ class PolicyViewModel @Inject constructor(
         policyManager.setAdmissionTrackPlan(next)
         audioManager.playBudgetSlide()
     }
-    fun foundCollege(type: CollegeType) {
-        viewModelScope.safeLaunch {
-            val result = gameEngine.foundCollege(type)
-            _operationMessage.value = result.message
-            if (result.success) {
-                audioManager.playCollegeFound()
-                gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
-            } else {
-                audioManager.playEventNegative()
-            }
-        }
-    }
-
     fun openCoreCourse(college: CollegeType) {
         viewModelScope.safeLaunch {
             val result = gameEngine.openCoreCourse(college)
@@ -101,18 +88,6 @@ class PolicyViewModel @Inject constructor(
         }
     }
 
-    fun buildAffiliatedHospital() {
-        viewModelScope.safeLaunch {
-            val result = gameEngine.buildAffiliatedHospital()
-            _operationMessage.value = result.message
-            if (result.success) {
-                audioManager.playBuildFacility()
-                gameEngine.notifyFactionDecision(SchoolDecision.BUILD_FACILITY)
-            } else {
-                audioManager.playEventNegative()
-            }
-        }
-    }
     fun consumeOperationMessage() {
         _operationMessage.value = null
     }

@@ -483,7 +483,12 @@ class GameEngine @Inject constructor(
         }
     }
 
-    suspend fun foundCollege(type: com.arktools.xiaozhang.domain.policy.CollegeType): ManagedOperationResult =
+    suspend fun foundCollege(
+        type: com.arktools.xiaozhang.domain.policy.CollegeType,
+        buildDays: Int = 1,
+        buildingKey: String,
+        position: Pair<Int, Int>
+    ): ManagedOperationResult =
         engineOperationMutex.withLock {
             if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
                 return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
@@ -501,7 +506,12 @@ class GameEngine @Inject constructor(
             val committed = schoolRepository.mutateSchool { school ->
                 val preview = policyManager.previewFoundCollege(type, school.campusLevel, school.cash)
                 if (!preview.success) return@mutateSchool false
-                val result = policyManager.tryFoundCollege(type, school.campusLevel, school.cash)
+                val result = policyManager.startCollegeConstruction(
+                    type = type,
+                    buildDays = buildDays,
+                    buildingKey = buildingKey,
+                    position = position
+                )
                 if (!result.success) return@mutateSchool false
                 school.cash -= type.foundingCostWan
                 school.policyJson = policyManager.toJson()
@@ -520,7 +530,7 @@ class GameEngine @Inject constructor(
             }
             ManagedOperationResult(
                 true,
-                "已成立${foundedName}，投入 ${type.foundingCostWan.toInt()}万",
+                "${foundedName}已开工，投入 ${type.foundingCostWan.toInt()}万，竣工后才开放招生、课程与学科",
                 type.foundingCostWan
             )
         }
@@ -710,10 +720,16 @@ class GameEngine @Inject constructor(
     /**
      * 建设附属医院：医学院成立后可投入300万，带来诊疗收入、声誉与实习事件。
      */
-    suspend fun buildAffiliatedHospital(): ManagedOperationResult =
+    suspend fun buildAffiliatedHospital(
+        buildingKey: String,
+        position: Pair<Int, Int>
+    ): ManagedOperationResult =
         engineOperationMutex.withLock {
             if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
                 return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+            }
+            if (buildingKey != "HOSPITAL" || position.first < 0 || position.second < 0) {
+                return@withLock ManagedOperationResult(false, "附属医院建筑参数无效")
             }
             val collegeDev = policyManager.policies.value.collegeDevelopment
             if (!collegeDev.founded.contains(
@@ -737,16 +753,20 @@ class GameEngine @Inject constructor(
                     "资金不足：建设附属医院需要 ${cost.toInt()}万"
                 )
             }
-            policyManager.setAffiliatedHospital(true)
+            val snapshot = policyManager.toJson()
             val committed = schoolRepository.mutateSchool { s ->
                 if (s.cash < cost) return@mutateSchool false
+                if (!policyManager.addPlacedBuilding(buildingKey, position, constructionDaysLeft = 0)) {
+                    return@mutateSchool false
+                }
+                policyManager.setAffiliatedHospital(true)
                 s.cash -= cost
                 s.policyJson = policyManager.toJson()
                 true
             }
             if (committed == null) {
-                policyManager.setAffiliatedHospital(false)
-                return@withLock ManagedOperationResult(false, "建设失败：资金不足")
+                policyManager.restoreFromJson(snapshot)
+                return@withLock ManagedOperationResult(false, "建设失败：地图或资金状态已变化")
             }
             ManagedOperationResult(true, "附属医院落成！每月带来诊疗收入与声誉，医学类学生开始轮转实习", cost)
         }
@@ -1924,13 +1944,29 @@ class GameEngine @Inject constructor(
     }
 
 
-    private fun BT_decodeTerrainCount(raw: String, kinds: Set<String>): Int {
-        if (raw.isBlank()) return 0
+    private data class CampusTileEffects(
+        val maintenanceWan: Double = 0.0,
+        val reputation: Long = 0L,
+        val satisfaction: Float = 0f
+    )
+
+    private fun campusTileEffects(raw: String): CampusTileEffects {
+        if (raw.isBlank()) return CampusTileEffects()
         return runCatching {
-            val list = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            val tiles = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
                 .decodeFromString<List<com.arktools.xiaozhang.ui.campus.CampusBuildTypes.TerrainCell>>(raw)
-            list.count { it.kind in kinds }
-        }.getOrDefault(0)
+            var maintenance = 0.0
+            var reputation = 0L
+            var satisfaction = 0f
+            tiles.forEach { cell ->
+                val kind = com.arktools.xiaozhang.ui.campus.CampusBuildTypes.TileKind.entries
+                    .firstOrNull { it.name == cell.kind } ?: return@forEach
+                maintenance += kind.monthlyMaintenanceWan
+                reputation += kind.reputationBonus
+                satisfaction += kind.satisfactionBonus
+            }
+            CampusTileEffects(maintenance, reputation, satisfaction)
+        }.getOrDefault(CampusTileEffects())
     }
 
     private suspend fun emitEvent(event: GameEvent, school: School? = null) {
@@ -3033,6 +3069,29 @@ class GameEngine @Inject constructor(
 
         schoolRepository.advanceDay()
 
+        // 学院施工由引擎每日推进，竣工前不进入 founded，因此不提供招生、科研和就业加成。
+        runCatching {
+            val completedColleges = policyManager.advanceCollegeConstructionDay()
+            val hasActiveConstruction =
+                policyManager.policies.value.collegeDevelopment.constructingColleges.isNotEmpty()
+            if (completedColleges.isNotEmpty() || hasActiveConstruction) {
+                schoolRepository.mutateSchool { latest ->
+                    latest.policyJson = policyManager.toJson()
+                    true
+                }
+            }
+            completedColleges.forEach { college ->
+                deferEvent(GameEvent.PositiveEvent(
+                    title = "${college.displayName}竣工",
+                    message = "${college.displayName}通过竣工验收，现已开放招生、核心课程、学科建设与相关竞赛。",
+                    bonusCash = 0.0,
+                    bonusReputation = 0L
+                ))
+            }
+        }.onFailure {
+            android.util.Log.w("GameEngine", "College construction daily advance failed", it)
+        }
+
         val extraResearchDays = policyManager.getPolicyEffects().extraResearchDays.coerceIn(0, 2)
         val completedResearch = buildList {
             addAll(researchRepository.advanceResearchDay())
@@ -3614,11 +3673,15 @@ class GameEngine @Inject constructor(
             }
             // 学术会议对就业的累积加成
             val academicEmploymentBoost = academicConferenceManager.getCurrentEmploymentBoost()
+            val employmentSupportLevel = school.facilities
+                .filter { it.type == FacilityType.EMPLOYMENT_CENTER && it.isOperational }
+                .maxOfOrNull { it.level } ?: 0
             val totalGovBoost = govBoostForEmployment + academicEmploymentBoost
             st.employmentResult = employmentMarket.advanceMonth(
                 school.reputation.toLong(), school.currentYear, school.currentMonth,
                 governmentBoostFactor = totalGovBoost,
-                schoolLevel = school.campusLevel
+                schoolLevel = school.campusLevel,
+                employmentSupportLevel = employmentSupportLevel
             )
             // 扣除职业辅导费用（职业本科校企合作：企业分摊 4 成）
             val employmentTier = school.schoolTier()
@@ -4226,16 +4289,16 @@ class GameEngine @Inject constructor(
             }
             suggestionBoxManager.cleanupOldSuggestions(school.currentYear, school.currentMonth)
 
-            // 校园装扮（花坛/树木/长椅/雕像/石灯笼）提供小幅满意度加成，上限 +3
+            // 校园装扮：按类别产生不同满意度与声誉；月维护费在月结支出中按地块计入。
             runCatching {
-                val decorKinds = setOf("FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN")
                 val devNow = policyManager.policies.value.collegeDevelopment
-                val decorCount = BT_decodeTerrainCount(devNow.terrainMap, decorKinds)
-                if (decorCount > 0) {
-                    val boost = (decorCount / 8f * 0.2f).coerceAtMost(3f)
-                    if (boost >= 0.2f) {
-                        studentRepository.adjustActiveStudentSatisfaction(boost)
-                    }
+                val tileEffects = campusTileEffects(devNow.terrainMap)
+                if (tileEffects.reputation > 0) {
+                    schoolRepository.addReputation(tileEffects.reputation)
+                }
+                val decorSatisfaction = tileEffects.satisfaction.coerceAtMost(3f)
+                if (decorSatisfaction >= 0.2f) {
+                    studentRepository.adjustActiveStudentSatisfaction(decorSatisfaction)
                 }
             }.onFailure {
                 android.util.Log.w("GameEngine", "Campus decoration satisfaction failed", it)
@@ -5125,7 +5188,7 @@ class GameEngine @Inject constructor(
                     school.facilities, activeStudentsForPressure.size
                 )
                 for (penalty in facilityPenalties) {
-                    // 设施惩罚降低全体学生满意度
+                    // 设施惩罚降低全体学生满意度，同时将限招约束传给下一次招生。
                     if (penalty.satisfactionPenalty > 0f && activeStudentsForPressure.isNotEmpty()) {
                         studentRepository.adjustActiveStudentSatisfaction(
                             -penalty.satisfactionPenalty
@@ -5879,6 +5942,7 @@ class GameEngine @Inject constructor(
             } else {
                 var shouldPersist = false
                 latest.facilities.forEach { facility ->
+                    if (facility.isConstructing) return@forEach
                     facility.condition = (facility.condition - 0.1f).coerceAtLeast(0f)
                     if (facility.condition <= 20f) {
                         shouldPersist = true
@@ -5974,7 +6038,9 @@ class GameEngine @Inject constructor(
         val baseRent = getMonthlyRent(school.campusLevel)
 
         // Facility maintenance costs
-        val facilityMaintenance = FacilityBonusCalculator.getTotalMaintenance(school.facilities)
+        val facilityMaintenance = school.facilities
+            .filterNot { it.isConstructing }
+            .sumOf { it.maintenanceCost }
 
         // Apply inflation based on game year (difficulty curve)
         val salaryInflation = GameBalanceConfig.getSalaryInflation(school.currentYear)
@@ -5994,7 +6060,11 @@ class GameEngine @Inject constructor(
         val studentCount = studentRepository.getActiveStudentCount()
         val studentOperatingCost = studentCount *
             GameBalanceConfig.getMonthlyStudentOperatingCost(school.campusLevel)
-        val otherExpenses = (baseRent * rentInflation + facilityMaintenance + studentOperatingCost) *
+        val tileEffects = campusTileEffects(
+            policyManager.policies.value.collegeDevelopment.terrainMap
+        )
+        val tileMaintenance = tileEffects.maintenanceWan
+        val otherExpenses = (baseRent * rentInflation + facilityMaintenance + tileMaintenance + studentOperatingCost) *
             costReductionMultiplier
 
         // 教学系统运营成本（班级开支 + 排课政策成本 + 特色项目维护）
@@ -6636,7 +6706,29 @@ class GameEngine @Inject constructor(
         } else {
             minOf(gradeCapacity, existingGradeOneCount + bedHeadroom)
         }
-        val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(0, capacityCap)
+        val governmentCap = governmentInspectionManager.state.value.activeEnrollmentCap
+        val expansionCap = campusExpansionManager.state.value.totalCapacity
+            .takeIf { it > 0 && campusExpansionManager.state.value.zones.isNotEmpty() }
+        val penaltyCap = pressureSystemManager.checkFacilityPenalties(
+            school.facilities,
+            existingStudents
+        ).mapNotNull { it.enrollmentCap }.minOrNull()
+        val expansionHeadroomForFreshmen = expansionCap?.let {
+            (it - existingStudents + existingGradeOneCount).coerceAtLeast(0)
+        }
+        val governmentHeadroomForFreshmen = governmentCap.takeIf { it > 0 }?.let {
+            (it - existingStudents + existingGradeOneCount).coerceAtLeast(0)
+        }
+        val penaltyHeadroomForFreshmen = penaltyCap?.let {
+            (it - existingStudents + existingGradeOneCount).coerceAtLeast(0)
+        }
+        val effectiveCapacityCap = listOfNotNull(
+            capacityCap,
+            expansionHeadroomForFreshmen,
+            governmentHeadroomForFreshmen,
+            penaltyHeadroomForFreshmen
+        ).minOrNull() ?: capacityCap
+        val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(0, effectiveCapacityCap)
         val enrollCount = (targetEnrollCount - existingGradeOneCount).coerceAtLeast(0)
         if (dormBeds <= 0 && rawEnroll > 0) {
             emitEvent(GameEvent.NegativeEvent(
