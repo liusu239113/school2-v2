@@ -77,34 +77,44 @@ jobs:
           set -euo pipefail
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging \
             app/build/outputs/apk/release/app-release.apk | tee "$RUNNER_TEMP/apk-badging.txt"
+          EXPECTED_CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts | head -n1)
           grep -F "name='com.arktools.xiaozhang.v2'" "$RUNNER_TEMP/apk-badging.txt"
-          grep -F "versionCode='201'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "versionCode='${EXPECTED_CODE}'" "$RUNNER_TEMP/apk-badging.txt"
           grep -F "versionName='1.0.0'" "$RUNNER_TEMP/apk-badging.txt"
+
+      - name: Derive release metadata
+        run: |
+          set -euo pipefail
+          REV="${GITHUB_REF_NAME#v1.0.0-r}"
+          test -n "$REV" && test "$REV" != "$GITHUB_REF_NAME"
+          echo "APK_BASE=school2-v1.0.0-r${REV}-release" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=school2-v1.0.0-r${REV}-signed" >> "$GITHUB_ENV"
+          echo "REV=${REV}" >> "$GITHUB_ENV"
 
       - name: Rename and checksum APK
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/release/app-release.apk school2-v1.0.0-r2-release.apk
-          sha256sum school2-v1.0.0-r2-release.apk | tee school2-v1.0.0-r2-release.apk.sha256
+          cp app/build/outputs/apk/release/app-release.apk "$APK_BASE.apk"
+          sha256sum "$APK_BASE.apk" | tee "$APK_BASE.apk.sha256"
 
       - name: Upload signed release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: school2-v1.0.0-r2-signed
+          name: ${{ env.ARTIFACT_NAME }}
           path: |
-            school2-v1.0.0-r2-release.apk
-            school2-v1.0.0-r2-release.apk.sha256
+            ${{ env.APK_BASE }}.apk
+            ${{ env.APK_BASE }}.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
-      - name: Create v1.0.0-r2 release
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0-r2
-          name: 校长我来当 2 v1.0.0 修订版 2
+          tag_name: ${{ github.ref_name }}
+          name: 校长我来当 2 v1.0.0 修订版 ${{ env.REV }}
           files: |
-            school2-v1.0.0-r2-release.apk
-            school2-v1.0.0-r2-release.apk.sha256
+            ${{ env.APK_BASE }}.apk
+            ${{ env.APK_BASE }}.apk.sha256
           generate_release_notes: true
           make_latest: true
         env:
