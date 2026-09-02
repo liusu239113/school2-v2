@@ -3923,7 +3923,7 @@ class GameEngine @Inject constructor(
                     // 生活质量真实反馈：宿舍/食堂/健康/心理满意度影响学业成长与流失意愿
                     runCatching {
                         val academicDelta = (lifeResult.academicImpact * 0.1f).coerceIn(-1.5f, 1.5f)
-                        val satDelta = (lifeResult.retentionImpact * 0.15f).coerceIn(-1.2f, 0.75f)
+                        val satDelta = (lifeResult.satisfactionChange * 0.05f).coerceIn(-1.0f, 1.0f)
                         if (kotlin.math.abs(academicDelta) >= 0.05f) {
                             val students = studentRepository.getActiveStudents()
                             if (students.isNotEmpty()) {
@@ -4067,7 +4067,7 @@ class GameEngine @Inject constructor(
                             (if (c.enrollmentBonus > 0f) "；生源共建将惠及下届招生" else "") + "。",
                         bonusCash = 0.0,
                         bonusReputation = 0
-                    ), school)
+                    ))
                 }
                 partnerResult.failures.forEach { c ->
                     schoolRepository.deductReputation(4)
@@ -4077,7 +4077,7 @@ class GameEngine @Inject constructor(
                             "师资力量、相关学院与相关设施的运营情况都会影响委托成败。",
                         penaltyCash = 0.0,
                         penaltyReputation = 0
-                    ), school)
+                    ))
                 }
             }.onFailure {
                 android.util.Log.w("GameEngine", "Partner commission monthly failed", it)
