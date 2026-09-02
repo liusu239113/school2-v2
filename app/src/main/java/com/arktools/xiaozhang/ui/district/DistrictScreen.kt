@@ -1431,7 +1431,7 @@ private fun PartnerCommissionSection(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary
                         )
-                        if (blocked \!= null) {
+                        if (blocked != null) {
                             Text(
                                 text = "条件不足：$blocked",
                                 style = MaterialTheme.typography.labelSmall,
