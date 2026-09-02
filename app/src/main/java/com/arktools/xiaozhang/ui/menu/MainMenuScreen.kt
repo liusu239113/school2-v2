@@ -215,8 +215,9 @@ private fun PixelMenuButton(
     subText: String? = null
 ) {
     val buttonResource = if (isPrimary) R.drawable.btn_primary else R.drawable.btn_secondary
+    // 带副文字（存档信息）时加高，保证两行都落在按钮图内，不外溢叠字
     Box(
-        modifier = Modifier.fillMaxWidth().height(56.dp)
+        modifier = Modifier.fillMaxWidth().height(if (subText != null) 68.dp else 56.dp)
     ) {
         PixelNineSlice(
             res = buttonResource,
@@ -228,7 +229,8 @@ private fun PixelMenuButton(
             modifier = Modifier.fillMaxSize(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
-                contentColor = if (isPrimary) Color.White else Color(0xFF0B2038)
+                // 按钮图均为浅色底，统一深色文字保证对比度
+                contentColor = Color(0xFF083444)
             ),
             shape = androidx.compose.ui.graphics.RectangleShape,
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)
@@ -246,7 +248,9 @@ private fun PixelMenuButton(
                 if (subText != null) {
                     Text(
                         text = subText,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        color = Color(0xFF083444).copy(alpha = 0.75f),
+                        maxLines = 1
                     )
                 }
             }

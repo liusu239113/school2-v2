@@ -3,7 +3,6 @@ package com.arktools.xiaozhang.domain.policy
 import com.arktools.xiaozhang.ui.campus.CampusBuildTypes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -100,21 +99,46 @@ class SchoolPolicyManagerCollegeConstructionTest {
     }
 
     @Test
-    fun invalidLegacyRecordThrowsAndBlocksAdvance() {
+    fun invalidLegacyRecordSelfHealsWithoutFreezing() {
         val manager = newManager()
         val dev = manager.policies.value.collegeDevelopment
-        // 旧档异常数据：未知学院名 + 非法天数
+        // 旧档异常数据：未知学院名 + 非法天数（0 视为立即竣工）
         manager.replaceCollegeDevelopment(
             dev.copy(constructingColleges = mapOf("NOPE" to 1, "SCIENCE" to 0))
         )
 
-        assertThrows(IllegalArgumentException::class.java) {
-            manager.advanceCollegeConstructionDay()
-        }
-        // 异常记录不允许静默丢弃：状态保持原样
-        val current = manager.policies.value.collegeDevelopment
-        assertEquals(mapOf("NOPE" to 1, "SCIENCE" to 0), current.constructingColleges)
-        assertFalse(current.founded.contains(CollegeType.SCIENCE))
+        // 坏记录被清除，不再抛异常冻结施工；SCIENCE(0天) 直接竣工
+        val completed = manager.advanceCollegeConstructionDay()
+        assertTrue(completed.contains(CollegeType.SCIENCE))
+        assertTrue(manager.policies.value.collegeDevelopment.founded.contains(CollegeType.SCIENCE))
+        assertTrue(manager.policies.value.collegeDevelopment.constructingColleges.isEmpty())
+        assertTrue(!("NOPE" in manager.policies.value.collegeDevelopment.constructingColleges))
+    }
+
+    @Test
+    fun deadlineModeCompletesRegardlessOfRollbacks() {
+        val manager = newManager()
+        // 开工日 = 2026年9月1日 → dayKey = 2026*360 + 8*30 + 1
+        val startDayKey = 2026L * 360 + 8 * 30 + 1
+        assertTrue(
+            manager.startCollegeConstruction(
+                CollegeType.SCIENCE, 3, "C_SCIENCE", 2 to 2, startDayKey
+            ).success
+        )
+        // 模拟状态被回滚到开工当天后继续推进：到第 3 天必须竣工
+        manager.advanceCollegeConstructionDay(startDayKey + 1)
+        assertEquals(2, manager.policies.value.collegeDevelopment.constructingColleges[CollegeType.SCIENCE.name])
+        // 中途回滚：内存被覆盖回开工时状态（3天）
+        manager.replaceCollegeDevelopment(
+            manager.policies.value.collegeDevelopment.copy(
+                constructingColleges = mapOf("SCIENCE" to 3),
+                collegeDeadlines = mapOf("SCIENCE" to startDayKey + 3)
+            )
+        )
+        manager.advanceCollegeConstructionDay(startDayKey + 3)
+        assertTrue(manager.policies.value.collegeDevelopment.founded.contains(CollegeType.SCIENCE))
+        assertTrue(manager.policies.value.collegeDevelopment.constructingColleges.isEmpty())
+        assertEquals(0, placedOf(manager).single().constructionDaysLeft)
     }
 
     @Test

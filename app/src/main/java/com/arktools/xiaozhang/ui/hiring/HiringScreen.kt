@@ -3,6 +3,7 @@ package com.arktools.xiaozhang.ui.hiring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -153,14 +154,25 @@ fun HiringScreen(
                 }
             }
         } else {
-            items(candidates.size, key = { index -> candidates[index].id }) { index ->
-                val teacher = candidates[index]
-                CandidateCard(
-                    teacher = teacher,
-                    sourceLabel = viewModel.talentSourceLabel(teacher.id),
+            // 三列网格：头像完整居中显示，不再整宽裁切
+            val rows = candidates.chunked(3)
+            items(rows.size, key = { "talent-row-$it" }) { rowIndex ->
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    onHire = { viewModel.hireTeacher(teacher) }
-                )
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    rows[rowIndex].forEach { teacher ->
+                        CandidateCard(
+                            teacher = teacher,
+                            sourceLabel = viewModel.talentSourceLabel(teacher.id),
+                            modifier = Modifier.weight(1f),
+                            onHire = { viewModel.hireTeacher(teacher) }
+                        )
+                    }
+                    repeat(3 - rows[rowIndex].size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
 
@@ -191,86 +203,90 @@ private fun CandidateCard(
     onHire: () -> Unit
 ) {
     Column(
-        modifier = modifier
-            .background(Color.White)
-            .clickable(onClick = onHire)
+        modifier = modifier.background(Color.White)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        // 头像：正方形完整显示整脸，不再裁切
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .background(Color(0xFFDCEFF8))
+        ) {
             Image(
                 painter = painterResource(id = TeacherAvatarHelper.getAvatarResId(teacher)),
                 contentDescription = teacher.name,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(92.dp)
-                    .background(Color(0xFFDCEFF8)),
-                contentScale = ContentScale.Crop
+                    .fillMaxSize()
+                    .padding(2.dp),
+                contentScale = ContentScale.Fit
             )
-            // 等级角标（左上，不压住面部）
+            // 等级角标（左上）
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .background(levelColor(teacher.level))
-                    .padding(horizontal = 7.dp, vertical = 1.dp)
+                    .padding(horizontal = 5.dp, vertical = 1.dp)
             ) {
                 Text(
                     teacher.level.name,
                     color = Color.White,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .background(if (sourceLabel == "校友返校") Color(0xFF2E7D32) else Color(0xFF1E3A5C))
-                    .padding(horizontal = 7.dp, vertical = 2.dp)
-            ) {
-                Text(sourceLabel, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-            // 学科标签（头像右下，全卡仅此一处）
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .background(Color(0xCC0B2038))
-                    .padding(horizontal = 6.dp, vertical = 1.dp)
-            ) {
-                Text(
-                    teacher.role.displayName,
-                    color = Color(0xFFFFD54F),
-                    fontSize = 10.sp
-                )
+            if (sourceLabel == "校友返校") {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .background(Color(0xFF2E7D32))
+                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                ) {
+                    Text("校友", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
                 teacher.name,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF182635),
                 maxLines = 1
             )
             Text(
-                "综合 ${teacher.averageSkill} · 月薪 ${String.format("%.2f", teacher.salary)}万",
-                fontSize = 12.sp,
+                teacher.role.displayName,
+                fontSize = 10.sp,
+                color = Color(0xFF1E96C8),
+                maxLines = 1
+            )
+            Text(
+                "综合 ${teacher.averageSkill}",
+                fontSize = 10.sp,
+                color = Color(0xFF617386)
+            )
+            Text(
+                "月薪 ${String.format("%.2f", teacher.salary)}万",
+                fontSize = 10.sp,
                 color = Color(0xFF617386)
             )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF0B2038))
-                    .padding(vertical = 6.dp),
+                    .clickable(onClick = onHire)
+                    .padding(vertical = 5.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     "聘 用",
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

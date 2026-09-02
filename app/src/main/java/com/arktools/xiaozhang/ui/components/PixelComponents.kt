@@ -156,13 +156,10 @@ fun PixelButton(
             enabled = enabled,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
-                // 浅色按钮图（白冰/灰蓝）配深字，深色按钮图配白字
-                contentColor = when (style) {
-                    PixelButtonStyle.SECONDARY, PixelButtonStyle.CANCEL -> Color(0xFF0B2038)
-                    else -> Color.White
-                },
+                // 按钮图均为浅色底（白冰/浅青/灰蓝），统一配深字保证可读
+                contentColor = Color(0xFF083444),
                 disabledContainerColor = Color.Transparent,
-                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                disabledContentColor = Color(0xFF083444).copy(alpha = 0.45f)
             ),
             shape = RectangleShape,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),

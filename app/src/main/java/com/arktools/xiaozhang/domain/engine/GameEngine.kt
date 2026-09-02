@@ -506,11 +506,13 @@ class GameEngine @Inject constructor(
             val committed = schoolRepository.mutateSchool { school ->
                 val preview = policyManager.previewFoundCollege(type, school.campusLevel, school.cash)
                 if (!preview.success) return@mutateSchool false
+                val dayKey = school.currentYear * 360L + (school.currentMonth - 1) * 30L + school.currentDay
                 val result = policyManager.startCollegeConstruction(
                     type = type,
                     buildDays = buildDays,
                     buildingKey = buildingKey,
-                    position = position
+                    position = position,
+                    dayKey = dayKey
                 )
                 if (!result.success) return@mutateSchool false
                 school.cash -= type.foundingCostWan
@@ -3078,8 +3080,13 @@ class GameEngine @Inject constructor(
         schoolRepository.advanceDay()
 
         // 学院施工由引擎每日推进，竣工前不进入 founded，因此不提供招生、科研和就业加成。
+        // 剩余天数按截止日（游戏日序号）重算，对中途状态回滚免疫。
         runCatching {
-            val completedColleges = policyManager.advanceCollegeConstructionDay()
+            val daySchool = schoolRepository.getSchool()
+            val dayKey = daySchool?.let {
+                it.currentYear * 360L + (it.currentMonth - 1) * 30L + it.currentDay
+            } ?: 0L
+            val completedColleges = policyManager.advanceCollegeConstructionDay(dayKey)
             val hasActiveConstruction =
                 policyManager.policies.value.collegeDevelopment.constructingColleges.isNotEmpty()
             if (completedColleges.isNotEmpty() || hasActiveConstruction) {

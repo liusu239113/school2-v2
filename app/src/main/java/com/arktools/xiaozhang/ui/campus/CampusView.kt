@@ -266,6 +266,7 @@ fun CampusView(
                         var totalDrag = Offset.Zero
                         var dragged = false
                         var lastCentroid = down.position
+                        var lastPointerCount = 1
                         while (true) {
                             val event = awaitPointerEvent()
                             val pressed = event.changes.filter { it.pressed }
@@ -290,13 +291,20 @@ fun CampusView(
                                 }
                             } else {
                                 val delta = centroid - lastCentroid
-                                totalDrag += delta
-                                if (totalDrag.getDistance() > 12f) {
-                                    dragged = true
-                                    camera = Offset(camera.x + delta.x, camera.y + delta.y)
-                                    clampCamera()
+                                // 手指数量变化（如捏合后抬起一指）时质心会瞬移，
+                                // 这一帧不计入拖动，否则相机猛跳、点击判定随之错位
+                                if (pressed.size != lastPointerCount) {
+                                    totalDrag = Offset.Zero
+                                } else {
+                                    totalDrag += delta
+                                    if (totalDrag.getDistance() > 12f) {
+                                        dragged = true
+                                        camera = Offset(camera.x + delta.x, camera.y + delta.y)
+                                        clampCamera()
+                                    }
                                 }
                             }
+                            lastPointerCount = pressed.size
                             lastCentroid = centroid
                             event.changes.forEach { if (it.positionChanged()) it.consume() }
                         }

@@ -143,7 +143,8 @@ class SchoolPolicyManager @Inject constructor(
         type: CollegeType,
         buildDays: Int,
         buildingKey: String,
-        position: Pair<Int, Int>
+        position: Pair<Int, Int>,
+        dayKey: Long = 0L
     ): ManagedCollegeResult {
         if (buildDays < 1 || buildingKey.isBlank() || position.first < 0 || position.second < 0) {
             return ManagedCollegeResult(false, "${type.displayName}建筑参数无效")
@@ -171,7 +172,13 @@ class SchoolPolicyManager @Inject constructor(
             collegeDevelopment = current.copy(
                 placedBuildings = encodePlacedBuildings(buildings),
                 constructingColleges = current.constructingColleges +
-                    (type.name to normalizedBuildDays)
+                    (type.name to normalizedBuildDays),
+                // 记录截止日（游戏日序号），每日按日期重算剩余天数，避免回滚冻结
+                collegeDeadlines = if (dayKey > 0) {
+                    current.collegeDeadlines + (type.name to (dayKey + normalizedBuildDays))
+                } else {
+                    current.collegeDeadlines
+                }
             )
         )
         return ManagedCollegeResult(true, "${type.displayName}已开工")
@@ -263,38 +270,48 @@ class SchoolPolicyManager @Inject constructor(
     private fun encodePlacedBuildings(buildings: List<PersistedCampusBuilding>): String =
         Json.encodeToString(buildings)
 
-    fun advanceCollegeConstructionDay(): List<CollegeType> {
+    fun advanceCollegeConstructionDay(currentDayKey: Long = 0L): List<CollegeType> {
         val current = _policies.value.collegeDevelopment
         if (current.constructingColleges.isEmpty()) return emptyList()
         val completed = mutableListOf<CollegeType>()
         val remaining = linkedMapOf<String, Int>()
-        val invalid = mutableListOf<String>()
+        val remainingDeadlines = current.collegeDeadlines.toMutableMap()
         current.constructingColleges.forEach { (name, days) ->
             val type = runCatching { CollegeType.valueOf(name) }.getOrNull()
-            if (type == null || days < 1) {
-                invalid += name
+            if (type == null) {
+                // 无效旧记录直接清除，不让一条坏数据冻结所有学院施工
+                remainingDeadlines.remove(name)
                 return@forEach
             }
-            val next = days - 1
-            if (next == 0) completed += type else remaining[name] = next
-        }
-        if (invalid.isNotEmpty()) {
-            throw IllegalArgumentException("无效的学院施工记录：${invalid.joinToString("、")}")
+            // 优先按截止日重算（对回滚免疫）；无截止日的旧档退化为逐日递减
+            val deadline = current.collegeDeadlines[name]?.takeIf { it > 0 }
+            val next = if (deadline != null && currentDayKey > 0) {
+                (deadline - currentDayKey).toInt().coerceAtLeast(0)
+            } else {
+                (days - 1).coerceAtLeast(0)
+            }
+            if (next <= 0) {
+                completed += type
+                remainingDeadlines.remove(name)
+            } else {
+                remaining[name] = next
+            }
         }
         val updatedBuildings = decodePlacedBuildings(current.placedBuildings).map { building ->
             val college = collegeTypeForBuildingKey(building.key)
-            val days = college?.let { current.constructingColleges[it.name] }
+            val days = college?.let { remaining[it.name] }
             if (days == null) {
                 building
             } else {
-                building.copy(constructionDaysLeft = (days - 1).coerceAtLeast(0))
+                building.copy(constructionDaysLeft = days)
             }
         }
         _policies.value = _policies.value.copy(
             collegeDevelopment = current.copy(
                 founded = (current.founded + completed).distinct(),
                 placedBuildings = encodePlacedBuildings(updatedBuildings),
-                constructingColleges = remaining
+                constructingColleges = remaining,
+                collegeDeadlines = remainingDeadlines
             )
         )
         return completed
@@ -554,7 +571,8 @@ class SchoolPolicyManager @Inject constructor(
                 disciplinesJson = p.collegeDevelopment.disciplinesJson,
                 classOfficersJson = p.collegeDevelopment.classOfficersJson,
                 classFacilityMapJson = p.collegeDevelopment.classFacilityMapJson,
-                constructingColleges = p.collegeDevelopment.constructingColleges
+                constructingColleges = p.collegeDevelopment.constructingColleges,
+                collegeDeadlines = p.collegeDevelopment.collegeDeadlines
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -603,7 +621,8 @@ class SchoolPolicyManager @Inject constructor(
                     disciplinesJson = data.disciplinesJson,
                     classOfficersJson = data.classOfficersJson,
                     classFacilityMapJson = data.classFacilityMapJson,
-                    constructingColleges = data.constructingColleges
+                    constructingColleges = data.constructingColleges,
+                    collegeDeadlines = data.collegeDeadlines
                 ),
                 admissionTrackPlan = com.arktools.xiaozhang.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -977,7 +996,8 @@ data class PolicyPersistData(
     val disciplinesJson: String = "",
     val classOfficersJson: String = "",
     val classFacilityMapJson: String = "",
-    val constructingColleges: Map<String, Int> = emptyMap()
+    val constructingColleges: Map<String, Int> = emptyMap(),
+    val collegeDeadlines: Map<String, Long> = emptyMap()
 )
 
 data class ManagedCollegeResult(
@@ -1008,6 +1028,7 @@ data class CollegeDevelopment(
     val classOfficersJson: String = "",
     val classFacilityMapJson: String = "",
     val constructingColleges: Map<String, Int> = emptyMap(),
+    val collegeDeadlines: Map<String, Long> = emptyMap(),
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,

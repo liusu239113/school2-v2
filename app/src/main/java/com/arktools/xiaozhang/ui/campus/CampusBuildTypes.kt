@@ -61,7 +61,7 @@ object CampusBuildTypes {
         val reputationBonus: Long = 0L
     ) {
         ROAD(0.5, 1, "水泥路", R.drawable.tile_path),
-        PLAZA(1.0, 2, "广场砖", R.drawable.tile_path),
+        PLAZA(1.0, 2, "广场砖", R.drawable.tile_plaza),
         WATER(2.0, 3, "水系", R.drawable.deco_water),
         FLOWERBED(0.3, 1, "花坛", R.drawable.deco_flowerbed, 0.02, 0.02f),
         TREE(0.2, 1, "松树", R.drawable.deco_tree, 0.01, 0.01f),
