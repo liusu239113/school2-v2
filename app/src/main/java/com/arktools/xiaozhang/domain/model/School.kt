@@ -29,6 +29,7 @@ data class School(
     var wasNearBankrupt: Boolean = false,
     var facilities: MutableList<Facility> = mutableListOf(),
     var studentLifeJson: String = "",
+    var commissionJson: String = "",
     var marketingCampaigns: MutableList<MarketingCampaign> = mutableListOf(),
     var stockInvestments: List<StockInvestment> = emptyList(),
     var reputationJson: String = "",

@@ -816,7 +816,33 @@ fun MainScreen(
                     46 -> GraduateScreen()
                     47 -> InternationalScreen()
                     48 -> TeacherListScreen()
-                                else -> OverviewScreen(listState = overviewListState)
+                                else -> OverviewScreen(
+                                    listState = overviewListState,
+                                    onNavigateToRanking = { navigateTo(Screen.RANKING) },
+                                    onNavigateToStock = { navigateTo(Screen.STOCK) },
+                                    onNavigateToFacility = { navigateTo(Screen.FACILITY) },
+                                    onNavigateToStudent = { navigateTo(Screen.STUDENT) },
+                                    onNavigateToAchievement = { navigateTo(Screen.ACHIEVEMENT) },
+                                    onNavigateToReport = { navigateTo(Screen.REPORT) },
+                                    onNavigateToMarketing = { navigateTo(Screen.MARKETING) },
+                                    onNavigateToEvent = { navigateTo(Screen.EVENT) },
+                                    onNavigateToNotification = { navigateTo(Screen.NOTIFICATION) },
+                                    onNavigateToAlumni = { navigateTo(Screen.ALUMNI) },
+                                    onNavigateToPolicy = { navigateTo(Screen.POLICY) },
+                                    onNavigateToTeacher = { navigateTo(Screen.TEACHER) },
+                                    onNavigateToResearch = { navigateTo(41) },
+                                    onNavigateToClub = { navigateTo(Screen.CLUB) },
+                                    onNavigateToSeasonal = { navigateTo(Screen.SEASONAL) },
+                                    onNavigateToReputation = { navigateTo(Screen.REPUTATION) },
+                                    onNavigateToStudentLife = { navigateTo(Screen.STUDENT_LIFE) },
+                                    onNavigateToConference = { navigateTo(Screen.CONFERENCE) },
+                                    onNavigateToParent = { navigateTo(Screen.PARENT) },
+                                    onNavigateToGovernment = { navigateTo(Screen.GOVERNMENT) },
+                                    onNavigateToScholarship = { navigateTo(Screen.SCHOLARSHIP) },
+                                    onNavigateToTimetable = { navigateTo(Screen.TIMETABLE) },
+                                    onNavigateToExam = { navigateTo(Screen.EXAM) },
+                                    onNavigateToPrincipalOffice = { navigateTo(Screen.PRINCIPAL_OFFICE) }
+                                )
                             }
                         }
                     }

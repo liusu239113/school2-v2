@@ -162,6 +162,7 @@ class GameEngine @Inject constructor(
     val reputationManager: com.arktools.xiaozhang.domain.reputation.ReputationManager,
     val studentLifeManager: com.arktools.xiaozhang.domain.studentlife.StudentLifeManager,
     val campusExpansionManager: com.arktools.xiaozhang.domain.expansion.CampusExpansionManager,
+    val partnerCommissionManager: com.arktools.xiaozhang.domain.partner.PartnerCommissionManager,
     val academicConferenceManager: com.arktools.xiaozhang.domain.conference.AcademicConferenceManager,
     val clubActivityManager: com.arktools.xiaozhang.domain.clubactivity.ClubActivityManager,
     val teacherDevelopmentManager: com.arktools.xiaozhang.domain.teacherdev.TeacherDevelopmentManager,
@@ -325,6 +326,9 @@ class GameEngine @Inject constructor(
     private fun writeManagerJsonFields(target: School) {
         target.studentLifeJson = protectedManagerJson(
             "studentLifeJson", target.studentLifeJson, studentLifeManager::toJson
+        )
+        target.commissionJson = protectedManagerJson(
+            "commissionJson", target.commissionJson, partnerCommissionManager::toJson
         )
         target.reputationJson = protectedManagerJson(
             "reputationJson", target.reputationJson, reputationManager::toJson
@@ -718,6 +722,74 @@ class GameEngine @Inject constructor(
             milestoneType = com.arktools.xiaozhang.domain.model.MilestoneType.MARKET_CAP_MILESTONE
         ), school)
     }
+
+    /**
+     * 接受企业合作委托：校验条件 → 支付启动资金 → 委托转执行（同事务提交）。
+     */
+    suspend fun acceptPartnerCommission(id: String): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            if (!managerStatesReadyForSave || "commissionJson" in managerRestoreFailedFields) {
+                return@withLock ManagedOperationResult(false, "合作数据尚未安全恢复，请稍后重试")
+            }
+            val commission = partnerCommissionManager.state.value.offers
+                .firstOrNull { it.id == id && it.status == com.arktools.xiaozhang.domain.partner.CommissionStatus.OFFERED }
+                ?: return@withLock ManagedOperationResult(false, "该委托已失效或被接走")
+            if (partnerCommissionManager.state.value.active.size >=
+                com.arktools.xiaozhang.domain.partner.PartnerCommissionManager.MAX_ACTIVE
+            ) {
+                return@withLock ManagedOperationResult(false, "最多同时推进 2 项委托，请先完成在建委托")
+            }
+            val school = schoolRepository.getSchool()
+                ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
+            val foundedNames = policyManager.policies.value.collegeDevelopment.founded
+                .map { it.name }.toSet()
+            val blocked = partnerCommissionManager.canAccept(
+                commission, school.reputation, foundedNames
+            ) { typeName ->
+                runCatching {
+                    com.arktools.xiaozhang.domain.model.FacilityType.valueOf(typeName)
+                }.getOrNull()?.let { ft ->
+                    school.facilities.any { it.type == ft && it.isOperational }
+                } ?: false
+            }
+            if (blocked != null) {
+                return@withLock ManagedOperationResult(false, "条件不足：$blocked")
+            }
+            val snapshot = partnerCommissionManager.toJson()
+            val committed = schoolRepository.mutateSchool { s ->
+                if (s.cash < commission.upfrontCostWan) return@mutateSchool false
+                if (partnerCommissionManager.accept(id, s.currentYear, s.currentMonth) == null) {
+                    return@mutateSchool false
+                }
+                s.cash -= commission.upfrontCostWan
+                s.commissionJson = partnerCommissionManager.toJson()
+                true
+            }
+            if (committed == null) {
+                runCatching { partnerCommissionManager.restoreFromJson(snapshot) }
+                return@withLock ManagedOperationResult(false, "资金不足，未接单")
+            }
+            ManagedOperationResult(
+                true,
+                "已接单「${commission.title}」，支付启动资金 ${commission.upfrontCostWan.toInt()} 万。" +
+                    "委托期 ${commission.durationMonths} 个月，到期按办学条件结算。",
+                commission.upfrontCostWan
+            )
+        }
+
+    /** 谢绝企业合作委托（从未接要约中移除）。 */
+    suspend fun declinePartnerCommission(id: String): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            val declined = partnerCommissionManager.decline(id)
+            if (!declined) {
+                return@withLock ManagedOperationResult(false, "该委托已不存在")
+            }
+            schoolRepository.mutateSchool { s ->
+                s.commissionJson = partnerCommissionManager.toJson()
+                true
+            }
+            ManagedOperationResult(true, "已谢绝该委托")
+        }
 
     /**
      * 建设附属医院：医学院成立后可投入300万，带来诊疗收入、声誉与实习事件。
@@ -2631,6 +2703,9 @@ class GameEngine @Inject constructor(
         restoreManagerField("studentLifeJson", school.studentLifeJson) {
             studentLifeManager.restoreFromJson(school.studentLifeJson)
         }
+        restoreManagerField("commissionJson", school.commissionJson) {
+            partnerCommissionManager.restoreFromJson(school.commissionJson)
+        }
         restoreManagerField("reputationJson", school.reputationJson) {
             reputationManager.restoreFromJson(school.reputationJson)
         }
@@ -2975,6 +3050,7 @@ class GameEngine @Inject constructor(
         parentSatisfactionManager.reset()
         governmentInspectionManager.reset()
         studentLifeManager.reset()
+        partnerCommissionManager.reset()
         campusExpansionManager.reset()
         academicConferenceManager.reset()
         scholarshipManager.reset()
@@ -3696,7 +3772,8 @@ class GameEngine @Inject constructor(
                 it.type == FacilityType.INCUBATOR && it.isOperational
             }
             val effectiveSupportLevel = if (incubatorRunning) employmentSupportLevel + 1 else employmentSupportLevel
-            val totalGovBoost = govBoostForEmployment + academicEmploymentBoost
+            val totalGovBoost = govBoostForEmployment + academicEmploymentBoost +
+                partnerCommissionManager.consumeEmploymentBoost()
             st.employmentResult = employmentMarket.advanceMonth(
                 school.reputation.toLong(), school.currentYear, school.currentMonth,
                 governmentBoostFactor = totalGovBoost,
@@ -3843,6 +3920,24 @@ class GameEngine @Inject constructor(
                             penaltyReputation = issue.satisfactionPenalty.toLong()
                         ), school)
                     }
+                    // 生活质量真实反馈：宿舍/食堂/健康/心理满意度影响学业成长与流失意愿
+                    runCatching {
+                        val academicDelta = (lifeResult.academicImpact * 0.1f).coerceIn(-1.5f, 1.5f)
+                        val satDelta = (lifeResult.retentionImpact * 0.15f).coerceIn(-1.2f, 0.75f)
+                        if (kotlin.math.abs(academicDelta) >= 0.05f) {
+                            val students = studentRepository.getActiveStudents()
+                            if (students.isNotEmpty()) {
+                                studentRepository.updateAcademicScores(
+                                    students.map { it.copy(academicScore = (it.academicScore + academicDelta).coerceIn(0f, 100f)) }
+                                )
+                            }
+                        }
+                        if (kotlin.math.abs(satDelta) >= 0.05f) {
+                            studentRepository.adjustActiveStudentSatisfaction(satDelta)
+                        }
+                    }.onFailure {
+                        android.util.Log.w("GameEngine", "Student life impact wiring failed", it)
+                    }
                 }
             }
 
@@ -3915,6 +4010,77 @@ class GameEngine @Inject constructor(
                         bonusReputation = 10.toLong()
                     ), school)
                 }
+            }
+
+            // 企业合作委托：每月刷新要约、推进执行、到期结算（现金与 JSON 同事务提交）。
+            runCatching {
+                val foundedNames = policyManager.policies.value.collegeDevelopment.founded
+                    .map { it.name }.toSet()
+                if (!st.isRetrySettlement) {
+                    partnerCommissionManager.refreshOffers(
+                        school.currentYear, school.currentMonth,
+                        school.campusLevel, foundedNames
+                    )
+                }
+                val partnerTeachers = teacherRepository.getTeachers().filter { it.isWorking }
+                val partnerContext = com.arktools.xiaozhang.domain.partner.CompletionContext(
+                    avgFacultySkill = if (partnerTeachers.isNotEmpty()) {
+                        partnerTeachers.map { it.averageSkill }.average()
+                    } else 0.0,
+                    foundedColleges = foundedNames,
+                    hasOperationalFacility = { typeName ->
+                        runCatching {
+                            com.arktools.xiaozhang.domain.model.FacilityType.valueOf(typeName)
+                        }.getOrNull()?.let { ft ->
+                            school.facilities.any { it.type == ft && it.isOperational }
+                        } ?: false
+                    }
+                )
+                val partnerResult = partnerCommissionManager.advanceMonth(
+                    partnerContext, school.currentYear, school.currentMonth
+                )
+                if (partnerResult.monthlyIncome > 0 ||
+                    partnerResult.completions.isNotEmpty() ||
+                    partnerResult.failures.isNotEmpty()
+                ) {
+                    schoolRepository.mutateSchool { latest ->
+                        if (partnerResult.monthlyIncome > 0) {
+                            latest.cash += partnerResult.monthlyIncome
+                        }
+                        latest.commissionJson = partnerCommissionManager.toJson()
+                        true
+                    }
+                }
+                partnerResult.completions.forEach { c ->
+                    if (c.completionCashWan > 0) schoolRepository.addCash(c.completionCashWan)
+                    if (c.completionReputation > 0) {
+                        schoolRepository.addReputation(c.completionReputation)
+                    }
+                    repeat(c.researchDaysBonus) {
+                        runCatching { researchRepository.advanceResearchDay() }
+                    }
+                    deferEvent(GameEvent.PositiveEvent(
+                        title = "企业委托结项：${c.title}",
+                        message = "${c.partner}的合作委托「${c.title}」顺利结项。" +
+                            "结项款 ${c.completionCashWan.toInt()} 万到账，声誉 +${c.completionReputation}" +
+                            (if (c.employmentBoost > 0f) "；就业合作口碑将提升后续毕业去向质量" else "") +
+                            (if (c.enrollmentBonus > 0f) "；生源共建将惠及下届招生" else "") + "。",
+                        bonusCash = 0.0,
+                        bonusReputation = 0
+                    ), school)
+                }
+                partnerResult.failures.forEach { c ->
+                    schoolRepository.deductReputation(4)
+                    deferEvent(GameEvent.NegativeEvent(
+                        title = "企业委托未达标：${c.title}",
+                        message = "${c.partner}认为「${c.title}」的完成质量未达约定，合作提前终止，学校口碑受损（声誉-4）。" +
+                            "师资力量、相关学院与相关设施的运营情况都会影响委托成败。",
+                        penaltyCash = 0.0,
+                        penaltyReputation = 0
+                    ), school)
+                }
+            }.onFailure {
+                android.util.Log.w("GameEngine", "Partner commission monthly failed", it)
             }
 
             // 学术会议月度推进（传入学校等级和教师数量）
@@ -4439,7 +4605,8 @@ class GameEngine @Inject constructor(
                 GameBalanceConfig.isModuleUnlocked(GameModule.SCHOLARSHIP, school.campusLevel)
             ) {
                 val avgGpa = if (st.cachedActiveStudentsForMonth.isNotEmpty()) {
-                    (st.cachedActiveStudentsForMonth.map { it.satisfaction.toFloat() / 25f }.average().toFloat()).coerceIn(1.0f, 4.0f)
+                    // GPA 由学业分换算（学业分 0-100 → GPA 1.0-4.0），不再用满意度近似
+                    (st.cachedActiveStudentsForMonth.map { 1f + it.academicScore / 33.3f }.average().toFloat()).coerceIn(1.0f, 4.0f)
                 } else 2.5f
                 val scholarshipResult = scholarshipManager.advanceMonth(
                     school.currentYear, school.currentMonth,
@@ -6752,7 +6919,10 @@ class GameEngine @Inject constructor(
             governmentHeadroomForFreshmen,
             penaltyHeadroomForFreshmen
         ).minOrNull() ?: capacityCap
-        val targetEnrollCount = if (gradeCapacity <= 0) 0 else rawEnroll.coerceIn(0, effectiveCapacityCap)
+        val partnerEnrollBonus = partnerCommissionManager.consumeEnrollmentBonus()
+        val targetEnrollCount = if (gradeCapacity <= 0) 0 else {
+            (rawEnroll * (1f + partnerEnrollBonus)).toInt().coerceIn(0, effectiveCapacityCap)
+        }
         val enrollCount = (targetEnrollCount - existingGradeOneCount).coerceAtLeast(0)
         if (dormBeds <= 0 && rawEnroll > 0) {
             emitEvent(GameEvent.NegativeEvent(

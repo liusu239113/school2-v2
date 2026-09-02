@@ -349,6 +349,7 @@ class SchoolRepositoryImpl @Inject constructor(
         return listOf(
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.FACILITIES, Json.encodeToString(ArrayList(school.facilities)), now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.STUDENT_LIFE, school.studentLifeJson, now),
+            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.COMMISSION, school.commissionJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.MARKETING, Json.encodeToString(ArrayList(school.marketingCampaigns)), now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.STOCK_INVESTMENTS, Json.encodeToString(ArrayList(school.stockInvestments)), now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.REPUTATION, school.reputationJson, now),
@@ -422,6 +423,7 @@ class SchoolRepositoryImpl @Inject constructor(
                 Json.decodeFromString<List<Facility>>(state(SchoolManagerStateKeys.FACILITIES)).toMutableList()
             } catch (_: Exception) { mutableListOf() },
             studentLifeJson = state(SchoolManagerStateKeys.STUDENT_LIFE),
+            commissionJson = state(SchoolManagerStateKeys.COMMISSION),
             marketingCampaigns = try {
                 Json.decodeFromString<List<MarketingCampaign>>(state(SchoolManagerStateKeys.MARKETING)).toMutableList()
             } catch (_: Exception) { mutableListOf() },

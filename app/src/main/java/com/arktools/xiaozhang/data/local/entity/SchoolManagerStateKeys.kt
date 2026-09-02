@@ -4,6 +4,7 @@ package com.arktools.xiaozhang.data.local.entity
 object SchoolManagerStateKeys {
     const val FACILITIES = "facilitiesJson"
     const val STUDENT_LIFE = "studentLifeJson"
+    const val COMMISSION = "commissionJson"
     const val MARKETING = "marketingCampaignsJson"
     const val STOCK_INVESTMENTS = "stockInvestmentsJson"
     const val REPUTATION = "reputationJson"

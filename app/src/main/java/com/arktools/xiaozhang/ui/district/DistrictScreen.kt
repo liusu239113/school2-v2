@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -170,6 +171,18 @@ private fun DistrictManageContent(viewModel: DistrictViewModel) {
                         )
                     }
                 }
+            }
+
+            item {
+                val commissionViewModel: CommissionViewModel = hiltViewModel()
+                val commissionState by commissionViewModel.state.collectAsState()
+                PartnerCommissionSection(
+                    state = commissionState,
+                    onAccept = commissionViewModel::accept,
+                    onDecline = commissionViewModel::decline,
+                    blockedOf = commissionViewModel::requirementBlocked,
+                    onConsumeMessage = commissionViewModel::consumeMessage
+                )
             }
 
             item {
@@ -1283,6 +1296,172 @@ private fun BuildDialog(
                         enabled = selectedType != null,
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+        }
+    }
+}
+
+// ===== 企业合作委托区块 =====
+@Composable
+private fun PartnerCommissionSection(
+    state: CommissionViewModel.UiState,
+    onAccept: (String) -> Unit,
+    onDecline: (String) -> Unit,
+    blockedOf: (com.arktools.xiaozhang.domain.partner.PartnerCommission) -> String?,
+    onConsumeMessage: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "企业合作委托",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = "执行中 ${state.active.size}/2 · 结项 ${state.completedCount} · 失败 ${state.failedCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "每月企业送来新要约：接单付启动资金，委托期结束按师资、学院与设施条件结算成败。委托是外联收入与就业、生源加成的主要来源。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            state.message?.let { msg ->
+                Text(
+                    text = msg,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onConsumeMessage() }
+                        .padding(vertical = 2.dp)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // 执行中委托
+            state.active.forEach { commission ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "▶ ${commission.title}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "剩余 ${commission.remainingMonths} 月",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    Text(
+                        text = "${commission.partner} · 每月 +${commission.monthlyCashWan.toInt()} 万 · 结项 +${commission.completionCashWan.toInt()} 万 / 声誉 +${commission.completionReputation}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (state.active.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            }
+
+            // 新要约
+            if (state.offers.isEmpty()) {
+                Text(
+                    text = "本月暂无新要约，下月初企业会送来新委托。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                state.offers.forEach { commission ->
+                    val blocked = blockedOf(commission)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = commission.title,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = commission.kind.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Text(
+                            text = "${commission.partner} · 委托期 ${commission.durationMonths} 月",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = commission.description,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            maxLines = 2
+                        )
+                        Text(
+                            text = "投入 ${commission.upfrontCostWan.toInt()} 万 · 每月 +${commission.monthlyCashWan.toInt()} 万 · " +
+                                "结项 +${commission.completionCashWan.toInt()} 万 / 声誉 +${commission.completionReputation}" +
+                                (if (commission.employmentBoost > 0f) " · 就业质量↑" else "") +
+                                (if (commission.enrollmentBonus > 0f) " · 招生↑" else "") +
+                                (if (commission.researchDaysBonus > 0) " · 科研加速" else ""),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        if (blocked \!= null) {
+                            Text(
+                                text = "条件不足：$blocked",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Text(
+                                text = "谢绝",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clickable { onDecline(commission.id) }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                            Text(
+                                text = "接单（${commission.upfrontCostWan.toInt()}万）",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (blocked == null) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .clickable(enabled = blocked == null) { onAccept(commission.id) }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
