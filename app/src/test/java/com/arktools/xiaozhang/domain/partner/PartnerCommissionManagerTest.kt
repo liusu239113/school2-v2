@@ -132,9 +132,10 @@ class PartnerCommissionManagerTest {
         assertEquals(manager.state.value.active.size, restored.state.value.active.size)
         assertEquals(manager.state.value.offers.size, restored.state.value.offers.size)
 
-        // 旧档无 commissionJson 内容时恢复为空而不抛异常
+        // 空 JSON 视为无操作：保留已恢复的状态，不清空也不抛异常
         restored.restoreFromJson("")
-        assertTrue(restored.state.value.active.isEmpty())
+        assertEquals(manager.state.value.active.size, restored.state.value.active.size)
+        assertEquals(manager.state.value.offers.size, restored.state.value.offers.size)
     }
 
     @Test
