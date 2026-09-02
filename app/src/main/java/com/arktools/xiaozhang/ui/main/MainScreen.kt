@@ -549,7 +549,7 @@ fun MainScreen(
 
     // 拦截系统返回手势：子页面返回总览，主页面弹出退出确认
     BackHandler(enabled = school != null) {
-        if (selectedTab > 3 || navStack.size > 1) {
+        if (Screen.isSubPage(selectedTab) || navStack.size > 1) {
             navigateBack()
         } else {
             showExitDialog = true
@@ -811,7 +811,6 @@ fun MainScreen(
                                 33 -> PrincipalOfficeScreen()
                     40 -> TeachingScreen()
                     41 -> ResearchScreen()
-                    42 -> GovernmentScreen()
                     45 -> DisciplineScreen()
                     46 -> GraduateScreen()
                     47 -> InternationalScreen()

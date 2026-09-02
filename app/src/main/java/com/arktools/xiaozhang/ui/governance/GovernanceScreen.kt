@@ -172,7 +172,17 @@ fun GovernanceScreen(
                 Entry("大学政策（学费/考试等）", com.arktools.xiaozhang.R.drawable.ic_balance, 16),
                 Entry("学科建设（评估定级）", com.arktools.xiaozhang.R.drawable.ic_graduate_program, 45),
                 Entry("研究生院（硕博培养）", com.arktools.xiaozhang.R.drawable.ic_research_chain, 46),
-                Entry("国际交流（世界一流）", com.arktools.xiaozhang.R.drawable.ic_globe, 47)
+                Entry("国际交流（世界一流）", com.arktools.xiaozhang.R.drawable.ic_globe, 47),
+                Entry("招生宣传（投放campaign）", com.arktools.xiaozhang.R.drawable.ic_chart, 12),
+                Entry("政府评估（督导整改）", com.arktools.xiaozhang.R.drawable.ic_balance, 28),
+                Entry("校长办公室（建议箱）", com.arktools.xiaozhang.R.drawable.ic_people, 33),
+                Entry("考试管理（期中期末）", com.arktools.xiaozhang.R.drawable.ic_memo, 32),
+                Entry("课程表（学期排课）", com.arktools.xiaozhang.R.drawable.ic_core_course, 31),
+                Entry("家校沟通", com.arktools.xiaozhang.R.drawable.ic_food, 27),
+                Entry("五维声誉", com.arktools.xiaozhang.R.drawable.ic_gift, 20),
+                Entry("成就墙", com.arktools.xiaozhang.R.drawable.ic_gift, 10),
+                Entry("股市投资", com.arktools.xiaozhang.R.drawable.ic_chart, 6),
+                Entry("事件档案", com.arktools.xiaozhang.R.drawable.ic_memo, 13)
             )
             entries.forEach { entry ->
                 Row(

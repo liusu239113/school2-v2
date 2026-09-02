@@ -1950,17 +1950,24 @@ class GameEngine @Inject constructor(
         when (event) {
             is GameEvent.PositiveEvent -> {
                 if (event.bonusCash > 50 || event.bonusReputation > 3 || event.title.contains("毕业") || event.title.contains("灵感")) {
+                    val posType = when {
+                        event.title.contains("毕业") || event.title.contains("学位授予") || event.title.contains("研究生") -> com.arktools.xiaozhang.domain.model.NotificationType.STUDENT
+                        event.title.contains("灵感") -> com.arktools.xiaozhang.domain.model.NotificationType.TEACHER
+                        event.title.contains("里程碑") -> com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE
+                        else -> com.arktools.xiaozhang.domain.model.NotificationType.FINANCIAL
+                    }
                     notificationManager.addNotification(
                         title = event.title,
                         message = event.message,
-                        type = when {
-                            event.title.contains("毕业") || event.title.contains("学位授予") || event.title.contains("研究生") -> com.arktools.xiaozhang.domain.model.NotificationType.STUDENT
-                            event.title.contains("灵感") -> com.arktools.xiaozhang.domain.model.NotificationType.TEACHER
-                            event.title.contains("里程碑") -> com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE
-                            else -> com.arktools.xiaozhang.domain.model.NotificationType.FINANCIAL
-                        },
+                        type = posType,
                         priority = com.arktools.xiaozhang.domain.model.NotificationPriority.NORMAL,
-                        gameYear = year, gameMonth = month, gameDay = day
+                        gameYear = year, gameMonth = month, gameDay = day,
+                        actionTabIndex = when (posType) {
+                            com.arktools.xiaozhang.domain.model.NotificationType.TEACHER -> 2
+                            com.arktools.xiaozhang.domain.model.NotificationType.STUDENT -> 8
+                            com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE -> 10
+                            else -> 11
+                        }
                     )
                 }
             }
@@ -1982,7 +1989,14 @@ class GameEngine @Inject constructor(
                     message = event.message,
                     type = type,
                     priority = priority,
-                    gameYear = year, gameMonth = month, gameDay = day
+                    gameYear = year, gameMonth = month, gameDay = day,
+                    actionTabIndex = when (type) {
+                        com.arktools.xiaozhang.domain.model.NotificationType.TEACHER -> 2
+                        com.arktools.xiaozhang.domain.model.NotificationType.STUDENT -> 8
+                        com.arktools.xiaozhang.domain.model.NotificationType.CRISIS -> 13
+                        com.arktools.xiaozhang.domain.model.NotificationType.MARKET -> 6
+                        else -> 11
+                    }
                 )
             }
             is GameEvent.MilestoneEvent -> {
@@ -1991,7 +2005,8 @@ class GameEngine @Inject constructor(
                     message = event.message,
                     type = com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE,
                     priority = com.arktools.xiaozhang.domain.model.NotificationPriority.HIGH,
-                    gameYear = year, gameMonth = month, gameDay = day
+                    gameYear = year, gameMonth = month, gameDay = day,
+                    actionTabIndex = 10
                 )
             }
             is GameEvent.ChoiceEvent -> { /* 选择事件通过对话框处理，不进通知 */ }
@@ -6348,8 +6363,7 @@ class GameEngine @Inject constructor(
             val avgSkill = teachers.map { (it.teaching + it.research + it.management + it.psychology) / 4f }.average().toFloat()
             (avgSkill / 10f).coerceIn(0f, 100f)
         } else 0f
-        val avgSatisfaction = if (teachers.isNotEmpty())
-            teachers.map { it.loyalty.toFloat() }.average().toFloat() else 0f
+        val avgSatisfaction = studentRepository.getAverageSatisfaction().coerceIn(0f, 100f)
         // 开课科目数 = 有教师覆盖的科目数
         val activeSubjectCount = teachers.map { it.role.name }.distinct().size
 

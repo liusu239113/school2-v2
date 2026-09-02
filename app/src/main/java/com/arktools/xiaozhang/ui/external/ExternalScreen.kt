@@ -164,7 +164,7 @@ fun ExternalScreen(
                 fontSize = 13.sp
             )
             Text(
-                "就业指导中心建好后，毕业去向和校友捐赠会写进这张榜。点建筑面板可直接跳到校友页。",
+                "就业指导中心建好后，毕业去向和校友捐赠会写进这张榜。企业合作委托请在「学区 → 社会合作」接单。",
                 color = Color(0xFF8AA0B4),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp)
