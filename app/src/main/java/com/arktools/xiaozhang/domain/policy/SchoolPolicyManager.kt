@@ -299,12 +299,9 @@ class SchoolPolicyManager @Inject constructor(
         }
         val updatedBuildings = decodePlacedBuildings(current.placedBuildings).map { building ->
             val college = collegeTypeForBuildingKey(building.key)
-            val days = college?.let { remaining[it.name] }
-            if (days == null) {
-                building
-            } else {
-                building.copy(constructionDaysLeft = days)
-            }
+                ?: return@map building
+            // 施工中同步剩余天数；竣工（不在 remaining 中）归零
+            building.copy(constructionDaysLeft = remaining[college.name] ?: 0)
         }
         _policies.value = _policies.value.copy(
             collegeDevelopment = current.copy(
