@@ -237,9 +237,9 @@ class PartnerCommissionManager @Inject constructor() {
             campusLevel >= t.minCampusLevel &&
                 (t.requiredCollege == null || t.requiredCollege in foundedColleges)
         }
-        val picked = eligible.shuffled(rng).take(2).map { t ->
+        val picked = eligible.shuffled(rng).take(2).mapIndexed { idx, t ->
             PartnerCommission(
-                id = "c${cur.nextId}",
+                id = "c${cur.nextId + idx}",
                 kind = t.kind,
                 partner = t.partner,
                 title = t.title,
