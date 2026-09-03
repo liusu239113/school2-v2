@@ -545,6 +545,7 @@ class CampusViewModel @Inject constructor(
 
     private suspend fun migrateIfNeeded(school: com.arktools.xiao.domain.model.School, placedRaw: String, terrainRaw: String) {
         if (placedRaw.isNotBlank()) {
+            ensureLegacyDorm(school, placedRaw, terrainRaw)
             val existing = BT.decodeBuildings(placedRaw)
             val terrain = BT.decodeTerrain(terrainRaw)
                 .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) }
@@ -572,6 +573,36 @@ class CampusViewModel @Inject constructor(
             if (spot != null) placed.add(BT.PlacedBuilding("HOSPITAL", spot.first, spot.second))
         }
         persistLayout(placed, terrainMap)
+    }
+
+    /**
+     * 旧档自愈：早期版本新档不带宿舍，玩家可能卡在迎新门控（时间被教程暂停）。
+     * 若全校没有任何宿舍（facilities 与 placed 都没有），补一栋已竣工宿舍并落位，
+     * 与新档"自带宿舍"规则对齐。守卫保证只在缺宿舍时执行一次。
+     */
+    private suspend fun ensureLegacyDorm(school: com.arktools.xiao.domain.model.School, placedRaw: String, terrainRaw: String) {
+        if (school.facilities.any { it.type == FacilityType.DORMITORY }) return
+        if (BT.decodeBuildings(placedRaw).any { it.key == "F_DORMITORY" }) return
+        val terrain = BT.decodeTerrain(terrainRaw)
+            .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) }
+        val placed = BT.decodeBuildings(placedRaw)
+        val spec = BT.facilitySpec(FacilityType.DORMITORY) ?: return
+        val spot = firstFree(spec, placed, terrain, school.campusLevel) ?: return
+        var dormId = ""
+        val added = schoolRepository.mutateSchool { s ->
+            if (s.facilities.none { it.type == FacilityType.DORMITORY }) {
+                val dorm = Facility(type = FacilityType.DORMITORY, level = 1, condition = 100f)
+                s.facilities.add(dorm)
+                dormId = dorm.id
+                true
+            } else {
+                false
+            }
+        } == true
+        if (!added || dormId.isBlank()) return
+        val newPlaced = placed + BT.PlacedBuilding(spec.key, spot.first, spot.second, 1, dormId)
+        persistLayout(newPlaced, terrain)
+        _state.value = _state.value.copy(message = "学校补建了一栋宿舍楼，迎新可以继续了")
     }
 
     private suspend fun persistLayoutResult(
@@ -606,49 +637,49 @@ class CampusViewModel @Inject constructor(
     }
 
     /**
-     * 广告激励：施工中的建筑（设施或学院）剩余天数 -1。
+     * 广告激励：施工中的建筑（设施或学院）立即竣工。
      * 设施走 facilities 事务；学院走 constructingColleges+placed 同步。
      */
-    fun boostConstructionByAd(placed: BT.PlacedBuilding) {
+    fun finishConstructionByAd(placed: BT.PlacedBuilding) {
         viewModelScope.safeLaunch {
-            var newDays = -1
+            var finished = false
             if (placed.facilityId.isNotBlank()) {
                 val result = schoolRepository.mutateSchool { school ->
                     val idx = school.facilities.indexOfFirst {
                         it.id == placed.facilityId && it.constructionDaysLeft > 0
                     }
                     if (idx == -1) return@mutateSchool false
-                    val updated = school.facilities[idx]
-                        .copy(constructionDaysLeft = (school.facilities[idx].constructionDaysLeft - 1).coerceAtLeast(0))
-                    school.facilities[idx] = updated
-                    newDays = updated.constructionDaysLeft
+                    school.facilities[idx] = school.facilities[idx].copy(constructionDaysLeft = 0)
                     true
                 }
                 if (result == null) {
                     _state.value = _state.value.copy(message = "加速未生效，请稍后重试")
                     return@safeLaunch
                 }
+                finished = result
             } else {
-                val collegeDays: Int? = policyManager.boostCollegeConstructionDay(placed.key)
-                if (collegeDays == null) {
+                val ok = policyManager.finishCollegeConstruction(placed.key)
+                if (!ok) {
                     _state.value = _state.value.copy(message = "该学院已竣工或不在施工中")
                     return@safeLaunch
                 }
-                newDays = collegeDays
                 schoolRepository.mutateSchool { latest ->
                     latest.policyJson = policyManager.toJson()
                     true
                 }
+                finished = true
             }
-            _state.value = _state.value.copy(
-                placed = _state.value.placed.map {
-                    if (it.key == placed.key && (placed.facilityId.isBlank() || it.facilityId == placed.facilityId)) {
-                        it.copy(constructionDaysLeft = newDays)
-                    } else it
-                },
-                message = if (newDays == 0) "广告加速生效，施工完成！" else "广告加速生效，剩余施工 $newDays 天"
-            )
-            if (newDays == 0) audioManager.playConstructionDone()
+            if (finished) {
+                _state.value = _state.value.copy(
+                    placed = _state.value.placed.map {
+                        if (it.key == placed.key && (placed.facilityId.isBlank() || it.facilityId == placed.facilityId)) {
+                            it.copy(constructionDaysLeft = 0)
+                        } else it
+                    },
+                    message = "广告加速生效，施工完成！"
+                )
+                audioManager.playConstructionDone()
+            }
         }
     }
 

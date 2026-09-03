@@ -318,36 +318,27 @@ class SchoolPolicyManager @Inject constructor(
         _policies.value.collegeDevelopment.constructingColleges[type.name]
 
     /**
-     * 广告加速：学院施工剩余天数 -1（截止日同步 -1，防止日期重算回填）。
-     * 减到 0 视为竣工：进入 founded 并清除施工记录。返回剩余天数。
+     * 广告加速：学院立即竣工（剩余天数清零）。
+     * 进入 founded 并清除施工记录与截止日。返回是否生效。
      */
-    fun boostCollegeConstructionDay(buildingKey: String): Int? {
+    fun finishCollegeConstruction(buildingKey: String): Boolean {
         val current = _policies.value.collegeDevelopment
-        val college = collegeTypeForBuildingKey(buildingKey) ?: return null
-        val days = current.constructingColleges[college.name] ?: return null
-        val next = (days - 1).coerceAtLeast(0)
+        val college = collegeTypeForBuildingKey(buildingKey) ?: return false
+        if (current.constructingColleges[college.name] == null) return false
         val updatedBuildings = decodePlacedBuildings(current.placedBuildings).map { building ->
             if (collegeTypeForBuildingKey(building.key) == college) {
-                building.copy(constructionDaysLeft = next)
+                building.copy(constructionDaysLeft = 0)
             } else building
-        }
-        val nextDeadlines = current.collegeDeadlines.toMutableMap()
-        current.collegeDeadlines[college.name]?.takeIf { it > 0 }?.let {
-            nextDeadlines[college.name] = (it - 1).coerceAtLeast(0)
         }
         _policies.value = _policies.value.copy(
             collegeDevelopment = current.copy(
-                founded = if (next == 0) (current.founded + college).distinct() else current.founded,
+                founded = (current.founded + college).distinct(),
                 placedBuildings = encodePlacedBuildings(updatedBuildings),
-                constructingColleges = if (next == 0) {
-                    current.constructingColleges - college.name
-                } else {
-                    current.constructingColleges + (college.name to next)
-                },
-                collegeDeadlines = nextDeadlines
+                constructingColleges = current.constructingColleges - college.name,
+                collegeDeadlines = current.collegeDeadlines - college.name
             )
         )
-        return next
+        return true
     }
 
     fun setAffiliatedHospital(built: Boolean) {

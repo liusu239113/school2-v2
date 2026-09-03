@@ -104,7 +104,9 @@ class SchoolRepositoryImpl @Inject constructor(
                 foundedYear = GameBalanceConfig.STARTING_YEAR,
                 currentYear = GameBalanceConfig.STARTING_YEAR,
                 facilities = mutableListOf(
-                    Facility(type = FacilityType.CLASSROOM, level = 1, condition = 100f)
+                    Facility(type = FacilityType.CLASSROOM, level = 1, condition = 100f),
+                    // 新档自带一栋已竣工宿舍楼：迎新门控不再要求玩家先建宿舍，避免教程卡住
+                    Facility(type = FacilityType.DORMITORY, level = 1, condition = 100f)
                 )
             )
             database.schoolManagerStateDao().deleteAll()

@@ -1097,11 +1097,11 @@ private fun BuildingPanelContent(
                         PanelButton("教学与招生管理") { onOpenTeaching() }
                     } else if (placed.constructionDaysLeft > 0) {
                         val activity = LocalContext.current as? android.app.Activity
-                        PanelButtonSmall("看广告 立减 1 天") {
+                        PanelButtonSmall("看广告 立即竣工") {
                             if (activity != null) {
                                 com.arktools.adsdk.AdHelper.showRewardAd(
                                     activity = activity,
-                                    onRewarded = { viewModel.boostConstructionByAd(placed) },
+                                    onRewarded = { viewModel.finishConstructionByAd(placed) },
                                     onFailed = { },
                                     onLoadStart = { },
                                     onComplete = { }
@@ -1301,11 +1301,11 @@ private fun BuildingPanelContent(
                         PanelButton(panelButtonText) { if (placed?.isConstructing != true) onUpgradeFacility() }
                         if (placed?.isConstructing == true && placed.constructionDaysLeft > 0) {
                             val activity = LocalContext.current as? android.app.Activity
-                            PanelButtonSmall("看广告 立减 1 天") {
+                            PanelButtonSmall("看广告 立即竣工") {
                                 if (activity != null) {
                                     com.arktools.adsdk.AdHelper.showRewardAd(
                                         activity = activity,
-                                        onRewarded = { viewModel.boostConstructionByAd(placed) },
+                                        onRewarded = { viewModel.finishConstructionByAd(placed) },
                                         onFailed = { },
                                         onLoadStart = { },
                                         onComplete = { }
