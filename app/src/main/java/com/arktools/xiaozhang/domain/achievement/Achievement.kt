@@ -38,16 +38,12 @@ object AchievementRegistry {
         Achievement("twenty_years", "二十年如一日", "持续经营20年", AchievementCategory.MILESTONE) { (it.currentYear - it.foundedYear) >= 20 },
         Achievement("thirty_years", "三十而立", "持续经营30年", AchievementCategory.MILESTONE) { (it.currentYear - it.foundedYear) >= 30 },
         Achievement("fifty_years", "半世纪传奇", "持续经营50年", AchievementCategory.MILESTONE) { (it.currentYear - it.foundedYear) >= 50 },
-        Achievement("year_2000", "跨越千禧", "经营到2000年", AchievementCategory.MILESTONE) { it.currentYear >= 2000 },
-        Achievement("year_2010", "信息时代", "经营到2010年", AchievementCategory.MILESTONE) { it.currentYear >= 2010 },
-        Achievement("year_2020", "互联网时代", "经营到2020年", AchievementCategory.MILESTONE) { it.currentYear >= 2020 },
         Achievement("year_2030", "AI新纪元", "经营到2030年", AchievementCategory.MILESTONE) { it.currentYear >= 2030 },
 
         // ═══════════════════════════════════════════
-        // 财务（14个）——经济成就
+        // 财务（14个）——经济成就（档位按开局500万重新标定，避免开局秒解）
         // ═══════════════════════════════════════════
-        Achievement("cash_100", "小有积蓄", "学校现金达到100万", AchievementCategory.FINANCIAL) { it.cash >= 100.0 },
-        Achievement("cash_500", "财务自由", "学校现金达到500万", AchievementCategory.FINANCIAL) { it.cash >= 500.0 },
+        Achievement("cash_1000", "首个千万", "学校现金达到1000万", AchievementCategory.FINANCIAL) { it.cash >= 1000.0 },
         Achievement("cash_2000", "腰缠万贯", "学校现金达到2000万", AchievementCategory.FINANCIAL) { it.cash >= 2000.0 },
         Achievement("cash_10000", "富可敌国", "学校现金达到1亿", AchievementCategory.FINANCIAL) { it.cash >= 10000.0 },
         Achievement("revenue_100", "初见回报", "累计收入100万", AchievementCategory.FINANCIAL) { it.totalRevenue >= 100.0 },
@@ -56,10 +52,10 @@ object AchievementRegistry {
         Achievement("revenue_10000", "教育帝国", "累计收入1亿", AchievementCategory.FINANCIAL) { it.totalRevenue >= 10000.0 },
         Achievement("revenue_50000", "教育财阀", "累计收入5亿", AchievementCategory.FINANCIAL) { it.totalRevenue >= 50000.0 },
         Achievement("revenue_200000", "富甲一方", "累计收入20亿", AchievementCategory.FINANCIAL) { it.totalRevenue >= 200000.0 },
-        Achievement("marketcap_500", "市值新星", "学校市值达到500万", AchievementCategory.FINANCIAL) { it.marketCap >= 500.0 },
+        Achievement("marketcap_2000", "市值新星", "学校市值达到2000万", AchievementCategory.FINANCIAL) { it.marketCap >= 2000.0 },
         Achievement("marketcap_5000", "市值飙升", "学校市值达到5000万", AchievementCategory.FINANCIAL) { it.marketCap >= 5000.0 },
         Achievement("marketcap_50000", "教育巨头", "学校市值达到5亿", AchievementCategory.FINANCIAL) { it.marketCap >= 50000.0 },
-        Achievement("frugal_start", "精打细算", "创校第一年结束时现金仍>30万", AchievementCategory.FINANCIAL) { it.currentYear == it.foundedYear + 1 && it.cash > 30.0 },
+        Achievement("frugal_start", "精打细算", "创校第一年结束时现金不低于600万", AchievementCategory.FINANCIAL) { it.currentYear == it.foundedYear + 1 && it.cash > 600.0 },
 
         // ═══════════════════════════════════════════
         // 学术（12个）——声誉和评分
@@ -85,7 +81,7 @@ object AchievementRegistry {
         Achievement("level_4", "省级示范", "学校升到4级", AchievementCategory.GROWTH) { it.campusLevel >= 4 },
         Achievement("level_5", "国家名校", "学校升到5级", AchievementCategory.GROWTH) { it.campusLevel >= 5 },
         Achievement("level_6", "世界一流", "学校升到最高6级", AchievementCategory.GROWTH) { it.campusLevel >= 6 },
-        Achievement("full_teachers", "满员经营", "教师数达到当前等级上限", AchievementCategory.GROWTH) { it.facilities.size > 0 && it.campusLevel >= 2 },
+        Achievement("full_teachers", "师资班底", "校园达到2级并具备教师容量", AchievementCategory.GROWTH) { it.facilities.size > 0 && it.campusLevel >= 2 },
         Achievement("ten_facilities", "设施齐全", "拥有10个以上设施", AchievementCategory.GROWTH) { it.facilities.size >= 10 },
         Achievement("all_facility_types", "应有尽有", "拥有全部12种设施类型", AchievementCategory.GROWTH) { it.facilities.map { f -> f.type }.toSet().size >= 12 },
 

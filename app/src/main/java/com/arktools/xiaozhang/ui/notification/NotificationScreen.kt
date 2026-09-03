@@ -70,6 +70,8 @@ fun NotificationScreen(
     val notifications by viewModel.notifications.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
     var selectedFilter by remember { mutableStateOf<NotificationType?>(null) }
+    // 展开查看全文的通知 id（点卡片展开，点按钮才跳转）
+    var expandedId by remember { mutableStateOf<String?>(null) }
 
     val filteredNotifications = if (selectedFilter != null) {
         notifications.filter { it.type == selectedFilter }
@@ -176,7 +178,12 @@ fun NotificationScreen(
                     ) {
                         NotificationCard(
                             notification = notification,
-                            onClick = {
+                            expanded = expandedId == notification.id,
+                            onToggle = {
+                                viewModel.markAsRead(notification.id)
+                                expandedId = if (expandedId == notification.id) null else notification.id
+                            },
+                            onJump = {
                                 viewModel.markAsRead(notification.id)
                                 notification.actionTabIndex?.let { onNavigateToTab(it) }
                             }
@@ -192,7 +199,9 @@ fun NotificationScreen(
 @Composable
 private fun NotificationCard(
     notification: GameNotification,
-    onClick: () -> Unit
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onJump: () -> Unit
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (!notification.isRead)
@@ -214,7 +223,7 @@ private fun NotificationCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onToggle),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(
@@ -271,20 +280,20 @@ private fun NotificationCard(
                     text = notification.message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Action button
-                notification.actionLabel?.let { label ->
+                // 展开后的操作区：跳转相关页面
+                if (expanded && (notification.actionTabIndex != null || notification.actionLabel != null)) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                        modifier = Modifier.clickable(onClick = onClick)
+                        modifier = Modifier.clickable(onClick = onJump)
                     ) {
                         Text(
-                            text = label,
+                            text = notification.actionLabel ?: "前往相关页面",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium,

@@ -26,17 +26,23 @@ class AchievementManager @Inject constructor() {
 
     /**
      * Check all achievements against current school state.
-     * Called from GameEngine after each tick (or less frequently).
+     * Called monthly (day 1). Returns the newly unlocked achievements this call,
+     * so the engine can surface them as notifications.
      */
-    suspend fun checkAchievements(school: School) {
+    suspend fun checkAchievements(school: School): List<Achievement> {
+        val newlyUnlocked = mutableListOf<Achievement>()
         achievements.forEach { achievement ->
             if (!achievement.unlocked && achievement.condition(school)) {
                 achievement.unlocked = true
                 achievement.unlockTime = System.currentTimeMillis()
-                _unlockedAchievements.value = achievements.filter { it.unlocked }
-                _newAchievement.emit(achievement)
+                newlyUnlocked.add(achievement)
             }
         }
+        if (newlyUnlocked.isNotEmpty()) {
+            _unlockedAchievements.value = achievements.filter { it.unlocked }
+            newlyUnlocked.forEach { _newAchievement.emit(it) }
+        }
+        return newlyUnlocked
     }
 
     fun getAll(): List<Achievement> = achievements.toList()

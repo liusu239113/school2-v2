@@ -3359,7 +3359,37 @@ class GameEngine @Inject constructor(
 
         // Check achievements monthly (day 1) to reduce overhead
         if (school.currentDay == 1) {
-            achievementManager.checkAchievements(school)
+            val newAchievements = achievementManager.checkAchievements(school)
+            if (newAchievements.isNotEmpty()) {
+                if (newAchievements.size >= 4) {
+                    // 同月解锁过多时合并为一条摘要，避免通知刷屏
+                    notificationManager.addNotification(
+                        title = "一次性解锁 ${newAchievements.size} 项成就",
+                        message = newAchievements.joinToString("、") { it.title },
+                        type = com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE,
+                        priority = com.arktools.xiaozhang.domain.model.NotificationPriority.NORMAL,
+                        gameYear = school.currentYear,
+                        gameMonth = school.currentMonth,
+                        gameDay = school.currentDay,
+                        actionLabel = "查看成就",
+                        actionTabIndex = 10
+                    )
+                } else {
+                    newAchievements.forEach { achievement ->
+                        notificationManager.addNotification(
+                            title = "成就解锁：${achievement.title}",
+                            message = achievement.description,
+                            type = com.arktools.xiaozhang.domain.model.NotificationType.MILESTONE,
+                            priority = com.arktools.xiaozhang.domain.model.NotificationPriority.NORMAL,
+                            gameYear = school.currentYear,
+                            gameMonth = school.currentMonth,
+                            gameDay = school.currentDay,
+                            actionLabel = "查看成就",
+                            actionTabIndex = 10
+                        )
+                    }
+                }
+            }
         }
 
         // 发射游戏日推进信号，供各 ViewModel 监听刷新
