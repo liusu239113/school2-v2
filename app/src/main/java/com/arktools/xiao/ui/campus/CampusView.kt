@@ -547,15 +547,17 @@ fun CampusView(
                     val wPx = hPx * fw / fh
                     val cx = w.fx * cell
                     val bottom = w.fy * cell
-                    val matrix = android.graphics.Matrix()
+                    val srcRect = android.graphics.Rect(sx, sy, sx + fw, sy + fh)
+                    val dstRect = android.graphics.RectF(cx - wPx / 2f, bottom - hPx, cx + wPx / 2f, bottom)
+                    val nc = drawContext.canvas.nativeCanvas
                     if (w.facingRight) {
-                        matrix.setScale(wPx / fw, hPx / fh)
-                        matrix.postTranslate(cx - wPx / 2f, bottom - hPx)
+                        nc.drawBitmap(sheet, srcRect, dstRect, walkerPaint)
                     } else {
-                        matrix.setScale(-wPx / fw, hPx / fh)
-                        matrix.postTranslate(cx + wPx / 2f, bottom - hPx)
+                        nc.save()
+                        nc.scale(-1f, 1f, cx, bottom - hPx / 2f)
+                        nc.drawBitmap(sheet, srcRect, dstRect, walkerPaint)
+                        nc.restore()
                     }
-                    drawContext.canvas.nativeCanvas.drawBitmap(sheet, sx, sy, fw, fh, matrix, walkerPaint)
                 }
 
                 // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放（粗描边+四角标记，醒目）
