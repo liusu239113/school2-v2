@@ -26,7 +26,7 @@ android {
         applicationId = "com.arktools.xiaozhang.v2"
         minSdk = 24
         targetSdk = 35
-        versionCode = 211
+        versionCode = 212
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
