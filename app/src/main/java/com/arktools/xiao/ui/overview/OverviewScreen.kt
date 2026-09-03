@@ -119,7 +119,7 @@ fun OverviewScreen(
                 onFinanceClick = onNavigateToPolicy,
                 onTalentClick = onNavigateToTeacher,
                 onResearchClick = onNavigateToResearch,
-                onSocietyClick = onNavigateToReputation
+                onSocietyClick = onNavigateToRanking
             )
         }
 
@@ -337,37 +337,29 @@ fun OverviewScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "前期先把师资、教室和招生做稳；中后期再打开社团、奖学金、校友、学术会议和产业合作。",
+                text = "前期先把师资、教室、宿舍和招生做稳。用地不够点行政楼升级校园；缺钱去外联接企业委托。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        // 快捷入口 - 排行 & 股市 & 设施 & 里程碑
         item {
-            SectionHeader(title = "更多功能", subtitle = "按校园等级逐步开放，锁定条目会标明解锁条件")
+            SectionHeader(title = "校长台账", subtitle = "只保留会改钱、声誉、招生或培养质量的入口")
             Spacer(modifier = Modifier.height(8.dp))
-            val entries: List<Pair<Triple<GameModule?, Int, () -> Unit>, String>> = listOf(
-                Triple(GameModule.FACILITY, R.drawable.ic_construction, onNavigateToFacility) to "建设升级设施",
-                Triple(GameModule.RANKING, R.drawable.ic_trophy, onNavigateToRanking) to "查看学校排名",
-                Triple(null, R.drawable.ic_medal_gold, onNavigateToAchievement) to "成就收集与里程碑",
-                Triple(GameModule.STOCK, R.drawable.ic_chart, onNavigateToStock) to "用闲钱赚更多",
-                Triple(GameModule.REPORT, R.drawable.ic_clipboard, onNavigateToReport) to "经营趋势与财务分析",
-                Triple(GameModule.MARKETING, R.drawable.ic_megaphone, onNavigateToMarketing) to "招生营销活动",
-                Triple(GameModule.EVENT, R.drawable.ic_calendar, onNavigateToEvent) to "查看历史事件",
-                Triple(GameModule.ALUMNI, R.drawable.ic_graduation, onNavigateToAlumni) to "毕业生去向与校友网络",
-                Triple(GameModule.POLICY, R.drawable.ic_memo, onNavigateToPolicy) to "调整运营参数",
-                Triple(GameModule.CLUB, R.drawable.ic_people, onNavigateToClub) to "社团管理与竞赛",
-                Triple(GameModule.SEASONAL, R.drawable.ic_celebration, onNavigateToSeasonal) to "校园活动日历",
-                Triple(GameModule.REPUTATION, R.drawable.ic_crown, onNavigateToReputation) to "多维声誉分析",
-                Triple(GameModule.STUDENT_LIFE, R.drawable.ic_house, onNavigateToStudentLife) to "宿舍食堂健康管理",
-                Triple(GameModule.CONFERENCE, R.drawable.ic_books, onNavigateToConference) to "举办参加学术交流",
-                Triple(GameModule.PARENT, R.drawable.ic_heart, onNavigateToParent) to "维护校友、家庭与社会支持网络",
-                Triple(GameModule.GOVERNMENT, R.drawable.ic_government, onNavigateToGovernment) to "对接企业、城市与公共项目",
-                Triple(GameModule.SCHOLARSHIP, R.drawable.ic_gem, onNavigateToScholarship) to "支持人才培养与公平入学",
-                Triple(GameModule.TIMETABLE, R.drawable.ic_calendar, onNavigateToTimetable) to "统筹学院、专业与教学资源",
-                Triple(GameModule.EXAM, R.drawable.ic_clipboard, onNavigateToExam) to "跟踪培养质量与毕业成果",
-                Triple(GameModule.PRINCIPAL, R.drawable.ic_office, onNavigateToPrincipalOffice) to "个人事务灰色地带"
+            data class LedgerEntry(
+                val title: String,
+                val description: String,
+                val iconRes: Int,
+                val module: GameModule?,
+                val onClick: () -> Unit
+            )
+            val entries = listOf(
+                LedgerEntry("办学报表", "看收支、招生和满意度走势", R.drawable.ic_clipboard, GameModule.REPORT, onNavigateToReport),
+                LedgerEntry("大学政策", "学费、考试难度、招生定位", R.drawable.ic_policy_tuition, GameModule.POLICY, onNavigateToPolicy),
+                LedgerEntry("奖助学金", "直接影响生源与口碑", R.drawable.ic_scholarship, GameModule.SCHOLARSHIP, onNavigateToScholarship),
+                LedgerEntry("校友与就业", "毕业去向会回写声誉和捐赠", R.drawable.ic_graduation, GameModule.ALUMNI, onNavigateToAlumni),
+                LedgerEntry("在校生名册", "班级、年级和在读情况", R.drawable.ic_student_roster, null, onNavigateToStudent),
+                LedgerEntry("通知待办", "周报、事件和待处理事项", R.drawable.ic_notification, null, onNavigateToNotification)
             )
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 entries.chunked(2).forEach { row ->
@@ -375,19 +367,18 @@ fun OverviewScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        row.forEach { (entry, fallbackDesc) ->
-                            val (module, iconRes, onClick) = entry
-                            val unlocked = module == null || GameBalanceConfig.isModuleUnlocked(module, stats.campusLevel)
+                        row.forEach { entry ->
+                            val unlocked = entry.module == null || GameBalanceConfig.isModuleUnlocked(entry.module, stats.campusLevel)
                             QuickEntryCard(
                                 modifier = Modifier.weight(1f),
-                                iconRes = iconRes,
-                                title = if (unlocked) (module?.displayName ?: "荣誉成就") else "${module?.displayName} 🔒",
+                                iconRes = entry.iconRes,
+                                title = if (unlocked) entry.title else "${entry.title} 🔒",
                                 description = if (unlocked) {
-                                    fallbackDesc
+                                    entry.description
                                 } else {
-                                    module?.let { GameBalanceConfig.getModuleLockReason(it) } ?: fallbackDesc
+                                    entry.module?.let { GameBalanceConfig.getModuleLockReason(it) } ?: entry.description
                                 },
-                                onClick = onClick,
+                                onClick = entry.onClick,
                                 locked = !unlocked
                             )
                         }
