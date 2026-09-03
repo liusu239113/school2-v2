@@ -50,6 +50,9 @@ fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var showTemplateDialog by remember { mutableStateOf(false) }
 
+    com.arktools.xiao.ui.components.PixelGameBackground {
+    Column(modifier = Modifier.fillMaxSize()) {
+    com.arktools.xiao.ui.components.LegacyPageHeader("奖助学金")
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -58,21 +61,17 @@ fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
+                shape = RoundedCornerShape(0.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xE611263D)),
+                elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(Color(0xFF7B1FA2), Color(0xFF4A148C))
-                            )
-                        )
                         .padding(20.dp)
                 ) {
                     Column {
-                        Text("奖学金管理", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("开学就能设，直接影响招生和口碑", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -223,6 +222,8 @@ fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
             },
             onDismiss = { showTemplateDialog = false }
         )
+    }
+    }
     }
 }
 

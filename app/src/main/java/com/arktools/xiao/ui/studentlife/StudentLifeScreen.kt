@@ -36,6 +36,9 @@ fun StudentLifeScreen(
         }
     }
 
+    com.arktools.xiao.ui.components.PixelGameBackground {
+    Column(modifier = Modifier.fillMaxSize()) {
+    com.arktools.xiao.ui.components.LegacyPageHeader("学生生活")
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent
@@ -132,6 +135,8 @@ fun StudentLifeScreen(
         item { Spacer(modifier = Modifier.height(32.dp)) }
     }
     } // Scaffold
+    }
+    }
 }
 
 @Composable

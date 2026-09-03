@@ -54,10 +54,11 @@ fun ExamScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    com.arktools.xiao.ui.components.PixelGameBackground {
+    Column(modifier = Modifier.fillMaxSize()) {
+    com.arktools.xiao.ui.components.LegacyPageHeader("考试管理")
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("考试成绩") })
-        }
+        containerColor = Color.Transparent
     ) { padding ->
         if (uiState.examHistory.isEmpty()) {
             EmptyState(
@@ -97,6 +98,8 @@ fun ExamScreen(
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
         }
+    }
+    }
     }
 }
 

@@ -575,6 +575,13 @@ fun CampusView(
                     color = Color(0xFFB8C7D6),
                     fontSize = 10.sp
                 )
+                if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
+                    Text(
+                        "点右下角黄色按钮升级校园，开地并解锁建筑",
+                        color = Color(0xFFFFD54F),
+                        fontSize = 10.sp
+                    )
+                }
             }
         }
 
@@ -604,6 +611,21 @@ fun CampusView(
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("＋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            }
+            if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFFFFD54F))
+                        .clickable { viewModel.upgradeCampus() }
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        "升级校园 Lv.${state.campusLevel}→${state.campusLevel + 1}",
+                        color = Color(0xFF182635),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
             }
             FloatingActionButton(
                 onClick = { viewModel.openBuildMenu() },

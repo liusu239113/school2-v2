@@ -59,7 +59,10 @@ fun TimetableScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold { padding ->
+    com.arktools.xiao.ui.components.PixelGameBackground {
+    Column(modifier = Modifier.fillMaxSize()) {
+    com.arktools.xiao.ui.components.LegacyPageHeader("学期课表")
+    Scaffold(containerColor = Color.Transparent) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -163,6 +166,8 @@ fun TimetableScreen(
             onSave = { viewModel.saveSubjectHours() },
             onReset = { viewModel.resetSubjectHours() }
         )
+    }
+    }
     }
 }
 
