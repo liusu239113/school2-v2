@@ -43,8 +43,8 @@ class SchoolTycoonApplication : Application() {
 
         // 配置广告 SDK
         AdSdkConfig.configure(
-            appId = 2062434858991079425L,
-            rewardVideoId = "2062435124066897922",
+            appId = 2095455236721983490L,
+            rewardVideoId = "2095456946198614018",
             privacyPolicyUrl = "http://yanyususu.online:5555/xiaozhang.html",
             isDebug = BuildConfig.DEBUG
         )

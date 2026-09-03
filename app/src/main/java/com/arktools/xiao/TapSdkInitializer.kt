@@ -24,8 +24,8 @@ object TapSdkInitializer {
         if (initialized) return
         try {
             val tapSdkOptions = TapTapSdkOptions(
-                clientId = "ha7lqeih3exzc71dns",
-                clientToken = "O2dSp7pg1RewA5r6tldEZh8JoT4csg9z0dc6tWxW",
+                clientId = "hareuymxpznuvu7uqj",
+                clientToken = "1sXfqQULeW0drOqd8oXjlhXa1f9RlDxx2LmpwHcw",
                 region = TapTapRegion.CN,
                 enableLog = BuildConfig.DEBUG
             )

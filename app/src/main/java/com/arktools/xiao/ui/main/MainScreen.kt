@@ -239,9 +239,8 @@ fun MainScreen(
     // TapTap 登录状态
     var isTapLoggedIn by remember { mutableStateOf(false) }
     // ═══ 测试期开关 ═══
-    // 【临时】全版本跳过 TapTap 登录与防沉迷（应用商店合规接入完成后再恢复）。
-    // 恢复方法：改回 val skipLoginAndCompliance = BuildConfig.DEBUG
-    val skipLoginAndCompliance = true
+    // TapTap 登录与防沉迷门控已恢复（release 强制走三层门控；debug 包跳过便于联调）
+    val skipLoginAndCompliance = BuildConfig.DEBUG
 
     // 防沉迷状态：只有收到 LOGIN_SUCCESS(500) 才为 true
     var compliancePassed by remember { mutableStateOf(false) }

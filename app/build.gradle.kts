@@ -114,8 +114,8 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.cardview:cardview:1.0.0")
 
-    // Tosin 广告 SDK Core
-    implementation(files("libs/tosin-ad-1.1.1.aar"))
+    // Tosin 广告 SDK Core（新版）
+    implementation(files("libs/tosin-ad-Y260817.aar"))
     implementation(files("libs/tosin-adx-2.9.65.aar"))
 
     // 广告 SDK 必须依赖
@@ -123,6 +123,9 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("com.squareup.retrofit2:adapter-rxjava2:2.2.0")
     implementation("io.reactivex.rxjava2:rxjava:2.2.21")
+
+    // OAID（国内广告归因）
+    implementation(files("libs/oaid_sdk_1.0.25.aar"))
 
     // CSJ 穿山甲
     implementation(files("libs/tosin-csj-adapter-7.6.1.1.aar"))
@@ -151,6 +154,9 @@ dependencies {
     // yout
     implementation(files("libs/yout/tosin-adalliance-adapter-4.7.7.aar"))
 
+    // taptap
+    implementation(files("libs/taptap/tosin-taptap-adapter-4.2.4.8.aar"))
+
     // adgain
     implementation(files("libs/adgain/tosin-adgainsdk-adapter-4.2.7.2.aar"))
     implementation(files("libs/adgain/tosin-adgainbeizi-adapter-4.2.5.4.aar"))
@@ -167,7 +173,7 @@ dependencies {
     // beizi
     implementation(files("libs/beizi/tosin-beizi-adapter-5.3.0.3.aar"))
 
-    // dm
+    // dm 点媒
     implementation(files("libs/dm/tosin-domob-adapter-3.8.2.aar"))
 
     // funlink
@@ -176,15 +182,15 @@ dependencies {
     implementation(files("libs/funlink/tosin-funlink_taku-adapter-2.9.0_77328722.aar"))
     implementation(files("libs/funlink/tosin-funlink_tobid-adapter-2.9.0_77328722.aar"))
 
-    // hx
-    implementation(files("libs/hx/tosin-hx-sdk-1.6.12.aar"))
+    // hx 鸿兴
+    implementation(files("libs/hx/tosin-hx-sdk-1.6.17.aar"))
     implementation(files("libs/hx/tosin-hx-gromore-adapter.aar"))
     implementation(files("libs/hx/tosin-hx-mediatom-adapter.aar"))
     implementation(files("libs/hx/tosin-hx-taku-adapter.aar"))
     implementation(files("libs/hx/tosin-hx-tobid-adapter.aar"))
 
-    // jiatou (advista)
-    implementation(files("libs/jiatou/tosin-advista-adapter-1.8.2.aar"))
+    // jiatou
+    implementation(files("libs/jiatou/tosin-advista-adapter-1.9.2.aar"))
 
     // jutui
     implementation(files("libs/jutui/tosin-jutui-adapter-4.2.3.1.aar"))
@@ -194,9 +200,6 @@ dependencies {
 
     // ms
     implementation(files("libs/ms/tosin-ms-adapter-3.0.4.1.aar"))
-
-    // taptap
-    implementation(files("libs/taptap/tosin-taptap-adapter-4.2.4.8.aar"))
 
     // tianxuan
     implementation(files("libs/tianxuan/tosin-UBiX-adapter-2.10.1.11.aar"))
