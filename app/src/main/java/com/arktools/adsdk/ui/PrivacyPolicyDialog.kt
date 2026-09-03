@@ -101,6 +101,7 @@ fun PrivacyPolicyDialog(
                     val collectedItems = listOf(
                         "设备型号、操作系统版本（用于适配和优化）",
                         "设备标识符（用于广告展示和数据统计）",
+                        "广告标识符 GAID（本游戏为展示广告和统计广告效果而获取）",
                         "网络类型（WiFi/移动数据，用于广告加载）",
                         "游戏存档数据（仅存储在本地设备）",
                         "应用崩溃日志（用于修复问题）"
@@ -128,6 +129,30 @@ fun PrivacyPolicyDialog(
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 8.dp)
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "第三方 SDK 收集的信息及目的：",
+                        color = Color.White,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val sdkItems = listOf(
+                        "优量汇SDK：获取 AndroidID、设备IP（用于广告展示与投放、反作弊和安全风控）",
+                        "AdGain SDK：获取 AndroidID、OAID、WiFi BSSID（用于广告展示、效果归因与数据统计）",
+                        "优推广告SDK：获取 OAID（用于广告展示与投放）",
+                        "Tap登录SDK：获取 AndroidID（用于账号登录与身份鉴权）"
+                    )
+                    sdkItems.forEach { item ->
+                        Text(
+                            text = "• $item",
+                            color = Color(0xFFAAAAAA),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
