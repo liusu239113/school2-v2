@@ -103,7 +103,9 @@ class CampusViewModel @Inject constructor(
         val studioCapacity: Int = 0,
         val unlockedCells: Int = 0,
         val totalCells: Int = 0,
-        val currentYear: Int = 2026
+        val currentYear: Int = 2026,
+        val monthlyRevenue: Double = 0.0,
+        val monthlyExpenses: Double = 0.0
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -127,13 +129,33 @@ class CampusViewModel @Inject constructor(
         val residents: List<DormResident>
     )
 
+    data class ClassStudentInfo(
+        val name: String,
+        val grade: String,
+        val intelligence: Int,
+        val physical: Int,
+        val social: Int,
+        val creativity: Int,
+        val morality: Int,
+        val satisfaction: Int
+    )
+
     data class ClassRow(
         val classId: String,
         val name: String,
         val studentCount: Int,
         val advisorName: String?,
+        val advisorAvatarRes: Int = 0,
         val officers: Map<ClassOfficerRole, String>,
-        val facilityId: String
+        val facilityId: String,
+        val students: List<ClassStudentInfo> = emptyList()
+    )
+
+    data class AdvisorOption(
+        val id: String,
+        val name: String,
+        val detail: String,
+        val avatarRes: Int
     )
 
     data class StudentOption(
@@ -148,8 +170,8 @@ class CampusViewModel @Inject constructor(
     private val _classRows = MutableStateFlow<List<ClassRow>>(emptyList())
     val classRows: StateFlow<List<ClassRow>> = _classRows.asStateFlow()
 
-    private val _advisorOptions = MutableStateFlow<List<Pair<String, String>>>(emptyList())
-    val advisorOptions: StateFlow<List<Pair<String, String>>> = _advisorOptions.asStateFlow()
+    private val _advisorOptions = MutableStateFlow<List<AdvisorOption>>(emptyList())
+    val advisorOptions: StateFlow<List<AdvisorOption>> = _advisorOptions.asStateFlow()
 
     private val _studentOptions = MutableStateFlow<List<StudentOption>>(emptyList())
     val studentOptions: StateFlow<List<StudentOption>> = _studentOptions.asStateFlow()
@@ -167,6 +189,7 @@ class CampusViewModel @Inject constructor(
     val state: StateFlow<CampusUiState> = _state.asStateFlow()
 
     private var cachedActiveStudents: List<com.arktools.xiao.domain.model.Student> = emptyList()
+    private var cachedTeachers: List<com.arktools.xiao.domain.model.Teacher> = emptyList()
 
     init {
         viewModelScope.safeLaunch {
@@ -174,9 +197,14 @@ class CampusViewModel @Inject constructor(
                 if (school == null) return@collect
                 val dev = policyManager.policies.value.collegeDevelopment
                 migrateIfNeeded(school, dev.placedBuildings, dev.terrainMap)
-                val students = runCatching { studentRepository.getActiveStudents() }.getOrDefault(emptyList())
-                cachedActiveStudents = students
-                val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
+                if (cachedActiveStudents.isEmpty()) {
+                    cachedActiveStudents = runCatching { studentRepository.getActiveStudents() }.getOrDefault(emptyList())
+                }
+                if (cachedTeachers.isEmpty()) {
+                    cachedTeachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
+                }
+                val students = cachedActiveStudents
+                val teachers = cachedTeachers
                 val terrain = BT.decodeTerrain(dev.terrainMap)
                 val decorKinds = setOf(
                     "FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN",
@@ -248,7 +276,9 @@ class CampusViewModel @Inject constructor(
                     sportsCapacity = com.arktools.xiao.domain.model.FacilityCapacity.totalSportsCapacity(school.facilities),
                     studioCapacity = com.arktools.xiao.domain.model.FacilityCapacity.totalStudioCapacity(school.facilities),
                     unlockedCells = BT.unlockedRect(school.campusLevel).cells,
-                    totalCells = BT.GRID_W * BT.GRID_H
+                    totalCells = BT.GRID_W * BT.GRID_H,
+                    monthlyRevenue = com.arktools.xiao.domain.model.StatisticsManager.latest()?.revenue ?: 0.0,
+                    monthlyExpenses = com.arktools.xiao.domain.model.StatisticsManager.latest()?.expenses ?: 0.0
                 )
             }
         }
@@ -285,7 +315,12 @@ class CampusViewModel @Inject constructor(
             ensureHospitalPlaced()
         }
         viewModelScope.safeLaunch {
-            gameEngine.gameDaySignal.collect { tickConstruction() }
+            gameEngine.gameDaySignal.collect {
+                cachedActiveStudents = runCatching { studentRepository.getActiveStudents() }.getOrDefault(emptyList())
+                cachedTeachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
+                tickConstruction()
+                rebuildClassRows()
+            }
         }
         viewModelScope.safeLaunch {
             gameEngine.classesFlow.collect { rebuildClassRows() }
@@ -318,17 +353,38 @@ class CampusViewModel @Inject constructor(
             )
             schoolRepository.mutateSchool { school -> school.policyJson = policyManager.toJson(); true }
         }
-        val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
+        val teachers = if (cachedTeachers.isNotEmpty()) {
+            cachedTeachers
+        } else {
+            runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList()).also { cachedTeachers = it }
+        }
         val rows = gameEngine.classes.map { cls ->
             val roomId = assignments[cls.id].orEmpty()
             val advisor = cls.headTeacherId?.let { id -> teachers.firstOrNull { it.id == id } }
+            val classStudents = cachedActiveStudents
+                .filter { it.classId == cls.id }
+                .sortedBy { it.name }
+                .map { student ->
+                    ClassStudentInfo(
+                        name = student.name,
+                        grade = student.gradeLevel.displayName,
+                        intelligence = student.attributes.intelligence.toInt(),
+                        physical = student.attributes.physical.toInt(),
+                        social = student.attributes.social.toInt(),
+                        creativity = student.attributes.creativity.toInt(),
+                        morality = student.attributes.morality.toInt(),
+                        satisfaction = student.satisfaction.toInt()
+                    )
+                }
             ClassRow(
                 classId = cls.id,
                 name = cls.displayName,
-                studentCount = cls.studentCount,
+                studentCount = if (classStudents.isNotEmpty()) classStudents.size else cls.studentCount,
                 advisorName = advisor?.name,
+                advisorAvatarRes = advisor?.let { com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(it) } ?: 0,
                 officers = officers[cls.id].orEmpty().mapValues { it.value.name },
-                facilityId = roomId
+                facilityId = roomId,
+                students = classStudents
             )
         }
         _classRows.value = rows
@@ -387,7 +443,14 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val teachers = runCatching { teacherRepository.getTeachers() }
                 .getOrDefault(emptyList()).filter { it.isWorking }
-            _advisorOptions.value = teachers.map { it.id to (it.name + " · " + it.level.name + "级") }
+            _advisorOptions.value = teachers.map { teacher ->
+                AdvisorOption(
+                    id = teacher.id,
+                    name = teacher.name,
+                    detail = teacher.level.name + "级 · " + teacher.role.displayName,
+                    avatarRes = com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(teacher)
+                )
+            }
             _pickingAdvisorClass.value = classId
         }
     }

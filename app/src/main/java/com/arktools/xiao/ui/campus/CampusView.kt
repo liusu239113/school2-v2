@@ -555,10 +555,15 @@ fun CampusView(
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Text(
-                    "满意度 ${state.avgSatisfaction.toInt()}  床位 ${state.studentCount}/${state.dormBeds.coerceAtLeast(0)}  餐位 ${state.canteenSeats}",
+                    "在校 ${state.studentCount} 人  床位 ${state.studentCount}/${state.dormBeds.coerceAtLeast(0)}  餐位 ${state.canteenSeats}",
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "上月学费等收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万",
+                    color = Color(0xFFFFD54F),
+                    fontSize = 10.sp
                 )
                 Text(
                     "班槽 ${state.classSlots} · 阅览 ${state.librarySeats} · 实验台 ${state.labBenches} · 机位 ${state.computerSeats}",
@@ -858,7 +863,7 @@ fun CampusView(
             val options by viewModel.advisorOptions.collectAsState()
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { viewModel.closePickers() },
-                title = { Text("指派学业导师") },
+                title = { Text("任命班主任") },
                 text = {
                     Column(
                         modifier = Modifier
@@ -866,16 +871,28 @@ fun CampusView(
                             .verticalScroll(rememberScrollState())
                     ) {
                         if (options.isEmpty()) Text("暂无在职教师", fontSize = 13.sp)
-                        options.forEach { (tid, name) ->
-                            Text(
-                                name,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
+                        options.forEach { option ->
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { viewModel.assignAdvisor(classId, tid) }
-                                    .padding(vertical = 10.dp)
-                            )
+                                    .clickable { viewModel.assignAdvisor(classId, option.id) }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (option.avatarRes != 0) {
+                                    Image(
+                                        painter = painterResource(id = option.avatarRes),
+                                        contentDescription = option.name,
+                                        modifier = Modifier.size(40.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                Column {
+                                    Text(option.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                    Text(option.detail, fontSize = 11.sp, color = Color(0xFF617386))
+                                }
+                            }
                         }
                     }
                 },
@@ -1037,6 +1054,11 @@ private fun BuildingPanelContent(
                     "在校 ${state.studentCount} 人 · 在编教师 ${state.teacherCount} 人 · 声誉 ${state.reputation}",
                     fontSize = 13.sp,
                     color = Color(0xFF617386)
+                )
+                Text(
+                    "钱怎么来：学费月底入账，企业委托在外联接单，就业中心影响毕业去向。上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万。",
+                    fontSize = 12.sp,
+                    color = Color(0xFF14648C)
                 )
                 Text(
                     "满意度 ${state.avgSatisfaction.toInt()} · 住宿 ${state.avgDormSatisfaction.toInt()} · 餐标 ${state.avgMealQuality.toInt()}",
@@ -1230,22 +1252,52 @@ private fun BuildingPanelContent(
                                         .padding(8.dp)
                                 ) {
                                     Text(row.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
-                                    Text(
-                                        (row.advisorName?.let { "导师：$it" } ?: "导师：未安排") +
-                                            " · ${row.studentCount} 人",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF617386)
-                                    )
-                                    val officerSummary = ClassOfficerRole.entries.mapNotNull { role ->
-                                        row.officers[role]?.let { "${role.displayName}：$it" }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        if (row.advisorAvatarRes != 0) {
+                                            Image(
+                                                painter = painterResource(id = row.advisorAvatarRes),
+                                                contentDescription = row.advisorName,
+                                                modifier = Modifier.size(40.dp),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                (row.advisorName?.let { "班主任：$it" } ?: "班主任：未安排") +
+                                                    " · ${row.studentCount} 人",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF617386)
+                                            )
+                                            val officerSummary = ClassOfficerRole.entries.mapNotNull { role ->
+                                                row.officers[role]?.let { "${role.displayName}：$it" }
+                                            }
+                                            Text(
+                                                if (officerSummary.isEmpty()) "班干部：尚未任命" else officerSummary.joinToString(" · "),
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF617386)
+                                            )
+                                        }
                                     }
-                                    Text(
-                                        if (officerSummary.isEmpty()) "班干部：尚未任命" else officerSummary.joinToString(" · "),
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF617386)
-                                    )
+                                    if (row.students.isEmpty()) {
+                                        Text("本班暂无学生名册（迎新后会出现）", fontSize = 11.sp, color = Color(0xFF8AA0B4))
+                                    } else {
+                                        Text("本班学生", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                        row.students.take(8).forEach { student ->
+                                            Text(
+                                                "${student.name} · ${student.grade} · 智${student.intelligence} 体${student.physical} 社${student.social} 创${student.creativity} 德${student.morality} · 满意度${student.satisfaction}",
+                                                fontSize = 10.sp,
+                                                color = Color(0xFF617386)
+                                            )
+                                        }
+                                        if (row.students.size > 8) {
+                                            Text("……还有 ${row.students.size - 8} 人", fontSize = 10.sp, color = Color(0xFF8AA0B4))
+                                        }
+                                    }
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        PanelButtonSmall("换导师") { viewModel.openAdvisorPicker(row.classId) }
+                                        PanelButtonSmall("换班主任") { viewModel.openAdvisorPicker(row.classId) }
                                     }
                                     ClassOfficerRole.entries.forEach { role ->
                                         val currentOfficer = row.officers[role]

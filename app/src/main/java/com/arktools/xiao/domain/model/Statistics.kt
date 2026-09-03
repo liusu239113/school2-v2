@@ -87,6 +87,8 @@ object StatisticsManager {
         }
     }
 
+    fun latest(): MonthlyReport? = monthlyHistory.lastOrNull()
+
     fun generateReport(school: School): SchoolReport {
         val totalRevenue = monthlyHistory.sumOf { it.revenue }
         val totalExpenses = monthlyHistory.sumOf { it.expenses }
