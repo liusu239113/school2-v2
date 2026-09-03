@@ -164,11 +164,89 @@ fun ExternalScreen(
                 fontSize = 13.sp
             )
             Text(
-                "就业指导中心建好后，毕业去向和校友捐赠会写进这张榜。企业合作委托请在「学区 → 社会合作」接单。",
+                "排名看声誉，竞赛拿奖金，企业委托是外联真正能赚钱的地方。点行政楼可升级校园、解锁更多委托。",
                 color = Color(0xFF8AA0B4),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
+        }
+
+        item {
+            val commissionViewModel: com.arktools.xiao.ui.district.CommissionViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val commissionState by commissionViewModel.state.collectAsState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("企业合作委托", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                Text(
+                    "执行中 ${commissionState.active.size}/2 · 结项 ${commissionState.completedCount} · 失败 ${commissionState.failedCount}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF617386)
+                )
+                Text(
+                    "每月企业送来要约：接单付启动资金，到期按师资/学院/设施结算。这是外联收入、就业和生源加成的主要来源。",
+                    fontSize = 12.sp,
+                    color = Color(0xFF617386)
+                )
+                commissionState.message?.let { msg ->
+                    Text(
+                        msg,
+                        fontSize = 12.sp,
+                        color = Color(0xFF1E96C8),
+                        modifier = Modifier.clickable { commissionViewModel.consumeMessage() }
+                    )
+                }
+                commissionState.active.forEach { commission ->
+                    Text(
+                        "▶ ${commission.title} · 剩余 ${commission.remainingMonths} 月 · 每月 +${commission.monthlyCashWan.toInt()}万",
+                        fontSize = 12.sp,
+                        color = Color(0xFF2E9B78)
+                    )
+                }
+                if (commissionState.offers.isEmpty()) {
+                    Text("本月暂无新要约，下月初企业会送来新委托。", fontSize = 12.sp, color = Color(0xFF617386))
+                } else {
+                    commissionState.offers.forEach { commission ->
+                        val blocked = commissionViewModel.requirementBlocked(commission)
+                        Text(
+                            commission.title,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF182635)
+                        )
+                        Text(
+                            "${commission.partner} · ${commission.durationMonths} 月 · 投入 ${commission.upfrontCostWan.toInt()}万 · 每月 +${commission.monthlyCashWan.toInt()}万 · 结项 +${commission.completionCashWan.toInt()}万",
+                            fontSize = 11.sp,
+                            color = Color(0xFF617386)
+                        )
+                        if (blocked != null) {
+                            Text("条件不足：$blocked", fontSize = 11.sp, color = Color(0xFFB0413E))
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(
+                                "谢绝",
+                                fontSize = 12.sp,
+                                color = Color(0xFF617386),
+                                modifier = Modifier.clickable { commissionViewModel.decline(commission.id) }
+                            )
+                            Text(
+                                "接单",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (blocked == null) Color(0xFF1E96C8) else Color(0xFFAAAAAA),
+                                modifier = Modifier.clickable(enabled = blocked == null) {
+                                    commissionViewModel.accept(commission.id)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // ===== 排名榜 =====

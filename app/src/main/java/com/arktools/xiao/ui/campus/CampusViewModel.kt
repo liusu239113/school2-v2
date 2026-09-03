@@ -109,6 +109,24 @@ class CampusViewModel @Inject constructor(
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
     }
 
+    data class DormResident(
+        val name: String,
+        val grade: String,
+        val className: String
+    )
+
+    data class DormRoster(
+        val facilityId: String,
+        val beds: Int,
+        val occupied: Int,
+        val floors: List<DormFloor>
+    )
+
+    data class DormFloor(
+        val floor: Int,
+        val residents: List<DormResident>
+    )
+
     data class ClassRow(
         val classId: String,
         val name: String,
@@ -148,6 +166,8 @@ class CampusViewModel @Inject constructor(
     private val _state = MutableStateFlow(CampusUiState())
     val state: StateFlow<CampusUiState> = _state.asStateFlow()
 
+    private var cachedActiveStudents: List<com.arktools.xiao.domain.model.Student> = emptyList()
+
     init {
         viewModelScope.safeLaunch {
             schoolRepository.getSchoolFlow().collect { school ->
@@ -155,6 +175,7 @@ class CampusViewModel @Inject constructor(
                 val dev = policyManager.policies.value.collegeDevelopment
                 migrateIfNeeded(school, dev.placedBuildings, dev.terrainMap)
                 val students = runCatching { studentRepository.getActiveStudents() }.getOrDefault(emptyList())
+                cachedActiveStudents = students
                 val teachers = runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList())
                 val terrain = BT.decodeTerrain(dev.terrainMap)
                 val decorKinds = setOf(
@@ -317,6 +338,49 @@ class CampusViewModel @Inject constructor(
 
     fun classesInBuilding(facilityId: String): List<ClassRow> =
         _classRows.value.filter { it.facilityId == facilityId }
+
+    /**
+     * 把在校生按宿舍楼稳定分配：同一栋楼按楼层均摊，名单可点开查看。
+     * 学生实体没有 dormId，用 id 哈希保证同一存档分配稳定。
+     */
+    fun dormRoster(facilityId: String): DormRoster {
+        val st = _state.value
+        val dorms = st.placed
+            .filter { it.key == "F_DORMITORY" && !it.isConstructing && it.facilityId.isNotBlank() }
+            .sortedBy { it.facilityId }
+        val thisDorm = dorms.firstOrNull { it.facilityId == facilityId }
+        val facility = st.facilities.firstOrNull { it.id == facilityId }
+        val beds = if (facility != null) {
+            com.arktools.xiao.domain.model.FacilityCapacity.bedsPerDorm(facility.level)
+        } else 0
+        if (thisDorm == null || beds <= 0) {
+            return DormRoster(facilityId, beds, 0, emptyList())
+        }
+        val students = cachedActiveStudents
+        val assigned = students.filter { student ->
+            if (dorms.isEmpty()) return@filter false
+            val idx = kotlin.math.abs(student.id.hashCode()) % dorms.size
+            dorms[idx].facilityId == facilityId
+        }
+        val floors = 4
+        val perFloor = (beds / floors).coerceAtLeast(1)
+        val grouped = assigned.sortedBy { it.name }.mapIndexed { index, student ->
+            val floor = (index / perFloor).coerceAtMost(floors - 1) + 1
+            val className = _classRows.value.firstOrNull { it.classId == student.classId }?.name ?: "未分班"
+            floor to DormResident(student.name, student.gradeLevel.displayName, className)
+        }.groupBy({ it.first }, { it.second })
+        val floorList = (1..floors).map { n ->
+            DormFloor(n, grouped[n].orEmpty())
+        }
+        return DormRoster(facilityId, beds, assigned.size.coerceAtMost(beds), floorList)
+    }
+
+    fun campusUpgradeHint(): String {
+        val st = _state.value
+        if (st.campusLevel >= GameBalanceConfig.MAX_SCHOOL_LEVEL) return "校园已满级"
+        val req = GameBalanceConfig.getUpgradeRequirements(st.campusLevel + 1)
+        return "升到 Lv.${st.campusLevel + 1}：经费≥${req.cashCost.toInt()}万 · 声誉≥${req.minReputation} · 教师≥${req.minTeachers} · 在校生≥${req.minStudents}。点行政楼「升级校园」。"
+    }
 
     fun openAdvisorPicker(classId: String) {
         audioManager.playButtonClick()

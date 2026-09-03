@@ -1071,7 +1071,7 @@ private fun BuildingPanelContent(
                 Text(seasonHint, fontSize = 12.sp, color = Color(0xFF617386))
                 if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
                     Text(
-                        "升级到 Lv.${state.campusLevel + 1} 需要 ${state.upgradeCampusCost.toInt()} 万（还需满足声誉/师生等条件）",
+                        viewModel.campusUpgradeHint(),
                         fontSize = 13.sp,
                         color = Color(0xFF617386)
                     )
@@ -1080,7 +1080,6 @@ private fun BuildingPanelContent(
                     Text("校园已满级。后期靠连盖宿舍/分馆、开下一轮课题和铺满地图，而不是再升一级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
-                PanelButton("举办校园活动") { onOpenActivities() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college
@@ -1132,14 +1131,40 @@ private fun BuildingPanelContent(
                     Text(facility.type.description, fontSize = 13.sp, color = Color(0xFF617386))
                     when (facility.type) {
                         FacilityType.DORMITORY -> {
+                            val roster = viewModel.dormRoster(building.id)
                             Text(
-                                "床位 ${state.dormBeds} · 在校 ${state.studentCount} 人 · 住宿满意度 ${state.avgDormSatisfaction.toInt()}",
+                                "本楼床位 ${roster.beds} · 入住 ${roster.occupied} 人 · 全校床位 ${state.dormBeds}/${state.studentCount}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("床位不够会直接卡招生，超员每天扣满意度和住宿分。可再建造一栋宿舍扩容。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton("学生生活") { onOpenStudentLife() }
-                            PanelButton("奖学金/助学金") { onOpenScholarship() }
+                            Text("床位不够会卡招生。点开本楼可看每层住了谁。", fontSize = 12.sp, color = Color(0xFF617386))
+                            roster.floors.forEach { floor ->
+                                Text(
+                                    "${floor.floor}层 · ${floor.residents.size} 人",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF182635)
+                                )
+                                if (floor.residents.isEmpty()) {
+                                    Text("空置", fontSize = 11.sp, color = Color(0xFF617386))
+                                } else {
+                                    floor.residents.take(12).forEach { resident ->
+                                        Text(
+                                            "${resident.name} · ${resident.grade} · ${resident.className}",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF617386)
+                                        )
+                                    }
+                                    if (floor.residents.size > 12) {
+                                        Text(
+                                            "……还有 ${floor.residents.size - 12} 人",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF8AA0B4)
+                                        )
+                                    }
+                                }
+                            }
+                            PanelButton("学生生活（食堂/作息）") { onOpenStudentLife() }
                         }
                         FacilityType.CANTEEN -> {
                             Text(

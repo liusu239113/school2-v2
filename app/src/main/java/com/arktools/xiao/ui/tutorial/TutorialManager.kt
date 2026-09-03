@@ -107,7 +107,7 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
         text = "先回到「校园」",
-        subText = "点底部「校园」。之后点行政楼看全校数据，点宿舍/食堂会跳进学生生活。",
+        subText = "点底部「校园」。点行政楼看全校数据并升级校园；点宿舍看每层住了谁。",
         highlightTarget = HighlightTarget.TAB_OVERVIEW,
         arrowDirection = ArrowDirection.DOWN,
         completionCondition = CompletionCondition.TAP_TAB_OVERVIEW
@@ -168,12 +168,12 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.STORY,
         speaker = "年级主任",
-        text = "新生报到了！点宿舍看住宿满意度，点食堂看餐标，点就业中心看就业率。\n\n每周会出一份校园简报：缺什么建筑、钱还能撑多久、学生满不满意——那就是你下周的待办。"
+        text = "新生报到了！点宿舍看每层住了谁，点食堂看餐标，点就业中心看就业率。\n\n校园升级在行政楼：点地图上的行政楼，看清经费/声誉/师生条件后点「升级校园」。用地不够、建筑锁级，都走这条。"
     ))
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
         text = "最后看「外联」",
-        subText = "排名、竞赛和校友都在这里。就业中心建成后，毕业去向会写进这张榜。",
+        subText = "排名、竞赛、企业委托都在这里。接企业单是外联真正能赚钱的地方。"
         highlightTarget = HighlightTarget.TAB_DISTRICT,
         arrowDirection = ArrowDirection.DOWN,
         completionCondition = CompletionCondition.TAP_TAB_DISTRICT
@@ -186,7 +186,7 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
         text = "教程完成，开始经营",
-        subText = "建议先用 1 倍速把校园铺开。可在设置里重玩教程。",
+        subText = "用地不够就去点行政楼升级校园。可在设置里重玩教程。"
         highlightTarget = HighlightTarget.TAB_OVERVIEW,
         arrowDirection = ArrowDirection.DOWN,
         completionCondition = CompletionCondition.TAP_TAB_OVERVIEW

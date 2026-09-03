@@ -157,33 +157,17 @@ fun GovernanceScreen(
             }
         }
 
-        // ===== 一级管理入口 =====
+        // ===== 一级管理入口（只保留治院真正用得上、且不与建筑点开重复的） =====
         Panel(title = "管理入口") {
             data class Entry(val label: String, val icon: Int, val target: Int)
             val entries = listOf(
-                Entry("教学配置（教学班容量/强度）", com.arktools.xiao.R.drawable.ic_core_course, 40),
-                Entry("科研研究", com.arktools.xiao.R.drawable.ic_research, 41),
-                Entry("学生生活（宿舍/食堂）", com.arktools.xiao.R.drawable.ic_food, 21),
-                Entry("学生社团", com.arktools.xiao.R.drawable.ic_people, 17),
+                Entry("教学配置（开班/强度）", com.arktools.xiao.R.drawable.ic_core_course, 40),
+                Entry("科研课题", com.arktools.xiao.R.drawable.ic_research, 41),
+                Entry("大学政策（学费/考试）", com.arktools.xiao.R.drawable.ic_balance, 16),
                 Entry("奖助学金", com.arktools.xiao.R.drawable.ic_gift, 29),
-                Entry("学术会议", com.arktools.xiao.R.drawable.ic_memo, 23),
-                Entry("校友与就业", com.arktools.xiao.R.drawable.ic_briefcase, 15),
-                Entry("办学报表", com.arktools.xiao.R.drawable.ic_chart, 11),
-                Entry("大学政策（学费/考试等）", com.arktools.xiao.R.drawable.ic_balance, 16),
-                Entry("学科建设（评估定级）", com.arktools.xiao.R.drawable.ic_graduate_program, 45),
-                Entry("研究生院（硕博培养）", com.arktools.xiao.R.drawable.ic_research_chain, 46),
-                Entry("国际交流（世界一流）", com.arktools.xiao.R.drawable.ic_globe, 47),
-                Entry("招生宣传（投放campaign）", com.arktools.xiao.R.drawable.ic_chart, 12),
-                Entry("政府评估（督导整改）", com.arktools.xiao.R.drawable.ic_balance, 28),
-                Entry("校长办公室（建议箱）", com.arktools.xiao.R.drawable.ic_people, 33),
-                Entry("考试管理（期中期末）", com.arktools.xiao.R.drawable.ic_memo, 32),
-                Entry("课程表（学期排课）", com.arktools.xiao.R.drawable.ic_core_course, 31),
-                Entry("家校沟通", com.arktools.xiao.R.drawable.ic_food, 27),
-                Entry("五维声誉", com.arktools.xiao.R.drawable.ic_gift, 20),
-                Entry("成就墙", com.arktools.xiao.R.drawable.ic_gift, 10),
-                Entry("股市投资", com.arktools.xiao.R.drawable.ic_chart, 6),
-                Entry("事件档案", com.arktools.xiao.R.drawable.ic_memo, 13),
-                Entry("经营总览仪表盘", com.arktools.xiao.R.drawable.ic_chart, 9)
+                Entry("学期课表", com.arktools.xiao.R.drawable.ic_core_course, 31),
+                Entry("考试管理", com.arktools.xiao.R.drawable.ic_memo, 32),
+                Entry("办学报表", com.arktools.xiao.R.drawable.ic_chart, 11)
             )
             entries.forEach { entry ->
                 Row(

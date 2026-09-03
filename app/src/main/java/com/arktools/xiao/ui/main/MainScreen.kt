@@ -750,7 +750,7 @@ fun MainScreen(
                 .fillMaxWidth()
                 .padding(paddingValues)
         ) {
-            school?.let { SchoolStatusBar(school = it, onCampusClick = { navigateTo(4) }) }
+            school?.let { SchoolStatusBar(school = it, onCampusClick = { selectRootTab(0) }) }
 
             AnimatedContent(
                 targetState = selectedTab,
