@@ -761,13 +761,9 @@ fun CampusView(
                         onUpgradeCampus = { viewModel.upgradeCampus() },
                         onOpenTeaching = { onNavigateTo(40) },
                         onOpenResearch = { onNavigateTo(41) },
-                        onOpenConference = { onNavigateTo(23) },
                         onOpenStudentLife = { onNavigateTo(21) },
-                        onOpenClub = { onNavigateTo(17) },
-                        onOpenScholarship = { onNavigateTo(29) },
                         onOpenEmployment = { onNavigateTo(15) },
                         onOpenHiring = { onNavigateTo(2) },
-                        onOpenActivities = { onNavigateTo(18) },
                         chainSummary = viewModel.libraryChainSummary(),
                         onMove = {
                             state.selectedPlaced?.let { placed ->
@@ -1012,13 +1008,9 @@ private fun BuildingPanelContent(
     onUpgradeCampus: () -> Unit,
     onOpenTeaching: () -> Unit,
     onOpenResearch: () -> Unit = {},
-    onOpenConference: () -> Unit = {},
     onOpenStudentLife: () -> Unit = {},
-    onOpenClub: () -> Unit = {},
-    onOpenScholarship: () -> Unit = {},
     onOpenEmployment: () -> Unit = {},
     onOpenHiring: () -> Unit = {},
-    onOpenActivities: () -> Unit = {},
     chainSummary: String = "",
     onMove: () -> Unit,
     onRemove: () -> Unit
@@ -1177,29 +1169,28 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.SPORTS_FIELD -> {
                             Text(
-                                "容纳 ${state.sportsCapacity} 人 · 社团 ${state.clubCount} 个 · 可再建场馆",
+                                "容纳 ${state.sportsCapacity} 人 · 体育课与运动会场地",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("体育馆同时服务体育课、社团活动和季节赛事。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton("社团管理") { onOpenClub() }
+                            Text("体育馆提高学生体力和满意度。场地不够就再建一座，不在这里管社团名单。", fontSize = 12.sp, color = Color(0xFF617386))
                         }
                         FacilityType.EMPLOYMENT_CENTER -> {
                             Text(
-                                "就业率 ${(state.employmentRate * 100).toInt()}% · 奖学金 ${state.scholarshipRecipientCount} 人",
+                                "就业率 ${(state.employmentRate * 100).toInt()}% · 毕业去向会回写声誉",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("就业中心与政府评级会共同影响毕业去向质量、薪资档位和雇主反馈。", fontSize = 12.sp, color = Color(0xFF617386))
+                            Text("就业中心只管毕业出口。奖助学金在治院，企业委托在外联。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("就业与校友") { onOpenEmployment() }
                         }
                         FacilityType.CONFERENCE_CENTER -> {
                             Text(
-                                "声誉增长 +${(state.campusLevel).coerceAtLeast(1) * 8}%/级 · 会议中心承接学术会议",
+                                "学术会议场地 · 建成后每月提供声誉加成",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            PanelButton("举办学术会议") { onOpenConference() }
+                            Text("会议中心是设施加成，不另开会议报名页。", fontSize = 12.sp, color = Color(0xFF617386))
                         }
                         FacilityType.LIBRARY -> {
                             Text(
