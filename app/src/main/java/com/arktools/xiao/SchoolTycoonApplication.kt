@@ -45,7 +45,7 @@ class SchoolTycoonApplication : Application() {
         AdSdkConfig.configure(
             appId = 2095455236721983490L,
             rewardVideoId = "2095456946198614018",
-            privacyPolicyUrl = "http://yanyususu.online:5555/xiaozhang.html",
+            privacyPolicyUrl = "http://yanyususu.online:5555/xiaozhang2.html",
             isDebug = BuildConfig.DEBUG
         )
     }
