@@ -3,8 +3,8 @@
 # proguardFiles setting in build.gradle.
 
 # Keep Room entities
--keep class com.arktools.xiaozhang.data.local.entity.** { *; }
--keep class com.arktools.xiaozhang.domain.model.** { *; }
+-keep class com.arktools.xiao.data.local.entity.** { *; }
+-keep class com.arktools.xiao.domain.model.** { *; }
 
 # Keep Hilt components
 -keepclassmembers class * {
@@ -27,16 +27,16 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class com.arktools.xiaozhang.**$$serializer { *; }
--keepclassmembers class com.arktools.xiaozhang.** {
+-keep,includedescriptorclasses class com.arktools.xiao.**$$serializer { *; }
+-keepclassmembers class com.arktools.xiao.** {
     *** Companion;
 }
--keepclasseswithmembers class com.arktools.xiaozhang.** {
+-keepclasseswithmembers class com.arktools.xiao.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 
 # Keep Room DAOs
--keep class com.arktools.xiaozhang.data.local.dao.** { *; }
+-keep class com.arktools.xiao.data.local.dao.** { *; }
 
 # Keep DataStore preferences keys
 -keepclassmembers class * extends androidx.datastore.preferences.protobuf.GeneratedMessageLite {

@@ -19,11 +19,11 @@ val releaseTaskRequested = gradle.startParameter.taskNames.any {
 }
 
 android {
-    namespace = "com.arktools.xiaozhang"
+    namespace = "com.arktools.xiao"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.arktools.xiaozhang.v2"
+        applicationId = "com.arktools.xiao"
         minSdk = 24
         targetSdk = 35
         versionCode = 213

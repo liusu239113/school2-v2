@@ -78,7 +78,8 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging \
             app/build/outputs/apk/release/app-release.apk | tee "$RUNNER_TEMP/apk-badging.txt"
           EXPECTED_CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts | head -n1)
-          grep -F "name='com.arktools.xiaozhang.v2'" "$RUNNER_TEMP/apk-badging.txt"
+          EXPECTED_PKG=$(grep -oP 'applicationId = "\K[^"]+' app/build.gradle.kts | head -n1)
+          grep -F "name='${EXPECTED_PKG}'" "$RUNNER_TEMP/apk-badging.txt"
           grep -F "versionCode='${EXPECTED_CODE}'" "$RUNNER_TEMP/apk-badging.txt"
           grep -F "versionName='1.0.0'" "$RUNNER_TEMP/apk-badging.txt"
 

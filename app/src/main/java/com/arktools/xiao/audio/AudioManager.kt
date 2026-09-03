@@ -1,0 +1,338 @@
+package com.arktools.xiao.audio
+
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.SoundPool
+import com.arktools.xiao.data.pref.SettingsDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class AudioManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val settingsDataStore: SettingsDataStore
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private val audioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_GAME)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+
+    private var soundPool: SoundPool? = null
+    private val soundMap = mutableMapOf<SoundType, Int>()
+    private val loadedSoundIds = mutableSetOf<Int>()
+    private var sfxVolume: Float = 0.7f
+    private var bgmVolume: Float = 0.5f
+    private var initialized = false
+
+    // BGM player — 所有操作统一在 Main 线程，避免竞态
+    private var mediaPlayer: MediaPlayer? = null
+    private var isBgmPlaying = false
+    private var currentBgmRes: String = ""
+    private var pausedBgmRes: String = ""
+
+    enum class CampusTrack(
+        val displayName: String,
+        val resName: String,
+        val unlockDescription: String
+    ) {
+        MAIN("大学时代", "v2_bgm_campus", "默认解锁"),
+        MORNING("校园晨光", "v2_bgm_morning", "校园 Lv2 解锁"),
+        RELAXED("假日漫步", "v2_bgm_relax", "校园 Lv3 解锁"),
+        ACADEMIC("学术星河", "v2_bgm_academic", "校园 Lv5 或研究生院解锁");
+
+        fun isUnlocked(campusLevel: Int, graduateProgram: Boolean): Boolean = when (this) {
+            MAIN -> true
+            MORNING -> campusLevel >= 2
+            RELAXED -> campusLevel >= 3
+            ACADEMIC -> campusLevel >= 5 || graduateProgram
+        }
+    }
+
+    enum class SoundType {
+        BUTTON_CLICK,
+        CARD_OPEN,
+        COURSE_CREATE,
+        COURSE_RELEASE,
+        TEACHER_HIRE,
+        RESEARCH_UNLOCK,
+        CASH_EARN,
+        CASH_LOSE,
+        EVENT_POSITIVE,
+        EVENT_NEGATIVE,
+        MILESTONE,
+        LEVEL_UP,
+        // 新增音效
+        BUILD_FACILITY,
+        SAVE_SUCCESS,
+        TEACHER_HIRED,
+        STUDENT_ENROLLED,
+        CRISIS_ALERT,
+        MINIGAME_WIN,
+        MINIGAME_FAIL,
+        MONEY_EARNED,
+        REPUTATION_UP,
+        GRADUATION,
+        COLLEGE_FOUND,
+        MAJOR_ASSIGN,
+        GOAL_PASS,
+        GOAL_FAIL,
+        FACULTY_GAP,
+        ADMISSION_SEASON,
+        BUDGET_SLIDE,
+        COMPETITION_WIN,
+        COMPETITION_LOSE,
+        MAJOR_TRANSFER,
+        CONSTRUCTION_DONE
+    }
+
+    enum class BgmType(val resName: String) {
+        MENU("v2_bgm_menu"),
+        MAIN("v2_bgm_campus"),
+        BUSY("v2_bgm_campus"),
+        RELAXED("v2_bgm_relax"),
+        STORY("v2_bgm_story"),
+        CRISIS("v2_bgm_crisis")
+    }
+
+    private val soundResNames = mapOf(
+        SoundType.BUTTON_CLICK to "v2_ui_click",
+        SoundType.CARD_OPEN to "v2_ui_click",
+        SoundType.COURSE_CREATE to "v2_ui_confirm",
+        SoundType.COURSE_RELEASE to "v2_ui_confirm",
+        SoundType.TEACHER_HIRE to "v2_ui_confirm",
+        SoundType.RESEARCH_UNLOCK to "v2_research_complete",
+        SoundType.CASH_EARN to "v2_money_earn",
+        SoundType.CASH_LOSE to "v2_event_negative",
+        SoundType.EVENT_POSITIVE to "v2_event_positive",
+        SoundType.EVENT_NEGATIVE to "v2_event_negative",
+        SoundType.MILESTONE to "v2_level_up",
+        SoundType.LEVEL_UP to "v2_level_up",
+        SoundType.BUILD_FACILITY to "v2_facility_build",
+        SoundType.SAVE_SUCCESS to "v2_save_success",
+        SoundType.TEACHER_HIRED to "v2_ui_confirm",
+        SoundType.STUDENT_ENROLLED to "v2_student_enroll",
+        SoundType.CRISIS_ALERT to "v2_crisis",
+        SoundType.MINIGAME_WIN to "v2_event_positive",
+        SoundType.MINIGAME_FAIL to "v2_event_negative",
+        SoundType.MONEY_EARNED to "v2_money_earn",
+        SoundType.REPUTATION_UP to "v2_reputation_up",
+        SoundType.GRADUATION to "v2_graduation",
+        SoundType.COLLEGE_FOUND to "v2_college_found",
+        SoundType.MAJOR_ASSIGN to "v2_major_assign",
+        SoundType.GOAL_PASS to "v2_goal_pass",
+        SoundType.GOAL_FAIL to "v2_goal_fail",
+        SoundType.FACULTY_GAP to "v2_faculty_gap",
+        SoundType.ADMISSION_SEASON to "v2_admission_season",
+        SoundType.BUDGET_SLIDE to "v2_budget_slide",
+        SoundType.COMPETITION_WIN to "v2_competition_win",
+        SoundType.COMPETITION_LOSE to "v2_competition_lose",
+        SoundType.MAJOR_TRANSFER to "v2_major_transfer",
+        SoundType.CONSTRUCTION_DONE to "v2_construction_done"
+    )
+
+    private fun getResId(name: String): Int {
+        return context.resources.getIdentifier(name, "raw", context.packageName)
+    }
+
+    fun init() {
+        if (initialized) return
+        initialized = true
+
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(8)
+            .setAudioAttributes(audioAttributes)
+            .build()
+        soundPool?.setOnLoadCompleteListener { _, sampleId, status ->
+            if (status == 0) {
+                loadedSoundIds.add(sampleId)
+            } else {
+                android.util.Log.e("AudioManager", "Sound load failed: sampleId=$sampleId status=$status")
+            }
+        }
+
+        soundResNames.forEach { (type, name) ->
+            val resId = getResId(name)
+            if (resId != 0) {
+                try {
+                    soundMap[type] = soundPool!!.load(context, resId, 1)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    /**
+     * 确保已初始化（防止 release 后未重新 init 的情况）
+     */
+    private fun ensureInit() {
+        if (!initialized) {
+            init()
+        }
+    }
+
+    fun playSound(type: SoundType) {
+        scope.launch {
+            ensureInit()
+            if (!settingsDataStore.soundEnabled.first()) return@launch
+
+            val soundId = soundMap[type] ?: return@launch
+            if (soundId == 0 || soundId !in loadedSoundIds) return@launch
+
+            soundPool?.play(soundId, sfxVolume, sfxVolume, 1, 0, 1.0f)
+        }
+    }
+
+    /**
+     * Start playing background music from a raw resource.
+     * The music will loop until stopped.
+     * 所有 MediaPlayer 操作统一在 Main 线程执行，避免竞态。
+     */
+    fun startBgm(resName: String = "v2_bgm_campus") {
+        scope.launch {
+            if (!settingsDataStore.musicEnabled.first()) return@launch
+
+            val resId = getResId(resName)
+            if (resId == 0) return@launch
+
+            try {
+                // 先停掉旧的
+                stopBgmInternal()
+
+                mediaPlayer = MediaPlayer.create(context, resId)?.apply {
+                    isLooping = true
+                    setVolume(bgmVolume, bgmVolume)
+                    start()
+                }
+                if (mediaPlayer == null) {
+                    isBgmPlaying = false
+                    currentBgmRes = ""
+                    android.util.Log.e("AudioManager", "BGM creation failed: $resName")
+                    return@launch
+                }
+                isBgmPlaying = true
+                currentBgmRes = resName
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun stopBgm() {
+        scope.launch {
+            stopBgmInternal()
+        }
+    }
+
+    private fun stopBgmInternal() {
+        try {
+            mediaPlayer?.apply {
+                if (isPlaying) stop()
+                release()
+            }
+            mediaPlayer = null
+            isBgmPlaying = false
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun pauseBgm() {
+        scope.launch {
+            try {
+                mediaPlayer?.pause()
+                if (mediaPlayer != null) pausedBgmRes = currentBgmRes
+                isBgmPlaying = false
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun resumeBgm() {
+        scope.launch {
+            if (!settingsDataStore.musicEnabled.first()) return@launch
+            try {
+                if (mediaPlayer == null && pausedBgmRes.isNotBlank()) {
+                    startBgm(pausedBgmRes)
+                } else if (mediaPlayer != null) {
+                    mediaPlayer?.start()
+                    isBgmPlaying = true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun setBgmVolume(volume: Float) {
+        bgmVolume = volume.coerceIn(0f, 1f)
+        scope.launch {
+            mediaPlayer?.setVolume(bgmVolume, bgmVolume)
+        }
+    }
+
+    fun setSfxVolume(volume: Float) {
+        sfxVolume = volume.coerceIn(0f, 1f)
+    }
+
+    /**
+     * 根据 BgmType 切换 BGM，如果已经在播放相同 BGM 则不做操作
+     */
+    fun switchBgm(type: BgmType) {
+        if (currentBgmRes == type.resName && isBgmPlaying) return
+        startBgm(type.resName)
+    }
+
+    // Convenience methods
+    fun playButtonClick() = playSound(SoundType.BUTTON_CLICK)
+    fun playCardOpen() = playSound(SoundType.CARD_OPEN)
+    fun playConstructionDone() = playSound(SoundType.CONSTRUCTION_DONE)
+    fun playCourseCreate() = playSound(SoundType.COURSE_CREATE)
+    fun playCourseRelease() = playSound(SoundType.COURSE_RELEASE)
+    fun playTeacherHire() = playSound(SoundType.TEACHER_HIRE)
+    fun playResearchUnlock() = playSound(SoundType.RESEARCH_UNLOCK)
+    fun playCashEarn() = playSound(SoundType.CASH_EARN)
+    fun playCashLose() = playSound(SoundType.CASH_LOSE)
+    fun playEventPositive() = playSound(SoundType.EVENT_POSITIVE)
+    fun playEventNegative() = playSound(SoundType.EVENT_NEGATIVE)
+    fun playMilestone() = playSound(SoundType.MILESTONE)
+    fun playLevelUp() = playSound(SoundType.LEVEL_UP)
+    fun playStudentEnrolled() = playSound(SoundType.STUDENT_ENROLLED)
+    fun playBuildFacility() = playSound(SoundType.BUILD_FACILITY)
+    fun playReputationUp() = playSound(SoundType.REPUTATION_UP)
+    fun playGraduation() = playSound(SoundType.GRADUATION)
+    fun playCrisisAlert() = playSound(SoundType.CRISIS_ALERT)
+    fun playCollegeFound() = playSound(SoundType.COLLEGE_FOUND)
+    fun playMajorAssign() = playSound(SoundType.MAJOR_ASSIGN)
+    fun playGoalPass() = playSound(SoundType.GOAL_PASS)
+    fun playGoalFail() = playSound(SoundType.GOAL_FAIL)
+    fun playFacultyGap() = playSound(SoundType.FACULTY_GAP)
+    fun playAdmissionSeason() = playSound(SoundType.ADMISSION_SEASON)
+    fun playBudgetSlide() = playSound(SoundType.BUDGET_SLIDE)
+    fun playCompetitionWin() = playSound(SoundType.COMPETITION_WIN)
+    fun playCompetitionLose() = playSound(SoundType.COMPETITION_LOSE)
+    fun playMajorTransfer() = playSound(SoundType.MAJOR_TRANSFER)
+
+    /**
+     * 释放资源。作为 @Singleton，正常情况下不应该被调用。
+     * 如果被调用，会重置 initialized 标记，下次使用时自动重建。
+     */
+    fun release() {
+        stopBgmInternal()
+        soundPool?.release()
+        soundPool = null
+        soundMap.clear()
+        loadedSoundIds.clear()
+        initialized = false
+    }
+}
