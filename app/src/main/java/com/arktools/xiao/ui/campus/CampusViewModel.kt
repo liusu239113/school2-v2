@@ -13,6 +13,8 @@ import com.arktools.xiao.domain.model.ClassOfficers
 import com.arktools.xiao.domain.model.Facility
 import com.arktools.xiao.domain.model.FacilityBonusCalculator
 import com.arktools.xiao.domain.model.FacilityType
+import com.arktools.xiao.domain.model.schoolOwnership
+import com.arktools.xiao.domain.model.schoolTier
 import com.arktools.xiao.domain.policy.CollegeType
 import com.arktools.xiao.domain.policy.SchoolPolicyManager
 import com.arktools.xiao.domain.repository.SchoolRepository
@@ -105,7 +107,11 @@ class CampusViewModel @Inject constructor(
         val totalCells: Int = 0,
         val currentYear: Int = 2026,
         val monthlyRevenue: Double = 0.0,
-        val monthlyExpenses: Double = 0.0
+        val monthlyExpenses: Double = 0.0,
+        val schoolTierName: String = "应用型本科",
+        val schoolOwnershipName: String = "民办",
+        val allowedCollegeNames: Set<String> = emptySet(),
+        val monthlyGrantPerStudent: Double = 0.0
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -278,7 +284,11 @@ class CampusViewModel @Inject constructor(
                     unlockedCells = BT.unlockedRect(school.campusLevel).cells,
                     totalCells = BT.GRID_W * BT.GRID_H,
                     monthlyRevenue = com.arktools.xiao.domain.model.StatisticsManager.latest()?.revenue ?: 0.0,
-                    monthlyExpenses = com.arktools.xiao.domain.model.StatisticsManager.latest()?.expenses ?: 0.0
+                    monthlyExpenses = com.arktools.xiao.domain.model.StatisticsManager.latest()?.expenses ?: 0.0,
+                    schoolTierName = school.schoolTier().displayName,
+                    schoolOwnershipName = school.schoolOwnership().displayName,
+                    allowedCollegeNames = school.schoolTier().allowedColleges,
+                    monthlyGrantPerStudent = school.schoolOwnership().monthlyGrantPerStudent
                 )
             }
         }

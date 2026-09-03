@@ -561,7 +561,7 @@ fun CampusView(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "上月学费等收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万",
+                    "${state.schoolTierName}·${state.schoolOwnershipName}  上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万",
                     color = Color(0xFFFFD54F),
                     fontSize = 10.sp
                 )
@@ -1056,7 +1056,9 @@ private fun BuildingPanelContent(
                     color = Color(0xFF617386)
                 )
                 Text(
-                    "钱怎么来：学费月底入账，企业委托在外联接单，就业中心影响毕业去向。上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万。",
+                    "办学：${state.schoolTierName}·${state.schoolOwnershipName}。钱怎么来：学费月底入账" +
+                        (if (state.monthlyGrantPerStudent > 0) "，公办另有生均拨款每月 ${"%.2f".format(state.monthlyGrantPerStudent)}万/人" else "，民办无财政拨款全靠学费和外联") +
+                        "。上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万。",
                     fontSize = 12.sp,
                     color = Color(0xFF14648C)
                 )
@@ -1447,10 +1449,13 @@ private fun BuildMenuContent(
             val constructionDays = state.constructingColleges[college]
             val shortOfCash = !founded && constructionDays == null && state.cash < spec.costWan
             val levelLocked = !founded && constructionDays == null && state.campusLevel < spec.unlockLevel
-            val locked = shortOfCash || levelLocked || constructionDays != null
+            val tierLocked = !founded && constructionDays == null &&
+                state.allowedCollegeNames.isNotEmpty() && college.name !in state.allowedCollegeNames
+            val locked = shortOfCash || levelLocked || constructionDays != null || tierLocked
             val lockedText = when {
                 founded -> null
                 constructionDays != null -> "施工中 ${constructionDays}天"
+                tierLocked -> "${state.schoolTierName}未开放"
                 levelLocked -> "校园 Lv.${spec.unlockLevel}"
                 shortOfCash -> "钱不够"
                 else -> null

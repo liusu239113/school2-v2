@@ -51,7 +51,7 @@ enum class SchoolTier(
 ) {
     VOCATIONAL(
         "VOCATIONAL", "高职专科",
-        "3年制 · 分数线低 · 生源量大但基础较弱 · 学费亲民 · 就业率是生命线 · 长线目标：申报升格职业本科",
+        "3年制 · 只能办人文/工学/商学 · 理学医学艺术不开 · 学费低、招生量大 · 就业率是生命线 · 可升格职业本科",
         3, GradeLevel.GRADE_3, 320, 430,
         0.6, 1.35, 0.8f, 280.0, 0.85f, "VOCATIONAL_BACHELOR",
         setOf("LIBERAL_ARTS", "ENGINEERING", "BUSINESS")
@@ -72,7 +72,7 @@ enum class SchoolTier(
     ),
     VOCATIONAL_BACHELOR(
         "VOCATIONAL_BACHELOR", "职业本科",
-        "4年制 · 就业导向 · 校企合作：就业辅导费6折、就业声誉加成+50% · 理学医学不开放 · 长线目标：申报升格应用型本科",
+        "4年制 · 可办人文/工学/商学/艺术 · 理学医学不开 · 就业导向、校企合作更强 · 可升格应用型本科",
         4, GradeLevel.GRADE_4, 400, 480,
         0.85, 1.15, 0.9f, 320.0, 0.95f, "APPLIED",
         setOf("LIBERAL_ARTS", "ENGINEERING", "BUSINESS", "ARTS")

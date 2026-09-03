@@ -367,7 +367,7 @@ private fun NewGamePanel(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 // 第 2 步：办学层次
-                StepLabel("② 办学层次（决定学制与玩法）")
+                StepLabel("② 办学层次（学制、学院目录、招生分数都会变）")
                 Image(
                     painter = painterResource(
                         id = when (tiers[tierIndex]) {
@@ -395,7 +395,7 @@ private fun NewGamePanel(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 // 第 3 步：办学性质
-                StepLabel("③ 办学性质（财政与压力）")
+                StepLabel("③ 办学性质（学费、拨款、招生公信力都会变）")
                 ownerships.forEachIndexed { index, ownership ->
                     OptionRow(
                         title = ownership.displayName,

@@ -168,7 +168,7 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.STORY,
         speaker = "年级主任",
-        text = "新生报到了！左下角能看到在校人数和上月学费收入。点教室看班主任头像和本班学生，点宿舍看每层住了谁。\n\n钱从哪来：学费月底入账，企业委托去外联接单。校园升级点行政楼。"
+        text = "新生报到了！左下角能看到在校人数、办学层次和上月收入。点教室看班主任头像和本班学生，点宿舍看每层住了谁。\n\n开局选的专科/本科会锁学院目录；公办有拨款、民办全靠学费。钱从哪来：学费月底入账，企业委托去外联接单。校园升级点行政楼。"
     ))
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
