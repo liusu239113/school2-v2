@@ -101,7 +101,7 @@ class AdManager private constructor() {
             }
             rewardVideoListener = listener
 
-            rewardVideoAd?.loadRewardVideo(activity, listener)
+            rewardVideoAd?.loadRewardVideo(listener)
         }
     }
 
@@ -109,7 +109,7 @@ class AdManager private constructor() {
      * 展示已加载的激励视频
      */
     fun showRewardVideo(activity: Activity) {
-        rewardVideoAd?.showAd()
+        rewardVideoAd?.showAd(activity)
     }
 
     /**
