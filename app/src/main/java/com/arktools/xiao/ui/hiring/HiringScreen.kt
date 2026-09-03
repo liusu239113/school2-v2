@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiao.domain.model.Teacher
 import com.arktools.xiao.domain.model.TeacherLevel
@@ -147,10 +148,35 @@ fun HiringScreen(
                         .padding(20.dp)
                 ) {
                     Text(
-                        "请选择渠道查看本年度固定候选人；名额用完后需等待次年补充",
+                        "请选择上方渠道查看本年度固定候选人",
                         fontSize = 13.sp,
                         color = Color(0xFF617386)
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val activity = LocalContext.current as? android.app.Activity
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFF1E96C8))
+                            .clickable(enabled = activity != null) {
+                                if (activity != null) {
+                                    com.arktools.adsdk.AdHelper.showRewardAd(
+                                        activity = activity,
+                                        onRewarded = { viewModel.refreshTalentPoolByAd() },
+                                        onFailed = { },
+                                        onLoadStart = { },
+                                        onComplete = { }
+                                    )
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            "看广告 立即刷新人才池",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         } else {

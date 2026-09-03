@@ -1095,6 +1095,19 @@ private fun BuildingPanelContent(
                     )
                     if (placed?.isConstructing != true) {
                         PanelButton("教学与招生管理") { onOpenTeaching() }
+                    } else if (placed.constructionDaysLeft > 0) {
+                        val activity = LocalContext.current as? android.app.Activity
+                        PanelButtonSmall("看广告 立减 1 天") {
+                            if (activity != null) {
+                                com.arktools.adsdk.AdHelper.showRewardAd(
+                                    activity = activity,
+                                    onRewarded = { viewModel.boostConstructionByAd(placed) },
+                                    onFailed = { },
+                                    onLoadStart = { },
+                                    onComplete = { }
+                                )
+                            }
+                        }
                     }
                     if (college == CollegeType.MEDICINE) {
                         Text(
@@ -1286,6 +1299,20 @@ private fun BuildingPanelContent(
                             "升级"
                         }
                         PanelButton(panelButtonText) { if (placed?.isConstructing != true) onUpgradeFacility() }
+                        if (placed?.isConstructing == true && placed.constructionDaysLeft > 0) {
+                            val activity = LocalContext.current as? android.app.Activity
+                            PanelButtonSmall("看广告 立减 1 天") {
+                                if (activity != null) {
+                                    com.arktools.adsdk.AdHelper.showRewardAd(
+                                        activity = activity,
+                                        onRewarded = { viewModel.boostConstructionByAd(placed) },
+                                        onFailed = { },
+                                        onLoadStart = { },
+                                        onComplete = { }
+                                    )
+                                }
+                            }
+                        }
                     } else {
                         Text("已达最大等级", fontSize = 13.sp, color = Color(0xFF2E9B78))
                     }

@@ -188,6 +188,19 @@ class TeacherViewModel @Inject constructor(
         _selectedChannel.value = null
     }
 
+    /** 广告激励：立即刷新本年度人才池（候选人+渠道重置），用于名额耗尽救急。 */
+    fun refreshTalentPoolByAd() {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            teacherDevManager.forceRefreshTalentPool()
+            ensureTalentPoolReady()
+            _selectedChannel.value = null
+            _candidates.value = emptyList()
+            _errorMessage.value = null
+            _showHireDialog.value = true
+        }
+    }
+
     fun selectChannel(channel: RecruitmentChannel) {
         audioManager.playButtonClick()
         viewModelScope.safeLaunch {

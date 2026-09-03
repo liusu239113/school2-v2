@@ -156,29 +156,12 @@ fun SettingsScreen(
             }
 
             SettingsCard(title = "经营设置") {
-                Text("默认游戏速度", style = MaterialTheme.typography.bodyLarge)
+                Text("游戏速度", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "顶栏速度按钮仍可临时切换；看广告加速不受此项影响。",
+                    "默认 ×1 速度。×2~×5 加速需在顶栏速度按钮处观看广告解锁，持续 20 分钟。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(1f, 2f, 3f).forEach { speed ->
-                        TextColorOption(
-                            label = "×${speed.toInt()}",
-                            selected = kotlin.math.abs(gameSpeed - speed) < 0.01f,
-                            onClick = {
-                                settingsViewModel.setGameSpeed(speed)
-                                mainViewModel.setGameSpeed(speed)
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = {
@@ -205,36 +188,6 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-
-            SettingsCard(title = "异常修复") {
-                Text(
-                    "如果游戏时间卡住不动，可点击下方按钮强制恢复时间流动（不会清空任何进度）。",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                var forceMsg by remember { mutableStateOf<String?>(null) }
-                forceMsg?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                Button(
-                    onClick = {
-                        forceMsg = if (mainViewModel.forceResumeTimeFlow()) {
-                            "已强制恢复时间流动"
-                        } else {
-                            "游戏已结束，无法恢复"
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("强制时间流动")
-                }
             }
 
             SettingsCard(title = "游戏信息") {

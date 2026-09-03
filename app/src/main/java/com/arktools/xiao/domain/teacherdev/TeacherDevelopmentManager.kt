@@ -132,6 +132,14 @@ class TeacherDevelopmentManager @Inject constructor() {
     fun isChannelUnlocked(channel: TalentChannel): Boolean =
         channel in _state.value.unlockedTalentChannels
 
+    /**
+     * 广告激励：立即重置年度人才池（下一年标记清零），
+     * 下次 ensureAnnualTalentPool 会按当前年份重新生成候选人与渠道上锁状态。
+     */
+    fun forceRefreshTalentPool() {
+        _state.update { it.copy(talentPoolYear = 0) }
+    }
+
     fun unlockChannel(channel: TalentChannel) {
         _state.update { it.copy(unlockedTalentChannels = it.unlockedTalentChannels + channel) }
     }

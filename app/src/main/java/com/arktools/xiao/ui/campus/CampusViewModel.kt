@@ -605,6 +605,52 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch { persistLayout(placed, terrain) }
     }
 
+    /**
+     * 广告激励：施工中的建筑（设施或学院）剩余天数 -1。
+     * 设施走 facilities 事务；学院走 constructingColleges+placed 同步。
+     */
+    fun boostConstructionByAd(placed: BT.PlacedBuilding) {
+        viewModelScope.safeLaunch {
+            var newDays = -1
+            if (placed.facilityId.isNotBlank()) {
+                val result = schoolRepository.mutateSchool { school ->
+                    val idx = school.facilities.indexOfFirst {
+                        it.id == placed.facilityId && it.constructionDaysLeft > 0
+                    }
+                    if (idx == -1) return@mutateSchool false
+                    val updated = school.facilities[idx]
+                        .copy(constructionDaysLeft = (school.facilities[idx].constructionDaysLeft - 1).coerceAtLeast(0))
+                    school.facilities[idx] = updated
+                    newDays = updated.constructionDaysLeft
+                    true
+                }
+                if (result == null) {
+                    _state.value = _state.value.copy(message = "加速未生效，请稍后重试")
+                    return@safeLaunch
+                }
+            } else {
+                newDays = policyManager.boostCollegeConstructionDay(placed.key)
+                if (newDays == null) {
+                    _state.value = _state.value.copy(message = "该学院已竣工或不在施工中")
+                    return@safeLaunch
+                }
+                schoolRepository.mutateSchool { latest ->
+                    latest.policyJson = policyManager.toJson()
+                    true
+                }
+            }
+            _state.value = _state.value.copy(
+                placed = _state.value.placed.map {
+                    if (it.key == placed.key && (placed.facilityId.isBlank() || it.facilityId == placed.facilityId)) {
+                        it.copy(constructionDaysLeft = newDays)
+                    } else it
+                },
+                message = if (newDays == 0) "广告加速生效，施工完成！" else "广告加速生效，剩余施工 $newDays 天"
+            )
+            if (newDays == 0) audioManager.playConstructionDone()
+        }
+    }
+
     private suspend fun ensureHospitalPlaced() {
         val st = _state.value
         if (!st.affiliatedHospital) return
