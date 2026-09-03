@@ -173,7 +173,7 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
         text = "最后看「外联」",
-        subText = "排名、竞赛、企业委托都在这里。接企业单是外联真正能赚钱的地方。"
+        subText = "排名、竞赛、企业委托都在这里。接企业单是外联真正能赚钱的地方。",
         highlightTarget = HighlightTarget.TAB_DISTRICT,
         arrowDirection = ArrowDirection.DOWN,
         completionCondition = CompletionCondition.TAP_TAB_DISTRICT
@@ -186,7 +186,7 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
         text = "教程完成，开始经营",
-        subText = "用地不够就去点行政楼升级校园。可在设置里重玩教程。"
+        subText = "用地不够就去点行政楼升级校园。可在设置里重玩教程。",
         highlightTarget = HighlightTarget.TAB_OVERVIEW,
         arrowDirection = ArrowDirection.DOWN,
         completionCondition = CompletionCondition.TAP_TAB_OVERVIEW
