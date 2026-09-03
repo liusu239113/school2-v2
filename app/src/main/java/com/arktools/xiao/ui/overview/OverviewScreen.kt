@@ -72,29 +72,14 @@ import androidx.compose.material.icons.filled.Inbox
 @Composable
 fun OverviewScreen(
     onNavigateToRanking: () -> Unit = {},
-    onNavigateToStock: () -> Unit = {},
-    onNavigateToFacility: () -> Unit = {},
     onNavigateToStudent: () -> Unit = {},
-    onNavigateToAchievement: () -> Unit = {},
     onNavigateToReport: () -> Unit = {},
-    onNavigateToMarketing: () -> Unit = {},
-    onNavigateToEvent: () -> Unit = {},
     onNavigateToNotification: () -> Unit = {},
     onNavigateToAlumni: () -> Unit = {},
     onNavigateToPolicy: () -> Unit = {},
     onNavigateToTeacher: () -> Unit = {},
     onNavigateToResearch: () -> Unit = {},
-    onNavigateToClub: () -> Unit = {},
-    onNavigateToSeasonal: () -> Unit = {},
-    onNavigateToReputation: () -> Unit = {},
-    onNavigateToStudentLife: () -> Unit = {},
-    onNavigateToConference: () -> Unit = {},
-    onNavigateToParent: () -> Unit = {},
-    onNavigateToGovernment: () -> Unit = {},
     onNavigateToScholarship: () -> Unit = {},
-    onNavigateToTimetable: () -> Unit = {},
-    onNavigateToExam: () -> Unit = {},
-    onNavigateToPrincipalOffice: () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     viewModel: OverviewViewModel = hiltViewModel()
 ) {
@@ -173,7 +158,7 @@ fun OverviewScreen(
                     unreadNotifications = unreadNotifications,
                     pendingSuggestions = pendingSuggestions,
                     onNotificationClick = onNavigateToNotification,
-                    onSuggestionClick = onNavigateToPrincipalOffice
+                    onSuggestionClick = onNavigateToNotification
                 )
             }
         }

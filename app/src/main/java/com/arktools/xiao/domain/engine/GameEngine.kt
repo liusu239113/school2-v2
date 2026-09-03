@@ -1965,7 +1965,7 @@ class GameEngine @Inject constructor(
                         actionTabIndex = when (posType) {
                             com.arktools.xiao.domain.model.NotificationType.TEACHER -> 2
                             com.arktools.xiao.domain.model.NotificationType.STUDENT -> 8
-                            com.arktools.xiao.domain.model.NotificationType.MILESTONE -> 10
+                            com.arktools.xiao.domain.model.NotificationType.MILESTONE -> 11
                             else -> 11
                         }
                     )
@@ -1993,8 +1993,8 @@ class GameEngine @Inject constructor(
                     actionTabIndex = when (type) {
                         com.arktools.xiao.domain.model.NotificationType.TEACHER -> 2
                         com.arktools.xiao.domain.model.NotificationType.STUDENT -> 8
-                        com.arktools.xiao.domain.model.NotificationType.CRISIS -> 13
-                        com.arktools.xiao.domain.model.NotificationType.MARKET -> 6
+                        com.arktools.xiao.domain.model.NotificationType.CRISIS -> 1
+                        com.arktools.xiao.domain.model.NotificationType.MARKET -> 3
                         else -> 11
                     }
                 )
@@ -3371,8 +3371,8 @@ class GameEngine @Inject constructor(
                         gameYear = school.currentYear,
                         gameMonth = school.currentMonth,
                         gameDay = school.currentDay,
-                        actionLabel = "查看成就",
-                        actionTabIndex = 10
+                        actionLabel = "查看报表",
+                        actionTabIndex = 11
                     )
                 } else {
                     newAchievements.forEach { achievement ->
@@ -3384,8 +3384,8 @@ class GameEngine @Inject constructor(
                             gameYear = school.currentYear,
                             gameMonth = school.currentMonth,
                             gameDay = school.currentDay,
-                            actionLabel = "查看成就",
-                            actionTabIndex = 10
+                            actionLabel = "查看报表",
+                            actionTabIndex = 11
                         )
                     }
                 }

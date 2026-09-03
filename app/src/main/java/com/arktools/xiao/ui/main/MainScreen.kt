@@ -28,11 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.arktools.xiao.ui.campus.CampusView
-import com.arktools.xiao.ui.discipline.DisciplineScreen
 import com.arktools.xiao.ui.external.ExternalScreen
 import com.arktools.xiao.ui.story.OpeningStoryScreen
-import com.arktools.xiao.ui.graduate.GraduateScreen
-import com.arktools.xiao.ui.international.InternationalScreen
 import com.arktools.xiao.ui.governance.GovernanceScreen
 import com.arktools.xiao.ui.hiring.HiringScreen
 import com.arktools.xiao.BuildConfig
@@ -84,13 +81,10 @@ import com.arktools.xiao.ui.teaching.TeachingScreen
 import com.arktools.xiao.ui.district.DistrictScreen
 import com.arktools.xiao.ui.event.EventDialogContainer
 import com.arktools.xiao.ui.minigame.MiniGameContainer
-import com.arktools.xiao.ui.event.EventScreen
 import com.arktools.xiao.ui.overview.OverviewScreen
 import com.arktools.xiao.ui.navigation.Screen
 import com.arktools.xiao.ui.research.ResearchScreen
-import com.arktools.xiao.ui.stock.StockScreen
 import com.arktools.xiao.ui.teacher.TeacherListScreen
-import com.arktools.xiao.ui.facility.FacilityScreen
 import com.arktools.xiao.ui.student.StudentScreen
 import com.arktools.xiao.ui.settings.SettingsScreen
 import com.arktools.xiao.ui.effects.ConfettiEffect
@@ -116,29 +110,16 @@ import com.arktools.adsdk.ui.PrivacyPolicyDialog
 import com.arktools.xiao.ui.login.TapTapLoginScreen
 import com.arktools.xiao.ui.login.ComplianceManager
 import com.taptap.sdk.login.TapTapLogin
-import com.arktools.xiao.ui.achievement.AchievementScreen
 import com.arktools.xiao.ui.achievement.AchievementToastOverlay
 import com.arktools.xiao.ui.report.ReportScreen
-import com.arktools.xiao.ui.marketing.MarketingScreen
 import com.arktools.xiao.ui.notification.NotificationScreen
 import com.arktools.xiao.ui.alumni.AlumniScreen
 import com.arktools.xiao.ui.policy.PolicyScreen
-import com.arktools.xiao.ui.club.ClubScreen
-import com.arktools.xiao.ui.seasonal.SeasonalScreen
 
-import com.arktools.xiao.ui.reputation.ReputationScreen
 import com.arktools.xiao.ui.studentlife.StudentLifeScreen
-
-import com.arktools.xiao.ui.conference.ConferenceScreen
-
-
-import com.arktools.xiao.ui.parent.ParentScreen
-import com.arktools.xiao.ui.government.GovernmentScreen
 import com.arktools.xiao.ui.scholarship.ScholarshipScreen
-
 import com.arktools.xiao.ui.timetable.TimetableScreen
 import com.arktools.xiao.ui.exam.ExamScreen
-import com.arktools.xiao.ui.principal.PrincipalOfficeScreen
 import com.arktools.xiao.ui.notification.NotificationViewModel
 import com.arktools.xiao.domain.achievement.AchievementManager
 import androidx.compose.material.icons.filled.Notifications
@@ -783,61 +764,31 @@ fun MainScreen(
                             )
                         } else {
                             when (tab) {
-                                6 -> StockScreen()
-                                7 -> FacilityScreen()
                                 8 -> StudentScreen()
-                                10 -> AchievementScreen()
                                 11 -> ReportScreen()
-                                12 -> MarketingScreen()
-                                13 -> EventScreen()
                                 14 -> NotificationScreen(
                                     onNavigateToTab = { tabIndex -> navigateTo(tabIndex) }
                                 )
                                 15 -> AlumniScreen()
                                 16 -> PolicyScreen()
-                                17 -> ClubScreen()
-                                18 -> SeasonalScreen()
-                                20 -> ReputationScreen()
                                 21 -> StudentLifeScreen()
-                                23 -> ConferenceScreen()
-                                27 -> ParentScreen()
-                                28 -> GovernmentScreen()
                                 29 -> ScholarshipScreen()
                                 31 -> TimetableScreen()
                                 32 -> ExamScreen()
-                                33 -> PrincipalOfficeScreen()
-                    Screen.TEACHING_CONFIG -> TeachingScreen()
-                    Screen.RESEARCH_LAB -> ResearchScreen()
-                    Screen.DISCIPLINE -> DisciplineScreen()
-                    Screen.GRADUATE_SCHOOL -> GraduateScreen()
-                    Screen.INTERNATIONAL -> InternationalScreen()
-                    Screen.TEACHER_LIST -> TeacherListScreen()
+                                Screen.TEACHING_CONFIG -> TeachingScreen()
+                                Screen.RESEARCH_LAB -> ResearchScreen()
+                                Screen.TEACHER_LIST -> TeacherListScreen()
                                 else -> OverviewScreen(
                                     listState = overviewListState,
                                     onNavigateToRanking = { navigateTo(3) },
-                                    onNavigateToStock = { navigateTo(Screen.STOCK) },
-                                    onNavigateToFacility = { navigateTo(Screen.FACILITY) },
                                     onNavigateToStudent = { navigateTo(Screen.STUDENT) },
-                                    onNavigateToAchievement = { navigateTo(Screen.ACHIEVEMENT) },
                                     onNavigateToReport = { navigateTo(Screen.REPORT) },
-                                    onNavigateToMarketing = { navigateTo(Screen.MARKETING) },
-                                    onNavigateToEvent = { navigateTo(Screen.EVENT) },
                                     onNavigateToNotification = { navigateTo(Screen.NOTIFICATION) },
                                     onNavigateToAlumni = { navigateTo(Screen.ALUMNI) },
                                     onNavigateToPolicy = { navigateTo(Screen.POLICY) },
                                     onNavigateToTeacher = { navigateTo(Screen.TEACHER) },
                                     onNavigateToResearch = { navigateTo(41) },
-                                    onNavigateToClub = { navigateTo(Screen.CLUB) },
-                                    onNavigateToSeasonal = { navigateTo(Screen.SEASONAL) },
-                                    onNavigateToReputation = { navigateTo(Screen.REPUTATION) },
-                                    onNavigateToStudentLife = { navigateTo(Screen.STUDENT_LIFE) },
-                                    onNavigateToConference = { navigateTo(Screen.CONFERENCE) },
-                                    onNavigateToParent = { navigateTo(Screen.PARENT) },
-                                    onNavigateToGovernment = { navigateTo(Screen.GOVERNMENT) },
-                                    onNavigateToScholarship = { navigateTo(Screen.SCHOLARSHIP) },
-                                    onNavigateToTimetable = { navigateTo(Screen.TIMETABLE) },
-                                    onNavigateToExam = { navigateTo(Screen.EXAM) },
-                                    onNavigateToPrincipalOffice = { navigateTo(Screen.PRINCIPAL_OFFICE) }
+                                    onNavigateToScholarship = { navigateTo(Screen.SCHOLARSHIP) }
                                 )
                             }
                         }
