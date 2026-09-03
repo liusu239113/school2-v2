@@ -598,7 +598,7 @@ class CampusViewModel @Inject constructor(
             } else {
                 false
             }
-        } == true
+        } != null
         if (!added || dormId.isBlank()) return
         val newPlaced = placed + BT.PlacedBuilding(spec.key, spot.first, spot.second, 1, dormId)
         persistLayout(newPlaced, terrain)
@@ -656,7 +656,7 @@ class CampusViewModel @Inject constructor(
                     _state.value = _state.value.copy(message = "加速未生效，请稍后重试")
                     return@safeLaunch
                 }
-                finished = result
+                finished = true
             } else {
                 val ok = policyManager.finishCollegeConstruction(placed.key)
                 if (!ok) {
