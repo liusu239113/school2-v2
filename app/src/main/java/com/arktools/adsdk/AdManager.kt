@@ -101,7 +101,7 @@ class AdManager private constructor() {
             }
             rewardVideoListener = listener
 
-            rewardVideoAd?.loadRewardVideo(listener)
+            rewardVideoAd?.loadRewardVideo(activity, listener)
         }
     }
 

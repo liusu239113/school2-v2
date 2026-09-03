@@ -629,11 +629,12 @@ class CampusViewModel @Inject constructor(
                     return@safeLaunch
                 }
             } else {
-                newDays = policyManager.boostCollegeConstructionDay(placed.key)
-                if (newDays == null) {
+                val collegeDays: Int? = policyManager.boostCollegeConstructionDay(placed.key)
+                if (collegeDays == null) {
                     _state.value = _state.value.copy(message = "该学院已竣工或不在施工中")
                     return@safeLaunch
                 }
+                newDays = collegeDays
                 schoolRepository.mutateSchool { latest ->
                     latest.policyJson = policyManager.toJson()
                     true
