@@ -239,7 +239,16 @@ fun CampusView(
 
         // ===== 行走学生小人：素材与状态 =====
         val walkerBitmaps = remember {
-            (0..7).map { BitmapFactory.decodeResource(context.resources, R.drawable.student_walk_$it) }
+            listOf(
+                R.drawable.student_walk_0,
+                R.drawable.student_walk_1,
+                R.drawable.student_walk_2,
+                R.drawable.student_walk_3,
+                R.drawable.student_walk_4,
+                R.drawable.student_walk_5,
+                R.drawable.student_walk_6,
+                R.drawable.student_walk_7
+            ).map { res -> BitmapFactory.decodeResource(context.resources, res) }
         }
         val walkerPaint = remember {
             android.graphics.Paint().apply { isFilterBitmap = false }
