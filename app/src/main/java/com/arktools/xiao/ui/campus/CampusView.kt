@@ -1299,7 +1299,6 @@ private fun BuildingPanelContent(
                             )
                             Text("花园、礼堂和校门塑造校园文化，缺少它们社交会缓慢下滑。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("学生生活") { onOpenStudentLife() }
-                            PanelButton("社团管理") { onOpenClub() }
                         }
                         else -> {}
                     }
