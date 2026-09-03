@@ -2006,7 +2006,7 @@ class GameEngine @Inject constructor(
                     type = com.arktools.xiao.domain.model.NotificationType.MILESTONE,
                     priority = com.arktools.xiao.domain.model.NotificationPriority.HIGH,
                     gameYear = year, gameMonth = month, gameDay = day,
-                    actionTabIndex = 10
+                    actionTabIndex = 11
                 )
             }
             is GameEvent.ChoiceEvent -> { /* 选择事件通过对话框处理，不进通知 */ }

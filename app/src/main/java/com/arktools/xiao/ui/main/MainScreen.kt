@@ -78,7 +78,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiao.ui.animation.AnimationConstants
 import com.arktools.xiao.ui.animation.pressAnimation
 import com.arktools.xiao.ui.teaching.TeachingScreen
-import com.arktools.xiao.ui.district.DistrictScreen
+
 import com.arktools.xiao.ui.event.EventDialogContainer
 import com.arktools.xiao.ui.minigame.MiniGameContainer
 import com.arktools.xiao.ui.overview.OverviewScreen
@@ -751,7 +751,6 @@ fun MainScreen(
                     1 -> GovernanceScreen(onNavigateTo = { navigateTo(it) })
                     2 -> HiringScreen(onNavigateTo = { navigateTo(it) })
                     3 -> ExternalScreen()
-                    4 -> DistrictScreen()
                     else -> {
                         val lockedModule = GameBalanceConfig.moduleForTab(tab)
                         val campusLevel = school?.campusLevel ?: 1
