@@ -9,7 +9,7 @@ package com.arktools.xiaozhang.ui.navigation
 object Screen {
     // === 底部主导航 ===
     const val OVERVIEW = 0
-    const val TEACHING = 1
+    const val GOVERNANCE = 1
     const val TEACHER = 2
     const val RESEARCH = 3
     const val DISTRICT = 4
@@ -42,6 +42,16 @@ object Screen {
     const val TIMETABLE = 31
     const val EXAM = 32
     const val PRINCIPAL_OFFICE = 33
+
+    // === 扩展子页面（ CampusView/治院入口使用） ===
+    const val SEASONAL_ACTIVITIES = 18
+    const val CLUB_MANAGE = 17
+    const val TEACHING_CONFIG = 40
+    const val RESEARCH_LAB = 41
+    const val DISCIPLINE = 45
+    const val GRADUATE_SCHOOL = 46
+    const val INTERNATIONAL = 47
+    const val TEACHER_LIST = 48
 
     /** 底部导航最大索引，用于判断是否为子页面 */
     const val BOTTOM_NAV_MAX = 4

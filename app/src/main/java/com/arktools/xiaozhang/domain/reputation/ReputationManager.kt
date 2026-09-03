@@ -161,7 +161,8 @@ class ReputationManager @Inject constructor() {
         schoolLevel: Int = 1,
         teachingQualityBonus: Float = 0f,
         sportsInvestmentScore: Float = 0f,
-        artsInvestmentScore: Float = 0f
+        artsInvestmentScore: Float = 0f,
+        legacyBonuses: Long = 0L
     ): ReputationMonthlyResult {
         var totalGrowth = 0L
         val dimGrowths = mutableMapOf<ReputationDimension, Float>()
@@ -220,6 +221,12 @@ class ReputationManager @Inject constructor() {
 
             val balanceBonusGrowth = (totalGrowth * balanceBonus).toLong()
             totalGrowth += balanceBonusGrowth
+
+            // 旧月度公式的并列加成（日历/营销/满意度/奖学金/政策×设施乘数），
+            // 统一经由本函数单一出口结算，避免双引擎并行加值
+            if (legacyBonuses != 0L) {
+                totalGrowth += legacyBonuses
+            }
 
             // 确定优势/弱势维度
             val dominant = dims.maxByOrNull { it.value.score }?.key

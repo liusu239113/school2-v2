@@ -3477,14 +3477,17 @@ class GameEngine @Inject constructor(
                 val allTeachersForClass = st.allTeachersCache
 
                 // 更新班级聚合指标（平均五维、满意度、人数等）——在招生前确保容量准确
-                classManager.updateClassMetrics(
-                    st.currentClasses,
-                    st.allCurrentStudents,
-                    allTeachersForClass,
-                    ClassOfficers.decode(
-                        policyManager.policies.value.collegeDevelopment.classOfficersJson
+                // 聚合结果仅展示消费，全量重算限开学/学期边界执行，避免月月空转
+                if (school.currentMonth in listOf(1, 2, 6, 9)) {
+                    classManager.updateClassMetrics(
+                        st.currentClasses,
+                        st.allCurrentStudents,
+                        allTeachersForClass,
+                        ClassOfficers.decode(
+                            policyManager.policies.value.collegeDevelopment.classOfficersJson
+                        )
                     )
-                )
+                }
 
                 // 清除已禁用班型的空班（用户把某班型数量设为0后，对应的无学生班级应被移除）
                 val activeDistribution = teachingManager.config.classDistribution
@@ -3619,7 +3622,7 @@ class GameEngine @Inject constructor(
                 examManager.cleanupInactiveStudents(activeStudentsForExam.map { it.id }.toSet())
             }
 
-            updateSchoolReputation(school)
+            updateStarRating(school)
 
             // 季节活动月初触发（只有学校有学生或已开课时才触发，避免空校办活动）
             val hasStudentsOrCourses = studentRepository.getActiveStudents().isNotEmpty() ||
@@ -3900,7 +3903,8 @@ class GameEngine @Inject constructor(
                 schoolLevel = school.campusLevel,
                 teachingQualityBonus = teachingManager.config.overallQuality(avgTeacherQuality),
                 sportsInvestmentScore = sportsInvestmentScore,
-                artsInvestmentScore = artsInvestmentScore
+                artsInvestmentScore = artsInvestmentScore,
+                legacyBonuses = computeLegacyReputationBonus(school)
             )
             if (repResult.totalGrowth > 0) {
                 schoolRepository.addReputation(repResult.totalGrowth.toLong())
@@ -6320,7 +6324,11 @@ class GameEngine @Inject constructor(
         )
     }
 
-    private suspend fun updateSchoolReputation(school: School) {
+    /**
+     * 旧月度声誉公式（日历/营销/学生满意度/奖学金/政策×设施乘数）的纯计算部分。
+     * 数值经由 ReputationManager.advanceMonth(legacyBonuses) 单一出口结算，不再自行入库。
+     */
+    private suspend fun computeLegacyReputationBonus(school: School): Long {
         val totalStudents = studentRepository.getActiveStudents().size
         val teachers = teacherRepository.getTeachers()
 
@@ -6352,12 +6360,18 @@ class GameEngine @Inject constructor(
         // 政策声誉修正（每月额外声誉增减，来自学费/考试/课外活动等政策组合）
         val policyRepModifier = policyManager.getPolicyEffects().reputationModifier
 
-        val totalReputationGain = ((baseReputationGain + calendarBonus + marketingRepBoost + studentSatisfactionBonus + scholarshipRepBonus + policyRepModifier) * facilityRepMultiplier).toLong()
-        if (totalReputationGain != 0L) {
-            schoolRepository.addReputation(totalReputationGain)
-        }
+        return ((baseReputationGain + calendarBonus + marketingRepBoost + studentSatisfactionBonus + scholarshipRepBonus + policyRepModifier) * facilityRepMultiplier).toLong()
+    }
 
-        // 更新星级评分：综合声誉、学生满意度、教师质量、学校规模
+    /** 星级评分：综合声誉、学生满意度、教师质量、学校规模（纯展示，不参与声誉结算）。 */
+    private suspend fun updateStarRating(school: School) {
+        val totalStudents = studentRepository.getActiveStudents().size
+        val teachers = teacherRepository.getTeachers()
+        val teachingQuality = if (teachers.isNotEmpty()) {
+            teachers.map { it.averageSkill.toFloat() }.average().toFloat()
+        } else 0f
+        val avgSatisfaction = studentRepository.getAverageSatisfaction()
+
         val reputationFactor = (school.reputation.toFloat() / 2000f).coerceIn(0f, 1f)  // 声誉贡献 (0-2000映射到0-1)
         val satisfactionFactor = if (avgSatisfaction > 0f) avgSatisfaction / 100f else 0.5f
         val qualityFactor = teachingQuality / 100f  // 教学质量（0-1）

@@ -86,7 +86,6 @@ import com.arktools.xiaozhang.ui.event.EventDialogContainer
 import com.arktools.xiaozhang.ui.minigame.MiniGameContainer
 import com.arktools.xiaozhang.ui.event.EventScreen
 import com.arktools.xiaozhang.ui.overview.OverviewScreen
-import com.arktools.xiaozhang.ui.ranking.RankingScreen
 import com.arktools.xiaozhang.ui.navigation.Screen
 import com.arktools.xiaozhang.ui.research.ResearchScreen
 import com.arktools.xiaozhang.ui.stock.StockScreen
@@ -785,7 +784,6 @@ fun MainScreen(
                             )
                         } else {
                             when (tab) {
-                                5 -> RankingScreen()
                                 6 -> StockScreen()
                                 7 -> FacilityScreen()
                                 8 -> StudentScreen()
@@ -809,15 +807,15 @@ fun MainScreen(
                                 31 -> TimetableScreen()
                                 32 -> ExamScreen()
                                 33 -> PrincipalOfficeScreen()
-                    40 -> TeachingScreen()
-                    41 -> ResearchScreen()
-                    45 -> DisciplineScreen()
-                    46 -> GraduateScreen()
-                    47 -> InternationalScreen()
-                    48 -> TeacherListScreen()
+                    Screen.TEACHING_CONFIG -> TeachingScreen()
+                    Screen.RESEARCH_LAB -> ResearchScreen()
+                    Screen.DISCIPLINE -> DisciplineScreen()
+                    Screen.GRADUATE_SCHOOL -> GraduateScreen()
+                    Screen.INTERNATIONAL -> InternationalScreen()
+                    Screen.TEACHER_LIST -> TeacherListScreen()
                                 else -> OverviewScreen(
                                     listState = overviewListState,
-                                    onNavigateToRanking = { navigateTo(Screen.RANKING) },
+                                    onNavigateToRanking = { navigateTo(3) },
                                     onNavigateToStock = { navigateTo(Screen.STOCK) },
                                     onNavigateToFacility = { navigateTo(Screen.FACILITY) },
                                     onNavigateToStudent = { navigateTo(Screen.STUDENT) },
@@ -1113,7 +1111,6 @@ private fun getSubPageTitle(tab: Int): String {
         33 -> "校长办公室"
         40 -> "教学配置"
         41 -> "科研研究"
-        42 -> "政府与行业"
         45 -> "学科建设"
         48 -> "教师团队"
         46 -> "研究生院"
