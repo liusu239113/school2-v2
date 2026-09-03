@@ -237,6 +237,45 @@ fun CampusView(
             cameraReady = true
         }
 
+        // ===== 行走学生小人：素材与状态 =====
+        val walkerBitmaps = remember {
+            (0..7).map { BitmapFactory.decodeResource(context.resources, R.drawable.student_walk_$it) }
+        }
+        val walkerPaint = remember {
+            android.graphics.Paint().apply { isFilterBitmap = false }
+        }
+        val walkableSet = remember(state.placed, state.terrain, state.campusLevel) {
+            buildWalkableSet(state)
+        }
+        var walkers by remember { mutableStateOf(emptyList<Walker>()) }
+
+        // 人数驱动：每 10 名在校生出现 1 个小人（上限 32）
+        LaunchedEffect2(listOf(state.studentCount, walkableSet)) {
+            val target = (state.studentCount / 10).coerceIn(0, WALKER_MAX)
+            val cur = walkers.toMutableList()
+            while (cur.size < target) {
+                val k = walkableSet.randomOrNull() ?: break
+                val gx = (k % 1000L).toInt()
+                val gy = (k / 1000L).toInt()
+                cur += Walker(
+                    role = (0..7).random(),
+                    fx = gx + 0.5f, fy = gy + 0.9f,
+                    tx = gx, ty = gy,
+                    facingRight = (0..1).random() == 0
+                )
+            }
+            while (cur.size > target) cur.removeAt(cur.size - 1)
+            walkers = cur
+        }
+
+        // 走路循环：~8fps 逻辑步进，像素动画足够流畅且开销极小
+        LaunchedEffect2(walkableSet) {
+            while (true) {
+                kotlinx.coroutines.delay(WALKER_TICK_MS)
+                walkers = advanceWalkers(walkers, walkableSet)
+            }
+        }
+
         // 进入摆放/铺装/搬移模式时，幽灵自动出现在屏幕中心的格子，立刻可见
         LaunchedEffect2(listOf(inPlacementMode, pendingSpec, pendingTile, moveTarget)) {
             if (inPlacementMode && ghost == null) {
@@ -485,6 +524,29 @@ fun CampusView(
                         drawRect(Color(0x990B2038), Offset(placed.x * cell, placed.y * cell), Size(footW, footH))
                         drawRect(Color(0xFFFFD54F), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(3f))
                     }
+                }
+
+                // 行走学生小人：脚底对齐格底，比路灯略小；像素硬边渲染
+                walkers.forEach { w ->
+                    val sheet = walkerBitmaps[w.role % walkerBitmaps.size]
+                    val fw = sheet.width / 2
+                    val fh = sheet.height / 2
+                    val frame = if (w.moving) (w.phase / 3) % 4 else 1
+                    val sx = if (frame % 2 == 1) fw else 0
+                    val sy = if (frame >= 2) fh else 0
+                    val hPx = cell * 0.60f
+                    val wPx = hPx * fw / fh
+                    val cx = w.fx * cell
+                    val bottom = w.fy * cell
+                    val matrix = android.graphics.Matrix()
+                    if (w.facingRight) {
+                        matrix.setScale(wPx / fw, hPx / fh)
+                        matrix.postTranslate(cx - wPx / 2f, bottom - hPx)
+                    } else {
+                        matrix.setScale(-wPx / fw, hPx / fh)
+                        matrix.postTranslate(cx + wPx / 2f, bottom - hPx)
+                    }
+                    drawContext.canvas.nativeCanvas.drawBitmap(sheet, sx, sy, fw, fh, matrix, walkerPaint)
                 }
 
                 // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放（粗描边+四角标记，醒目）
@@ -1027,6 +1089,87 @@ fun CampusView(
             }
         }
 
+    }
+}
+
+// ===== 行走学生小人 =====
+
+/** 在校园地图上散步的小人：格子级移动，永不进入建筑/装饰/水域。 */
+private data class Walker(
+    val role: Int,
+    val fx: Float,          // 脚底 x（格坐标，含 0.5 = 格中心）
+    val fy: Float,          // 脚底 y
+    val tx: Int, val ty: Int,      // 目标格
+    val prevKey: Long = -1L,       // 上一格 key（防回头）
+    val phase: Int = 0,
+    val moving: Boolean = false,
+    val facingRight: Boolean = true,
+    val waitTicks: Int = 0
+)
+
+private const val WALKER_TICK_MS = 120L
+private const val WALKER_STEP = 0.16f   // 每 tick 走的格数（约 1.3 格/秒）
+private const val WALKER_MAX = 32       // 性能上限：超过该数量不增人
+
+private fun walkableKey(x: Int, y: Int): Long = y.toLong() * 1000L + x
+
+/** 可走格：解锁区内、不在建筑矩形、无装饰/水域瓦片（纯草地与道路/广场可走）。 */
+private fun buildWalkableSet(state: CampusViewModel.CampusUiState): Set<Long> {
+    val rect = BT.unlockedRect(state.campusLevel)
+    val blocked = HashSet<Long>()
+    state.placed.forEach { b ->
+        val spec = BT.specByKey(b.key) ?: return@forEach
+        for (y in b.y until b.y + spec.h) for (x in b.x until b.x + spec.w) {
+            blocked += walkableKey(x, y)
+        }
+    }
+    val set = HashSet<Long>(1024)
+    for (y in rect.y0 until rect.y1) for (x in rect.x0 until rect.x1) {
+        val k = walkableKey(x, y)
+        if (k in blocked) continue
+        val tile = state.terrain[k]
+        if (tile != null && tile != BT.TileKind.ROAD && tile != BT.TileKind.PLAZA) continue
+        set += k
+    }
+    return set
+}
+
+private fun walkerNeighbors(x: Int, y: Int): List<Pair<Int, Int>> =
+    listOf(x + 1 to y, x - 1 to y, x to y + 1, x to y - 1)
+
+private fun advanceWalkers(list: List<Walker>, walkable: Set<Long>): List<Walker> = list.map { w ->
+    if (walkable.isEmpty()) return@map w
+    if (w.waitTicks > 0) return@map w.copy(waitTicks = w.waitTicks - 1, moving = false)
+    val tcx = w.tx + 0.5f
+    val tcy = w.ty + 0.9f   // 目标格底部（脚底对齐）
+    val dx = tcx - w.fx
+    val dy = tcy - w.fy
+    val dist = kotlin.math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+    if (dist <= WALKER_STEP) {
+        val opts = walkerNeighbors(w.tx, w.ty).filter { p ->
+            val k = walkableKey(p.first, p.second)
+            k in walkable && k != w.prevKey
+        }
+        val pool = if (opts.isNotEmpty()) opts
+        else walkerNeighbors(w.tx, w.ty).filter { walkable.contains(walkableKey(it.first, it.second)) }
+        val next = pool.randomOrNull()
+        if (next == null) {
+            w.copy(moving = false, waitTicks = 4)
+        } else {
+            w.copy(
+                prevKey = walkableKey(w.tx, w.ty),
+                tx = next.first, ty = next.second,
+                moving = true,
+                facingRight = if (next.first != w.tx) next.first > w.tx else w.facingRight
+            )
+        }
+    } else {
+        val nx = w.fx + dx / dist * WALKER_STEP
+        val ny = w.fy + dy / dist * WALKER_STEP
+        w.copy(
+            fx = nx, fy = ny, moving = true, phase = w.phase + 1,
+            facingRight = if (kotlin.math.abs(dx) > 0.001f) dx > 0f else w.facingRight
+        )
     }
 }
 
