@@ -53,7 +53,7 @@ enum class SchoolTier(
         "VOCATIONAL", "高职专科",
         "3年制 · 只能办人文/工学/商学 · 理学医学艺术不开 · 学费低、招生量大 · 就业率是生命线 · 可升格职业本科",
         3, GradeLevel.GRADE_3, 320, 430,
-        0.6, 1.35, 0.8f, 280.0, 0.85f, "VOCATIONAL_BACHELOR",
+        0.8, 1.35, 0.8f, 280.0, 0.85f, "VOCATIONAL_BACHELOR",
         setOf("LIBERAL_ARTS", "ENGINEERING", "BUSINESS")
     ),
     APPLIED(

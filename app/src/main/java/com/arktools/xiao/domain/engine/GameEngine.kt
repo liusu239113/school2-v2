@@ -6367,8 +6367,9 @@ class GameEngine @Inject constructor(
             teachers.map { it.averageSkill.toFloat() }.average().toFloat()
         } else 0f
 
-        // 声誉增长：基于教学质量和学生规模（降低系数，避免增长过快）
-        val baseReputationGain = (teachingQuality * 0.12f + totalStudents * 0.04f).toLong()
+        // 声誉增长：基于教学质量和学生规模
+        // v3.2 提速：让"升到 Lv.2"在一学年内可达，靠结项委托/竞赛做主动冲刺
+        val baseReputationGain = (teachingQuality * 0.20f + totalStudents * 0.10f).toLong()
 
         // Semester calendar bonus (graduation, exams, sports, etc.)
         val calendarBonus = SemesterCalendar.getReputationBonus(school.currentMonth)
