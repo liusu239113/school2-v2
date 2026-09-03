@@ -57,6 +57,8 @@ data class EventConsequence(
     val factionChoiceAction: FactionChoiceAction? = null,
     val promotionAction: PromotionAction? = null,
     val followUpEvent: GameEvent? = null,
+    /** 学业干预：给成绩最差的一批在读学生加学业分（补差/谈话等处置动作）。 */
+    val studentAcademicBoost: Float = 0f,
     /** 是否需要校长签字（显示打字机签名动画） */
     val requiresSignature: Boolean = false
 )

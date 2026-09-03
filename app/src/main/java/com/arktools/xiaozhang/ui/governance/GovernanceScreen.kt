@@ -182,7 +182,8 @@ fun GovernanceScreen(
                 Entry("五维声誉", com.arktools.xiaozhang.R.drawable.ic_gift, 20),
                 Entry("成就墙", com.arktools.xiaozhang.R.drawable.ic_gift, 10),
                 Entry("股市投资", com.arktools.xiaozhang.R.drawable.ic_chart, 6),
-                Entry("事件档案", com.arktools.xiaozhang.R.drawable.ic_memo, 13)
+                Entry("事件档案", com.arktools.xiaozhang.R.drawable.ic_memo, 13),
+                Entry("经营总览仪表盘", com.arktools.xiaozhang.R.drawable.ic_chart, 9)
             )
             entries.forEach { entry ->
                 Row(

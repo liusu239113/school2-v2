@@ -3112,6 +3112,26 @@ class GameEngine @Inject constructor(
     }
 
     /**
+     * 学业干预：预警处置选项（专项辅导/辅导员谈话）落地。
+     * 给学业分最落后的 25% 在读学生补差，返回受益人数。
+     */
+    suspend fun applyAcademicIntervention(boost: Float): Int {
+        if (boost == 0f) return 0
+        val all = studentRepository.getActiveStudents()
+        if (all.isEmpty()) return 0
+        val count = (all.size * 0.25).toInt().coerceIn(1, all.size)
+        val targets = all
+            .sortedBy { if (it.academicScore > 0f) it.academicScore else it.semesterMastery }
+            .take(count)
+        studentRepository.updateAcademicScores(
+            targets.map {
+                it.copy(academicScore = (it.academicScore + boost).coerceIn(0f, 100f))
+            }
+        )
+        return targets.size
+    }
+
+    /**
      * 确认 GameOver 并停止引擎
      */
     fun confirmGameOver() {
@@ -7461,10 +7481,12 @@ class GameEngine @Inject constructor(
             student.gaoKaoScore = (baseScore * teachingScoreMultiplier * tierBonus *
                 school.schoolTier().graduateScoreFactor * (1f + policyGradBonus)).coerceIn(150f, 750f)
 
-            // 2. 使用动态录取线录取大学（每年分数线不同！）
-            val (tier, uniName) = GaoKaoCalculator.admitUniversityDynamic(student.gaoKaoScore, scoreLines)
+            // 2. 毕业出口以本校办学层次为基准：个人成绩决定浮动一档（深造/就业档位）
+            val ownTier = ownGraduateTier(school)
+            val scoreTier = scoreLines.getTierForScore(student.gaoKaoScore)
+            val tier = shiftTierAroundOwn(ownTier, scoreTier)
             student.universityTier = tier
-            student.admittedUniversity = uniName
+            student.admittedUniversity = school.name
 
             // 3. 设置毕业状态
             student.status = StudentStatus.GRADUATED
@@ -7751,16 +7773,15 @@ class GameEngine @Inject constructor(
                                 graduationYear
                             )
                         val message = buildString {
-                            append("本届${cohortStats.totalStudents}名学生毕业就业放榜！\n")
-                            append("今年录取线：${lines.formatForDisplay()}\n")
-                            append("平均分${cohortStats.averageScore.toInt()}，")
-                            append("最高分${cohortStats.highestScore.toInt()}。")
-                            append("本科率${cohortStats.bengkeLv.toInt()}%")
+                            append("本届${cohortStats.totalStudents}名学生毕业评估放榜！\n")
+                            append("平均评估分${cohortStats.averageScore.toInt()}，")
+                            append("最高${cohortStats.highestScore.toInt()}。")
+                            append("优良档${cohortStats.bengkeLv.toInt()}%")
                             if (cohortStats.key985Count > 0) {
-                                append("，985录取${cohortStats.key985Count}人")
+                                append("，重点深造${cohortStats.key985Count}人")
                             }
                             if (cohortStats.qingbeiCount > 0) {
-                                append("，清北${cohortStats.qingbeiCount}人！")
+                                append("，顶尖名校深造${cohortStats.qingbeiCount}人！")
                             }
                             if (graduationBonus > 0.0) {
                                 append("\n获得升学奖金")
@@ -7804,6 +7825,40 @@ class GameEngine @Inject constructor(
     /**
      * 根据高考成绩和大学录取等级生成毕业评价
      */
+    /** 本校办学层次对应的毕业生基准档位（深造/就业市场按此档结算）。 */
+    private fun ownGraduateTier(school: School): UniversityTier = when (school.schoolTier()) {
+        SchoolTier.VOCATIONAL -> UniversityTier.JUNIOR_COLLEGE
+        SchoolTier.VOCATIONAL_BACHELOR -> UniversityTier.SECOND_TIER
+        SchoolTier.APPLIED -> UniversityTier.FIRST_TIER
+        SchoolTier.RESEARCH -> UniversityTier.NORMAL_211
+    }
+
+    /**
+     * 毕业档位 = 本校基准 ± 一档：
+     * 个人评估分达到更高批次线上浮一档（拔尖学生深造晋升），低于本校线则下沉一档。
+     * 不再虚构"被其他大学录取"，就业结算直接对应本校培养结果。
+     */
+    private fun shiftTierAroundOwn(ownTier: UniversityTier, scoreTier: UniversityTier): UniversityTier {
+        val order = listOf(
+            UniversityTier.QINGBEI,
+            UniversityTier.TOP_985,
+            UniversityTier.NORMAL_985,
+            UniversityTier.TOP_211,
+            UniversityTier.NORMAL_211,
+            UniversityTier.FIRST_TIER,
+            UniversityTier.SECOND_TIER,
+            UniversityTier.JUNIOR_COLLEGE
+        )
+        if (scoreTier == UniversityTier.NONE) return UniversityTier.NONE
+        val ownIdx = order.indexOf(ownTier).coerceAtLeast(0)
+        val scoreIdx = order.indexOf(scoreTier)
+        return when {
+            scoreIdx < ownIdx -> order.getOrNull(ownIdx - 1) ?: ownTier
+            scoreIdx > ownIdx -> order.getOrNull(ownIdx + 1) ?: order.last()
+            else -> ownTier
+        }
+    }
+
     private fun generateGaoKaoReview(student: Student, tier: UniversityTier): StudentReview {
         val rating = when (tier) {
             UniversityTier.QINGBEI, UniversityTier.TOP_985 -> 5
@@ -7815,28 +7870,28 @@ class GameEngine @Inject constructor(
 
         val comment = when (rating) {
             5 -> listOf(
-                "感谢母校三年培养，考上了${student.admittedUniversity}！",
-                "三年努力没有白费，${student.admittedUniversity}我来了！",
-                "老师们的教导铭记于心，以${student.gaoKaoScore.toInt()}分圆梦名校！"
+                "感谢母校培养，我拿到了顶尖名校的深造名额！",
+                "几年努力没有白费，深造推荐信我拿到了！",
+                "老师们的教导铭记于心，以${student.gaoKaoScore.toInt()}分的评估成绩圆梦名校深造！"
             ).random()
             4 -> listOf(
-                "考上了${student.admittedUniversity}，感谢学校的培养。",
-                "高考${student.gaoKaoScore.toInt()}分，对得起三年的付出。",
-                "录取${student.admittedUniversity}，继续努力！"
+                "拿到了重点高校的深造资格，感谢学校的培养。",
+                "毕业评估${student.gaoKaoScore.toInt()}分，对得起这几年的付出。",
+                "拿到深造推荐，继续努力！"
             ).random()
             3 -> listOf(
-                "考上了${student.admittedUniversity}，虽然不是顶尖但也满意。",
-                "高考发挥一般，但总算有学上。",
-                "还行吧，${student.admittedUniversity}也不错。"
+                "毕业评估过关，虽然不是顶尖去向但也满意。",
+                "评估发挥一般，但工作有着落了。",
+                "还行吧，这个去向对得起自己。"
             ).random()
             2 -> listOf(
-                "只考上了二本，有点遗憾。",
+                "毕业评估成绩一般，去向有点遗憾。",
                 "发挥失常了，对学校教学有些失望。",
                 "成绩不理想，希望学校能提高教学质量。"
             ).random()
             else -> listOf(
-                "高考失利，非常失望。",
-                "三年白读了，成绩太差。",
+                "毕业评估失利，非常失望。",
+                "这几年白读了，成绩太差。",
                 "对学校的教育质量严重不满。"
             ).random()
         }
@@ -8138,13 +8193,33 @@ class GameEngine @Inject constructor(
             }
             val ratio = warningStudents.size.toFloat() / students.size
             if (warningStudents.isNotEmpty()) {
+                val interventionCost = (warningStudents.size * 0.3).coerceAtLeast(1.0)
                 deferEvent(
-                    GameEvent.NegativeEvent(
+                    GameEvent.ChoiceEvent(
                         title = "学期学业预警",
-                        message = "本期${warningStudents.size}名学生需关注，其中${severe}名高风险。" +
-                            "当前达标线${warningThreshold.toInt()}，建议补充导师、优化课表并改善生活设施。",
-                        penaltyCash = 0.0,
-                        penaltyReputation = if (ratio > 0.35f) 2L else 0L
+                        message = "本期${warningStudents.size}名学生需关注，其中${severe}名高风险（达标线${warningThreshold.toInt()}）。\n" +
+                            "预警学生学业分落后，若放任不管会拖累毕业评估与就业质量。选择处置方式：",
+                        choices = listOf(
+                            EventChoice(
+                                "专项辅导（${"%.1f".format(interventionCost)}万）",
+                                EventConsequence(
+                                    cashChange = -interventionCost,
+                                    studentAcademicBoost = 8f
+                                )
+                            ),
+                            EventChoice(
+                                "辅导员谈话（免费）",
+                                EventConsequence(
+                                    studentAcademicBoost = 4f
+                                )
+                            ),
+                            EventChoice(
+                                "暂不处理",
+                                EventConsequence(
+                                    reputationChange = if (ratio > 0.35f) -2L else 0L
+                                )
+                            )
+                        )
                     )
                 )
             } else {

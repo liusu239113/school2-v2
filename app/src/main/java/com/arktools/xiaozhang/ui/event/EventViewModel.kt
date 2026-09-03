@@ -184,6 +184,11 @@ class EventViewModel @Inject constructor(
             )
         }
 
+        // 学业干预（预警处置：补差/谈话等）：给成绩最落后的在读学生补差
+        if (consequence.studentAcademicBoost != 0f) {
+            gameEngine.applyAcademicIntervention(consequence.studentAcademicBoost)
+        }
+
         // 教师审批动作
         consequence.teacherAction?.let { action ->
             executeTeacherAction(action)
