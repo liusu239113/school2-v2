@@ -723,17 +723,6 @@ private fun HireTeacherDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Error message
-                val capturedError = errorMessage
-                if (capturedError != null) {
-                    Text(
-                        text = capturedError,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFD32F2F),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-
                 Text(
                     text = "候选人",
                     style = MaterialTheme.typography.titleSmall,
@@ -767,6 +756,16 @@ private fun HireTeacherDialog(
                 )
             }
         }
+    }
+
+    errorMessage?.let { msg ->
+        PixelAlertDialog(
+            onDismissRequest = { viewModel.clearError() },
+            title = "聘用失败",
+            text = msg,
+            confirmText = "知道了",
+            onConfirm = { viewModel.clearError() }
+        )
     }
 }
 

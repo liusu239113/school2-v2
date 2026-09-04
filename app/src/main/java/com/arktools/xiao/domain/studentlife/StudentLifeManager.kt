@@ -454,11 +454,24 @@ class StudentLifeManager @Inject constructor() {
                 }
             }
 
-            // 随机问题生成(每月15%概率，设施差时更高)
+            val dorm = facilities[LifeAspect.DORMITORY]
+            val cafe = facilities[LifeAspect.CAFETERIA]
+            val dormLoad = if (dorm != null && dorm.capacity > 0) {
+                dorm.currentLoad.toFloat() / dorm.capacity
+            } else 0f
+            val cafeLoad = if (cafe != null && cafe.capacity > 0) {
+                cafe.currentLoad.toFloat() / cafe.capacity
+            } else 0f
             val avgMaintenance = facilities.values.map { it.maintenanceLevel }.average().toFloat()
-            val issueProbability = 0.15f + (1f - avgMaintenance / 100f) * 0.15f  // 15%~30%
-            if (random.nextFloat() < issueProbability) {
-                val issue = generateRandomIssue(currentYear, currentMonth)
+            val issue = pickConditionIssue(
+                year = currentYear,
+                month = currentMonth,
+                overall = state.overallSatisfaction,
+                dormLoad = dormLoad,
+                cafeLoad = cafeLoad,
+                avgMaintenance = avgMaintenance
+            )
+            if (issue != null) {
                 newIssues.add(issue)
                 events.add(LifeEvent.IssueOccurred(issue))
             }
@@ -692,32 +705,90 @@ class StudentLifeManager @Inject constructor() {
         }
     }
 
-    private fun generateRandomIssue(year: Int, month: Int): LifeIssue {
-        val issueTemplates = listOf(
-            Triple(LifeAspect.DORMITORY, "宿舍漏水", IssueSeverity.MEDIUM),
-            Triple(LifeAspect.DORMITORY, "宿舍噪音投诉", IssueSeverity.LOW),
-            Triple(LifeAspect.CAFETERIA, "食品安全隐患", IssueSeverity.HIGH),
-            Triple(LifeAspect.CAFETERIA, "学生投诉菜品单一", IssueSeverity.LOW),
-            Triple(LifeAspect.HEALTH, "流感季节爆发", IssueSeverity.HIGH),
-            Triple(LifeAspect.HEALTH, "运动设施损坏", IssueSeverity.MEDIUM),
-            Triple(LifeAspect.PSYCHOLOGY, "考试压力过大投诉", IssueSeverity.MEDIUM),
-            Triple(LifeAspect.PSYCHOLOGY, "校园霸凌事件", IssueSeverity.CRITICAL)
+    private fun pickConditionIssue(
+        year: Int,
+        month: Int,
+        overall: Float,
+        dormLoad: Float,
+        cafeLoad: Float,
+        avgMaintenance: Float
+    ): LifeIssue? {
+        data class Candidate(
+            val aspect: LifeAspect,
+            val title: String,
+            val reason: String,
+            val severity: IssueSeverity
         )
-
-        val template = issueTemplates[random.nextInt(issueTemplates.size)]
-        val penalty = when (template.third) {
+        val pool = mutableListOf<Candidate>()
+        if (dormLoad >= 1.0f) {
+            pool += Candidate(
+                LifeAspect.DORMITORY, "宿舍挤到加床",
+                "床位已经住满（负载 ${(dormLoad * 100).toInt()}%），走廊加床引发投诉。",
+                IssueSeverity.HIGH
+            )
+        }
+        if (dormLoad >= 0.85f || avgMaintenance < 55f) {
+            pool += Candidate(
+                LifeAspect.DORMITORY, "宿舍漏水",
+                "住宿偏满或设施老化，卫生间渗水。",
+                IssueSeverity.MEDIUM
+            )
+        }
+        if (cafeLoad >= 1.0f) {
+            pool += Candidate(
+                LifeAspect.CAFETERIA, "食堂排队过长",
+                "餐位不够（负载 ${(cafeLoad * 100).toInt()}%），学生吃不上热饭。",
+                IssueSeverity.HIGH
+            )
+        }
+        if (cafeLoad >= 0.8f) {
+            pool += Candidate(
+                LifeAspect.CAFETERIA, "学生投诉菜品单一",
+                "食堂超负荷，窗口只能反复出同样的菜。",
+                IssueSeverity.LOW
+            )
+        }
+        if (overall < 45f) {
+            pool += Candidate(
+                LifeAspect.PSYCHOLOGY, "校园霸凌事件",
+                "整体满意度只有 ${overall.toInt()}，矛盾没人管，出现欺凌投诉。",
+                IssueSeverity.CRITICAL
+            )
+        } else if (overall < 60f) {
+            pool += Candidate(
+                LifeAspect.PSYCHOLOGY, "考试压力过大投诉",
+                "满意度 ${overall.toInt()}，学生觉得没人听他们说话。",
+                IssueSeverity.MEDIUM
+            )
+        }
+        if (avgMaintenance < 40f) {
+            pool += Candidate(
+                LifeAspect.HEALTH, "运动设施损坏",
+                "维护度掉到 ${avgMaintenance.toInt()}，器材带伤运行。",
+                IssueSeverity.MEDIUM
+            )
+        }
+        if (month in listOf(1, 2, 12) && overall < 70f) {
+            pool += Candidate(
+                LifeAspect.HEALTH, "流感季节爆发",
+                "冬春季叠加满意度不高，医务室挤满人。",
+                IssueSeverity.HIGH
+            )
+        }
+        if (pool.isEmpty()) return null
+        val template = pool[random.nextInt(pool.size)]
+        val penalty = when (template.severity) {
             IssueSeverity.LOW -> 3f
             IssueSeverity.MEDIUM -> 7f
             IssueSeverity.HIGH -> 12f
             IssueSeverity.CRITICAL -> 20f
         }
-
         return LifeIssue(
             id = "issue_${year}_${month}_${random.nextInt(1000)}",
-            aspect = template.first,
-            title = template.second,
-            description = "于${year}年${month}月发现: ${template.second}",
-            severity = template.third,
+            aspect = template.aspect,
+            title = template.title,
+            description = template.reason,
+            severity = template.severity,
             satisfactionPenalty = penalty
         )
     }

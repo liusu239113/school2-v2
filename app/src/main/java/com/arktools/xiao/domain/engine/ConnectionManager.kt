@@ -237,7 +237,7 @@ class ConnectionManager @Inject constructor() {
                         title = "官员请托",
                         message = "${connection.name}来电：他亲戚的孩子想转到你学校，成绩一般但家里有关系。",
                         choices = listOf(
-                            EventChoice("收下这个学生（人脉+15，声誉-100）",
+                            EventChoice("收下这个学生",
                                 EventConsequence(reputationChange = -100)),
                             EventChoice("婉拒，按规矩来",
                                 EventConsequence(reputationChange = 50))
@@ -250,10 +250,10 @@ class ConnectionManager @Inject constructor() {
                     title = "商人宴请",
                     message = "${connection.name}邀请你参加商会聚餐，可以认识不少人。",
                     choices = listOf(
-                        EventChoice("赴宴应酬（花费1万，可能结识新人脉）",
+                        EventChoice("赴宴应酬",
                             EventConsequence(cashChange = -1.0)),
                         EventChoice("婉拒，忙于校务",
-                            EventConsequence())
+                            EventConsequence(reputationChange = -1))
                     )
                 )
             }
@@ -263,10 +263,10 @@ class ConnectionManager @Inject constructor() {
                         title = "记者来访",
                         message = "${connection.name}想写一篇关于学校的深度报道，但可能会挖出一些不想公开的细节。",
                         choices = listOf(
-                            EventChoice("配合采访（声誉+800，但有风险）",
+                            EventChoice("配合采访",
                                 EventConsequence(reputationChange = 800)),
                             EventChoice("礼貌推脱",
-                                EventConsequence())
+                                EventConsequence(reputationChange = -1))
                         )
                     )
                 } else null
@@ -276,7 +276,7 @@ class ConnectionManager @Inject constructor() {
                     title = "家长代表反馈",
                     message = "${connection.name}私下告诉你：最近有几位家长在群里议论学校的伙食质量。",
                     choices = listOf(
-                        EventChoice("立即改善伙食（花费2万，声誉+300）",
+                        EventChoice("立即改善伙食",
                             EventConsequence(cashChange = -2.0, reputationChange = 300)),
                         EventChoice("暂时观望",
                             EventConsequence(reputationChange = -50))

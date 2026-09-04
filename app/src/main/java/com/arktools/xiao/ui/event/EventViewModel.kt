@@ -369,19 +369,16 @@ class EventViewModel @Inject constructor(
             is GameEvent.ChoiceEvent -> true  // 需要玩家决策
             is GameEvent.MilestoneEvent -> true  // 重要成就
             is GameEvent.PositiveEvent -> {
-                val isLowImpact = event.bonusCash <= 0.0 && event.bonusReputation <= 5L && event.bonusTeacherSkill <= 0
                 val isGraduationNews = event.title.contains("毕业生喜讯")
                 val isInspirationEvent = event.title.contains("灵感")
                 val isClubEvent = event.title.contains("社团")
                 val isEnrollmentNews = event.title.contains("新学年开学") || event.title.contains("大二分专业")
-                if (isGraduationNews || isInspirationEvent || isClubEvent) {
-                    false
-                } else if (isEnrollmentNews) {
-                    true
-                } else if (isLowImpact) {
-                    false
-                } else {
-                    event.bonusCash > 0.0 || event.bonusReputation > 0L || event.bonusTeacherSkill > 0
+                val isMonthlyBill = event.title.contains("月财务结算")
+                when {
+                    isGraduationNews || isInspirationEvent || isClubEvent -> false
+                    isEnrollmentNews || isMonthlyBill -> true
+                    else -> event.bonusCash > 0.0 || event.bonusReputation > 0L || event.bonusTeacherSkill > 0 ||
+                        event.title.contains("财务")
                 }
             }
             is GameEvent.NegativeEvent -> {

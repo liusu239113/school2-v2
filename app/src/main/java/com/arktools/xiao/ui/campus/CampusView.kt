@@ -667,47 +667,50 @@ fun CampusView(
         // 楼名标签已绘制在 Canvas 世界坐标系内（与地图绝对同步，不再漂移）；
         // 点击建筑本体仍可打开面板。
 
-        // 校园氛围条：把建造结果变成持续可见的经营数字
+        var hudExpanded by remember { mutableStateOf(false) }
         if (!inPlacementMode) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 12.dp, bottom = 16.dp, end = 96.dp)
+                    .padding(start = 10.dp, bottom = 88.dp)
                     .background(Color(0xCC0B2038))
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .clickable { hudExpanded = !hudExpanded }
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
             ) {
                 Text(
-                    "在校 ${state.studentCount} 人  床位 ${state.studentCount}/${state.dormBeds.coerceAtLeast(0)}  餐位 ${state.canteenSeats}",
+                    if (hudExpanded) {
+                        "容量  收起"
+                    } else {
+                        "床 ${state.studentCount}/${state.dormBeds.coerceAtLeast(0)}  餐 ${state.canteenSeats}  班槽 ${state.classSlots}  展开"
+                    },
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    "${state.schoolTierName}·${state.schoolOwnershipName}  上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万",
-                    color = Color(0xFFFFD54F),
-                    fontSize = 10.sp
-                )
-                if (state.loopHint.isNotBlank()) {
+                if (hudExpanded) {
                     Text(
-                        state.loopHint,
+                        "床位 ${state.studentCount}/${state.dormBeds.coerceAtLeast(0)}",
+                        color = Color.White,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        "餐位 ${state.canteenSeats} · 班槽 ${state.classSlots}",
+                        color = Color.White,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        "上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万",
+                        color = Color(0xFFFFD54F),
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        "${state.schoolTierName}·${state.schoolOwnershipName}",
                         color = Color(0xFFB8C7D6),
                         fontSize = 10.sp
                     )
-                }
-                Text(
-                    "班槽 ${state.classSlots} · 阅览 ${state.librarySeats} · 实验台 ${state.labBenches} · 机位 ${state.computerSeats}",
-                    color = Color(0xFFB8C7D6),
-                    fontSize = 10.sp
-                )
-                Text(
-                    "用地 ${state.unlockedCells}/${state.totalCells} · 建筑 ${state.facilities.size}/${state.maxFacilities} · 装扮 ${state.decorCount}",
-                    color = Color(0xFFB8C7D6),
-                    fontSize = 10.sp
-                )
-                if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
                     Text(
-                        "点右下角黄色按钮升级校园，开地并解锁建筑",
-                        color = Color(0xFFFFD54F),
+                        "用地 ${state.unlockedCells}/${state.totalCells} · 装扮 ${state.decorCount}",
+                        color = Color(0xFFB8C7D6),
                         fontSize = 10.sp
                     )
                 }
@@ -1304,54 +1307,41 @@ private fun BuildingPanelContent(
 
         when (building.kind) {
             CampusViewModel.CampusBuilding.Kind.ADMIN -> {
-                Text("校园等级 Lv.${state.campusLevel}", fontSize = 14.sp, color = Color(0xFF182635))
-                Text(
-                    "在校 ${state.studentCount} 人 · 在编教师 ${state.teacherCount} 人 · 声誉 ${state.reputation}",
-                    fontSize = 13.sp,
-                    color = Color(0xFF617386)
+                AdminStatRow("校园等级", "Lv.${state.campusLevel}")
+                AdminStatRow("在校 / 教师", "${state.studentCount} 人 / ${state.teacherCount} 人")
+                AdminStatRow("办学", "${state.schoolTierName} · ${state.schoolOwnershipName}")
+                AdminStatRow("上月收入", "${state.monthlyRevenue.toInt()}万")
+                AdminStatRow("上月支出", "${state.monthlyExpenses.toInt()}万")
+                AdminStatRow(
+                    "学费来源",
+                    if (state.monthlyGrantPerStudent > 0) {
+                        "月底入账，公办另有生均拨款 ${"%.2f".format(state.monthlyGrantPerStudent)}万/人"
+                    } else {
+                        "月底入账，民办无拨款，靠学费和外联"
+                    }
                 )
-                Text(
-                    "办学：${state.schoolTierName}·${state.schoolOwnershipName}。钱怎么来：学费月底入账" +
-                        (if (state.monthlyGrantPerStudent > 0) "，公办另有生均拨款每月 ${"%.2f".format(state.monthlyGrantPerStudent)}万/人" else "，民办无财政拨款全靠学费和外联") +
-                        "。上月收入 ${state.monthlyRevenue.toInt()}万 · 支出 ${state.monthlyExpenses.toInt()}万。",
-                    fontSize = 12.sp,
-                    color = Color(0xFF14648C)
+                AdminStatRow(
+                    "满意度",
+                    "整体 ${state.avgSatisfaction.toInt()} · 住宿 ${state.avgDormSatisfaction.toInt()} · 餐标 ${state.avgMealQuality.toInt()}"
                 )
+                AdminStatRow("用地", "${state.unlockedCells}/${state.totalCells} 格")
+                AdminStatRow("装扮", "${state.decorCount} 件（每 8 件约 +0.2 满意度）")
                 if (state.loopHint.isNotBlank()) {
                     Text(state.loopHint, fontSize = 12.sp, color = Color(0xFF14648C))
                 }
-                Text(
-                    "满意度 ${state.avgSatisfaction.toInt()} · 住宿 ${state.avgDormSatisfaction.toInt()} · 餐标 ${state.avgMealQuality.toInt()}",
-                    fontSize = 12.sp,
-                    color = Color(0xFF14648C)
-                )
-                Text(
-                    "装扮 ${state.decorCount} 件（每 8 件约 +0.2 满意度，上限 +3）",
-                    fontSize = 12.sp,
-                    color = Color(0xFF14648C)
-                )
-                Text(
-                    "已解锁用地 ${state.unlockedCells}/${state.totalCells} 格 · 升级校园向外开地",
-                    fontSize = 12.sp,
-                    color = Color(0xFF14648C)
-                )
                 val seasonHint = when (state.currentMonth) {
-                    8 -> "8月建校窗口：教室、宿舍、食堂都要落在地图上。没有宿舍，9月招不到人。"
-                    9 -> "9月迎新季：床位满了就招不进来。扩招 = 再盖一栋宿舍，不是点一次升级完事。"
-                    6, 7 -> "毕业与就业季：就业中心、竞赛和校友网络会决定这一年的口碑。"
-                    1, 2 -> "寒假窗口：适合维修、扩建设施，少处理突发事件。"
-                    else -> "日常经营：点建筑进入对应系统，月底会出校园周报。"
+                    8 -> "8月：教室、宿舍、食堂都要落在地图上。没有宿舍，9月招不到人。"
+                    9 -> "9月迎新：床位满了就招不进来。"
+                    6, 7 -> "毕业季：就业中心和竞赛会写进口碑。"
+                    1, 2 -> "寒假：适合维修、扩建。"
+                    else -> "日常：点建筑进对应系统。每月 1 号弹出学费账单。"
                 }
                 Text(seasonHint, fontSize = 12.sp, color = Color(0xFF617386))
                 if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
-                    Text(
-                        viewModel.campusUpgradeHint(),
-                        fontSize = 13.sp,
-                        color = Color(0xFF617386)
-                    )
+                    Text(viewModel.campusUpgradeHint(), fontSize = 13.sp, color = Color(0xFF617386))
                     PanelButton("升级校园") { onUpgradeCampus() }
                 } else {
-                    Text("校园已满级。后期靠连盖宿舍/分馆、开下一轮课题和铺满地图，而不是再升一级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
+                    Text("校园已满级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
                 PanelButton("教学配置（点加号开班）") { onOpenTeaching() }
@@ -1878,6 +1868,22 @@ private fun BuildRow(
                 locked -> Color(0xFF9AA8B5)
                 else -> Color(0xFF1E96C8)
             }
+        )
+    }
+}
+
+@Composable
+private fun AdminStatRow(label: String, value: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(label, fontSize = 12.sp, color = Color(0xFF617386))
+        Text(
+            value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF182635)
         )
     }
 }

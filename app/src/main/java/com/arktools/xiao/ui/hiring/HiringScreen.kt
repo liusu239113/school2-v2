@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -202,22 +204,20 @@ fun HiringScreen(
             }
         }
 
-        errorMessage?.let { msg ->
-            item {
-                Text(
-                    msg,
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xCC8C2F2F))
-                        .padding(10.dp)
-                        .clickable { viewModel.clearError() }
-                )
-            }
-        }
-
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    errorMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearError() },
+            title = { Text("聘用失败") },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearError() }) {
+                    Text("知道了")
+                }
+            }
+        )
     }
 }
 

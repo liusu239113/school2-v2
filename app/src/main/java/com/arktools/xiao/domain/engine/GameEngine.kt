@@ -2113,19 +2113,19 @@ class GameEngine @Inject constructor(
                 "请选择活动规模并签字批准，或驳回此申请。\n" +
                 "（未在15天内处理将自动过期）",
             choices = listOf(
-                EventChoice("简朴举办（费用×0.5，收益×0.5）", EventConsequence(
+                EventChoice("简朴举办", EventConsequence(
                     activityAction = ActivityAction.Approve(activity.id, "MINIMAL"),
                     requiresSignature = true
                 )),
-                EventChoice("标准举办（费用×1.0，收益×1.0）", EventConsequence(
+                EventChoice("标准举办", EventConsequence(
                     activityAction = ActivityAction.Approve(activity.id, "STANDARD"),
                     requiresSignature = true
                 )),
-                EventChoice("隆重举办（费用×1.8，收益×1.5）", EventConsequence(
+                EventChoice("隆重举办", EventConsequence(
                     activityAction = ActivityAction.Approve(activity.id, "GRAND"),
                     requiresSignature = true
                 )),
-                EventChoice("盛大举办（费用×3.0，收益×2.2）", EventConsequence(
+                EventChoice("盛大举办", EventConsequence(
                     activityAction = ActivityAction.Approve(activity.id, "SPECTACULAR"),
                     requiresSignature = true
                 )),
@@ -3685,19 +3685,19 @@ class GameEngine @Inject constructor(
                             "请选择活动规模并签字批准，或驳回此申请。\n" +
                             "（未在15天内处理将自动过期）",
                         choices = listOf(
-                            EventChoice("简朴举办（费用×0.5，收益×0.5）", EventConsequence(
+                            EventChoice("简朴举办", EventConsequence(
                                 activityAction = ActivityAction.Approve(activity.id, "MINIMAL"),
                                 requiresSignature = true
                             )),
-                            EventChoice("标准举办（费用×1.0，收益×1.0）", EventConsequence(
+                            EventChoice("标准举办", EventConsequence(
                                 activityAction = ActivityAction.Approve(activity.id, "STANDARD"),
                                 requiresSignature = true
                             )),
-                            EventChoice("隆重举办（费用×1.8，收益×1.5）", EventConsequence(
+                            EventChoice("隆重举办", EventConsequence(
                                 activityAction = ActivityAction.Approve(activity.id, "GRAND"),
                                 requiresSignature = true
                             )),
-                            EventChoice("盛大举办（费用×3.0，收益×2.2）", EventConsequence(
+                            EventChoice("盛大举办", EventConsequence(
                                 activityAction = ActivityAction.Approve(activity.id, "SPECTACULAR"),
                                 requiresSignature = true
                             )),
@@ -3823,7 +3823,7 @@ class GameEngine @Inject constructor(
                                 clubAction = ClubAction.Approve(application.id),
                                 requiresSignature = true
                             )),
-                            EventChoice("驳回申请（声誉略降）", EventConsequence(
+                            EventChoice("驳回申请", EventConsequence(
                                 clubAction = ClubAction.Reject(application.id)
                             ))
                         )
@@ -3992,12 +3992,36 @@ class GameEngine @Inject constructor(
                 committedLifeResult?.let { lifeResult ->
                     st.expLifeExpenses += lifeResult.totalExpenses.toDouble()
                     lifeResult.newIssues.forEach { issue ->
-                        emitEvent(GameEvent.NegativeEvent(
-                            title = "生活问题: ${issue.title}",
-                            message = issue.description,
-                            penaltyCash = 0.0,
-                            penaltyReputation = issue.satisfactionPenalty.toLong()
-                        ), school)
+                        emitEvent(
+                            GameEvent.ChoiceEvent(
+                                title = issue.title,
+                                message = issue.description + "\n你打算怎么处理？",
+                                choices = listOf(
+                                    EventChoice(
+                                        "立刻派人处理",
+                                        EventConsequence(
+                                            cashChange = -kotlin.math.max(1.0, issue.satisfactionPenalty * 0.4),
+                                            reputationChange = 4
+                                        )
+                                    ),
+                                    EventChoice(
+                                        "先压一压，观察几天",
+                                        EventConsequence(
+                                            cashChange = 0.0,
+                                            reputationChange = -issue.satisfactionPenalty.toLong()
+                                        )
+                                    ),
+                                    EventChoice(
+                                        "公开说明并道歉",
+                                        EventConsequence(
+                                            cashChange = -0.5,
+                                            reputationChange = 1
+                                        )
+                                    )
+                                )
+                            ),
+                            school
+                        )
                     }
                     // 生活质量真实反馈：宿舍/食堂/健康/心理满意度影响学业成长与流失意愿
                     runCatching {
@@ -4799,7 +4823,7 @@ class GameEngine @Inject constructor(
                             message = story.message,
                             choices = story.choices.map { choice ->
                                 EventChoice(
-                                    text = "${choice.label}（${choice.description}）",
+                                    text = choice.label,
                                     consequence = EventConsequence(
                                         cashChange = choice.cashChange,
                                         reputationChange = choice.reputationChange
@@ -4941,15 +4965,15 @@ class GameEngine @Inject constructor(
                         message = "艺术学院师生筹备了本季汇演，市政厅发来公演邀请。办一场出色的汇演能显著提升学校口碑。",
                         choices = listOf(
                             EventChoice(
-                                "盛大公演（-12万，声誉大涨）",
+                                "盛大公演",
                                 EventConsequence(cashChange = -12.0, reputationChange = 25L)
                             ),
                             EventChoice(
-                                "校内简办（-4万，小幅口碑）",
+                                "校内简办",
                                 EventConsequence(cashChange = -4.0, reputationChange = 8L)
                             ),
                             EventChoice(
-                                "本季取消（外界略有微词）",
+                                "本季取消",
                                 EventConsequence(cashChange = 0.0, reputationChange = -3L)
                             )
                         )
@@ -5231,9 +5255,9 @@ class GameEngine @Inject constructor(
             for (mEvent in maintenanceEvents) {
                 deferEvent(GameEvent.ChoiceEvent(
                     title = "设施维修：${mEvent.facilityType.displayName}",
-                    message = "${mEvent.description}\n\n维修费用：${String.format("%.1f", mEvent.repairCost)}万元\n不修则设施状态持续恶化，可能停用。",
+                    message = "${mEvent.description}\n现在修还是先撑着，结果会在你拍板后揭晓。",
                     choices = listOf(
-                        EventChoice("立即维修（${String.format("%.1f", mEvent.repairCost)}万）", EventConsequence(cashChange = -mEvent.repairCost)),
+                        EventChoice("立即维修", EventConsequence(cashChange = -mEvent.repairCost)),
                         EventChoice("暂不处理", EventConsequence(reputationChange = -2))
                     )
                 ))
@@ -5311,7 +5335,7 @@ class GameEngine @Inject constructor(
                             "若要留人，需将薪资提高到${retainCost}万/月。",
                         choices = listOf(
                             EventChoice(
-                                "加薪留人（薪资调至${retainCost}万/月）",
+                                "加薪留人",
                                 EventConsequence(
                                     cashChange = 0.0,
                                     teacherAction = com.arktools.xiao.domain.model.TeacherAction.RenewContract(
@@ -5540,6 +5564,29 @@ class GameEngine @Inject constructor(
                     android.util.Log.e("GameEngine", "monthlyRevenueBonus emit failed", e)
                 }
             }
+
+            val students = st.cachedActiveStudentsForMonth.size
+            val tuitionLine = if (st.monthlyRevenue > 0) {
+                "学费入账 ${"%.1f".format(st.monthlyRevenue)}万（${students}人）"
+            } else {
+                "本月没有学费入账（在校 ${students} 人）。没开班或没有学生就不会收费。"
+            }
+            val extraIncome = st.totalMonthlyIncome - st.monthlyRevenue
+            val extraLine = if (extraIncome > 0.05) {
+                "其他收入 ${"%.1f".format(extraIncome)}万（拨款/委托/课题）"
+            } else {
+                "其他收入 0"
+            }
+            val latestCash = schoolRepository.getSchool()?.cash ?: school.cash
+            emitEvent(
+                GameEvent.PositiveEvent(
+                    title = "${school.currentMonth}月财务结算",
+                    message = "$tuitionLine\n$extraLine\n本月支出 ${"%.1f".format(st.monthlyExpenses)}万\n净结余 ${"%.1f".format(netProfit)}万\n当前经费 ${"%.1f".format(latestCash)}万",
+                    bonusCash = 0.0,
+                    bonusReputation = 0
+                ),
+                school
+            )
 
     }
 
@@ -6141,7 +6188,7 @@ class GameEngine @Inject constructor(
                             )
                         ),
                         EventChoice(
-                            text = "加薪挽留（月薪+30%）",
+                            text = "加薪挽留",
                             consequence = EventConsequence(
                                 cashChange = -retainRaiseCost,
                                 teacherAction = com.arktools.xiao.domain.model.TeacherAction.RetainWithRaise(teacher.id, 0.3)
@@ -8285,14 +8332,14 @@ class GameEngine @Inject constructor(
                             "预警学生学业分落后，若放任不管会拖累毕业评估与就业质量。选择处置方式：",
                         choices = listOf(
                             EventChoice(
-                                "专项辅导（${"%.1f".format(interventionCost)}万）",
+                                "专项辅导",
                                 EventConsequence(
                                     cashChange = -interventionCost,
                                     studentAcademicBoost = 8f
                                 )
                             ),
                             EventChoice(
-                                "辅导员谈话（免费）",
+                                "辅导员谈话",
                                 EventConsequence(
                                     studentAcademicBoost = 4f
                                 )

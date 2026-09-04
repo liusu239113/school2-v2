@@ -521,8 +521,8 @@ class FactionManager @Inject constructor() {
                 affectedFactions = listOf(FactionType.TEACHING),
                 reputationImpact = -500L,
                 choices = listOf(
-                    FactionEventChoice("紧急开会安抚（教学派+25）", mapOf(FactionType.TEACHING to 25)),
-                    FactionEventChoice("置之不理（教学派-10，可能有人辞职）", mapOf(FactionType.TEACHING to -10))
+                    FactionEventChoice("紧急开会安抚", mapOf(FactionType.TEACHING to 25)),
+                    FactionEventChoice("置之不理", mapOf(FactionType.TEACHING to -10))
                 )
             )
             FactionType.ADMINISTRATIVE -> FactionEvent(
@@ -532,7 +532,7 @@ class FactionManager @Inject constructor() {
                 affectedFactions = listOf(FactionType.ADMINISTRATIVE),
                 reputationImpact = -300L,
                 choices = listOf(
-                    FactionEventChoice("提升行政待遇（行政派+20，花费2万）", mapOf(FactionType.ADMINISTRATIVE to 20)),
+                    FactionEventChoice("提升行政待遇", mapOf(FactionType.ADMINISTRATIVE to 20)),
                     FactionEventChoice("强硬要求恢复工作", mapOf(FactionType.ADMINISTRATIVE to -5))
                 )
             )
@@ -543,7 +543,7 @@ class FactionManager @Inject constructor() {
                 affectedFactions = listOf(FactionType.REFORM),
                 reputationImpact = -400L,
                 choices = listOf(
-                    FactionEventChoice("承诺给予创新空间（改革派+25）", mapOf(FactionType.REFORM to 25)),
+                    FactionEventChoice("承诺给予创新空间", mapOf(FactionType.REFORM to 25)),
                     FactionEventChoice("随他们去", mapOf(FactionType.REFORM to -15))
                 )
             )
@@ -554,8 +554,8 @@ class FactionManager @Inject constructor() {
                 affectedFactions = listOf(FactionType.CONSERVATIVE),
                 reputationImpact = -400L,
                 choices = listOf(
-                    FactionEventChoice("尊重元老意见（保守派+25）", mapOf(FactionType.CONSERVATIVE to 25)),
-                    FactionEventChoice("坚持改革方向（保守派-10，改革派+10）",
+                    FactionEventChoice("尊重元老意见", mapOf(FactionType.CONSERVATIVE to 25)),
+                    FactionEventChoice("坚持改革方向",
                         mapOf(FactionType.CONSERVATIVE to -10, FactionType.REFORM to 10))
                 )
             )
@@ -580,11 +580,11 @@ class FactionManager @Inject constructor() {
                     affectedFactions = listOf(FactionType.TEACHING),
                     reputationImpact = 0L,
                     choices = listOf(
-                        FactionEventChoice("同意让渡部分权力（教学派+10，个人声望-10）",
+                        FactionEventChoice("同意让渡部分权力",
                             mapOf(FactionType.TEACHING to 10)),
-                        FactionEventChoice("坚持校长决策权（教学派-20）",
+                        FactionEventChoice("坚持校长决策权",
                             mapOf(FactionType.TEACHING to -20)),
-                        FactionEventChoice("设立咨询委员会折中（教学派+5，保持权力）",
+                        FactionEventChoice("设立咨询委员会折中",
                             mapOf(FactionType.TEACHING to 5))
                     )
                 )
@@ -595,11 +595,11 @@ class FactionManager @Inject constructor() {
                     affectedFactions = listOf(FactionType.ADMINISTRATIVE),
                     reputationImpact = 0L,
                     choices = listOf(
-                        FactionEventChoice("批准新流程（行政派+10，效率可能下降）",
+                        FactionEventChoice("批准新流程",
                             mapOf(FactionType.ADMINISTRATIVE to 10, FactionType.REFORM to -10)),
-                        FactionEventChoice("驳回提议（行政派-15）",
+                        FactionEventChoice("驳回提议",
                             mapOf(FactionType.ADMINISTRATIVE to -15)),
-                        FactionEventChoice("部分采纳（行政派+5）",
+                        FactionEventChoice("部分采纳",
                             mapOf(FactionType.ADMINISTRATIVE to 5))
                     )
                 )
@@ -610,11 +610,11 @@ class FactionManager @Inject constructor() {
                     affectedFactions = listOf(FactionType.REFORM, FactionType.CONSERVATIVE),
                     reputationImpact = 0L,
                     choices = listOf(
-                        FactionEventChoice("全力支持（改革派+15，保守派-25，高风险）",
+                        FactionEventChoice("全力支持",
                             mapOf(FactionType.REFORM to 15, FactionType.CONSERVATIVE to -25)),
-                        FactionEventChoice("暂缓执行（改革派-10）",
+                        FactionEventChoice("暂缓执行",
                             mapOf(FactionType.REFORM to -10)),
-                        FactionEventChoice("分步试点（改革派+5，保守派-5）",
+                        FactionEventChoice("分步试点",
                             mapOf(FactionType.REFORM to 5, FactionType.CONSERVATIVE to -5))
                     )
                 )
@@ -625,11 +625,11 @@ class FactionManager @Inject constructor() {
                     affectedFactions = listOf(FactionType.CONSERVATIVE, FactionType.REFORM),
                     reputationImpact = 0L,
                     choices = listOf(
-                        FactionEventChoice("妥协叫停改革（保守派+15，改革派-20）",
+                        FactionEventChoice("妥协叫停改革",
                             mapOf(FactionType.CONSERVATIVE to 15, FactionType.REFORM to -20)),
-                        FactionEventChoice("坚持改革（保守派-20，改革派+10）",
+                        FactionEventChoice("坚持改革",
                             mapOf(FactionType.CONSERVATIVE to -20, FactionType.REFORM to 10)),
-                        FactionEventChoice("暂缓新项目但保留已有改革（保守派+5，改革派-5）",
+                        FactionEventChoice("暂缓新项目但保留已有改革",
                             mapOf(FactionType.CONSERVATIVE to 5, FactionType.REFORM to -5))
                     )
                 )

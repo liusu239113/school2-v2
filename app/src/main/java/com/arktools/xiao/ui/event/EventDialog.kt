@@ -85,6 +85,17 @@ fun EventDialogContainer(
     }
 }
 
+private fun stripChoiceNumbers(text: String): String {
+    val stripped = text
+        .replace(Regex("[（(][^）)]*[+\\-＋－]\\s*\\d[^）)]*[)）]"), "")
+        .replace(Regex("（花费[^）]*）"), "")
+        .replace(Regex("\\(花费[^)]*\\)"), "")
+        .replace(Regex("声誉[＋+\\-]\\d+"), "")
+        .replace(Regex("经费[＋+\\-]\\d+(\\.\\d+)?万?"), "")
+        .trim()
+    return stripped.ifBlank { text }
+}
+
 @Composable
 private fun PositiveEventDialog(
     event: GameEvent.PositiveEvent,
@@ -134,17 +145,17 @@ private fun PositiveEventDialog(
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                event.bonusCash?.let {
+                if (event.bonusCash > 0.0) {
                     Text(
-                        text = "资金 +${it}万",
+                        text = "资金 +${event.bonusCash}万",
                         color = AccentGreen,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                event.bonusReputation?.let {
+                if (event.bonusReputation > 0L) {
                     Text(
-                        text = "声誉 +$it",
+                        text = "声誉 +${event.bonusReputation}",
                         color = AccentGreen,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
@@ -259,17 +270,17 @@ private fun NegativeEventDialog(
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                event.penaltyCash?.let {
+                if (event.penaltyCash > 0.0) {
                     Text(
-                        text = "资金 -${it}万",
+                        text = "资金 -${event.penaltyCash}万",
                         color = AccentRed,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                event.penaltyReputation?.let {
+                if (event.penaltyReputation > 0L) {
                     Text(
-                        text = "声誉 -$it",
+                        text = "声誉 -${event.penaltyReputation}",
                         color = AccentRed,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
@@ -338,10 +349,9 @@ private fun ChoiceEventDialog(
     event: GameEvent.ChoiceEvent,
     onChoiceSelected: (Int) -> Unit
 ) {
-    // 签字动画状态：-1=未签字（显示选项），>=0=正在签字（对应choiceIndex）
-    // key=event 确保事件切换时状态重置，避免第二个签字弹窗卡住
     var signingChoiceIndex by remember(event) { mutableIntStateOf(-1) }
     var signatureComplete by remember(event) { mutableStateOf(false) }
+    var revealedIndex by remember(event) { mutableIntStateOf(-1) }
 
     Dialog(
         onDismissRequest = { },
@@ -387,30 +397,62 @@ private fun ChoiceEventDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (signingChoiceIndex < 0) {
-                    // 正常选项阶段 - 拒绝/不参加选项置顶显示
-                    val declineKeywords = listOf("拒绝", "不参加", "不批准", "不同意", "放弃", "取消", "婉拒", "谢绝")
-                    val sortedChoices = event.choices.mapIndexed { i, c -> i to c }
-                        .sortedByDescending { (_, c) ->
-                            if (declineKeywords.any { kw -> c.text.contains(kw) }) 1 else 0
+                if (revealedIndex >= 0) {
+                    val picked = event.choices.getOrNull(revealedIndex)
+                    val c = picked?.consequence
+                    Text(
+                        "处理结果",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF14648C)
+                    )
+                    Text(
+                        stripChoiceNumbers(picked?.text.orEmpty()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    if (c != null) {
+                        val cash = c.cashChange
+                        val rep = c.reputationChange
+                        if (cash != 0.0) {
+                            Text(
+                                if (cash > 0) "经费 +${"%.1f".format(cash)}万" else "经费 ${"%.1f".format(cash)}万",
+                                color = if (cash > 0) AccentGreen else AccentRed,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                    sortedChoices.forEach { (originalIndex, choice) ->
-                        val isDecline = declineKeywords.any { kw -> choice.text.contains(kw) }
+                        if (rep != 0L) {
+                            Text(
+                                if (rep > 0) "声誉 +$rep" else "声誉 $rep",
+                                color = if (rep > 0) AccentGreen else AccentRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (c.teacherLoyaltyChange != 0) {
+                            Text("教师忠诚 ${if (c.teacherLoyaltyChange > 0) "+" else ""}${c.teacherLoyaltyChange}")
+                        }
+                        if (cash == 0.0 && rep == 0L && c.teacherLoyaltyChange == 0) {
+                            Text("这件事没有立刻改账本，但会记进口碑和后续事件。")
+                        }
+                    }
+                    PixelButton(
+                        text = "知道了",
+                        onClick = { onChoiceSelected(revealedIndex) },
+                        style = PixelButtonStyle.CONFIRM,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 44.dp
+                    )
+                } else if (signingChoiceIndex < 0) {
+                    event.choices.forEachIndexed { originalIndex, choice ->
                         PixelButton(
-                            text = choice.text,
+                            text = stripChoiceNumbers(choice.text),
                             onClick = {
                                 if (choice.consequence.requiresSignature) {
-                                    // 进入签字动画
                                     signingChoiceIndex = originalIndex
                                 } else {
-                                    onChoiceSelected(originalIndex)
+                                    revealedIndex = originalIndex
                                 }
                             },
-                            style = when {
-                                isDecline -> PixelButtonStyle.CANCEL
-                                originalIndex == 0 -> PixelButtonStyle.PRIMARY
-                                else -> PixelButtonStyle.SECONDARY
-                            },
+                            style = PixelButtonStyle.SECONDARY,
                             modifier = Modifier.fillMaxWidth(),
                             height = 44.dp
                         )
@@ -431,8 +473,10 @@ private fun ChoiceEventDialog(
                     // 签字完成后自动延迟关闭，无需额外点击确认
                     if (signatureComplete) {
                         LaunchedEffect(Unit) {
-                            delay(1200L)
-                            onChoiceSelected(signingChoiceIndex)
+                            delay(800L)
+                            revealedIndex = signingChoiceIndex
+                            signingChoiceIndex = -1
+                            signatureComplete = false
                         }
                     }
                 }

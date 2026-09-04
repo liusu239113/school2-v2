@@ -742,7 +742,13 @@ fun MainScreen(
                 .fillMaxWidth()
                 .padding(paddingValues)
         ) {
-            school?.let { SchoolStatusBar(school = it, onCampusClick = { selectRootTab(0) }) }
+            school?.let {
+                SchoolStatusBar(
+                    school = it,
+                    studentCount = studentCount,
+                    onCampusClick = { selectRootTab(0) }
+                )
+            }
 
             AnimatedContent(
                 targetState = selectedTab,
@@ -951,28 +957,32 @@ fun MainScreen(
 }
 
 @Composable
-private fun SchoolStatusBar(school: com.arktools.xiao.domain.model.School, onCampusClick: () -> Unit = {}) {
+private fun SchoolStatusBar(
+    school: com.arktools.xiao.domain.model.School,
+    studentCount: Int,
+    onCampusClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(com.arktools.xiao.ui.theme.PrimaryDark)
             .clickable(onClick = onCampusClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            "经费 ${FormatUtils.formatCash(school.cash)}",
-            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold
-        )
-        Text(
-            "声誉 ${school.reputation}",
-            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold
-        )
-        Text(
-            "校园 Lv.${school.campusLevel}",
-            color = Color(0xFFFFD54F), fontSize = 14.sp, fontWeight = FontWeight.Bold
-        )
+        StatusChip("经费", FormatUtils.formatCash(school.cash), Color.White)
+        StatusChip("在校", "${studentCount}人", Color(0xFFB8E986))
+        StatusChip("声誉", "${school.reputation}", Color.White)
+        StatusChip("校园", "Lv.${school.campusLevel}", Color(0xFFFFD54F))
+    }
+}
+
+@Composable
+private fun StatusChip(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = Color(0xFF8AA0B4), fontSize = 10.sp)
+        Text(value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
