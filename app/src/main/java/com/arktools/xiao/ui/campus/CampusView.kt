@@ -38,8 +38,10 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,15 +89,14 @@ fun CampusView(
     val context = LocalContext.current
     val density = LocalDensity.current.density
 
-    // 双指缩放（0.55x ~ 2.4x），cell 随缩放变化，全地图统一
-    var zoom by remember { mutableStateOf(1f) }
+    // 双指缩放（0.35x ~ 4x），cell 随缩放变化，全地图统一
+    var zoom by remember { mutableFloatStateOf(1f) }
     val baseCell = 48.dp.value * density
 
     val cell = baseCell * zoom
     val worldW = BT.GRID_W * cell
     val worldH = BT.GRID_H * cell
     var camera by remember { mutableStateOf(Offset(0f, 0f)) }
-
     var pendingSpec by remember { mutableStateOf<BT.Spec?>(null) }
     var pendingTile by remember { mutableStateOf<BT.TileKind?>(null) }
     var moveTarget by remember { mutableStateOf<BT.PlacedBuilding?>(null) }
@@ -103,6 +104,12 @@ fun CampusView(
     var ghost by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var ghostDragRemain by remember { mutableStateOf(Offset.Zero) }
     val inPlacementMode = pendingSpec != null || pendingTile != null || moveTarget != null
+    val zoomNow = rememberUpdatedState(zoom)
+    val cameraNow = rememberUpdatedState(camera)
+    val cellNow = rememberUpdatedState(cell)
+    val placementNow = rememberUpdatedState(inPlacementMode)
+    val pendingSpecNow = rememberUpdatedState(pendingSpec)
+    val campusLevelNow = rememberUpdatedState(state.campusLevel)
 
     // 幽灵位置合法性：与 ViewModel.canPlaceAt 同规则（边界/解锁区/地形/重叠/搬移豁免）
     fun canPlaceGhostAt(cx: Int, cy: Int, spec: BT.Spec): Boolean {
@@ -201,27 +208,35 @@ fun CampusView(
         val screenH = constraints.maxHeight
 
         fun clampCamera() {
-            val minX = (screenW - worldW).coerceAtMost(0f)
-            val minY = (screenH - worldH).coerceAtMost(0f)
+            val liveCell = baseCell * zoomNow.value
+            val liveWorldW = BT.GRID_W * liveCell
+            val liveWorldH = BT.GRID_H * liveCell
+            val minX = (screenW - liveWorldW).coerceAtMost(0f)
+            val minY = (screenH - liveWorldH).coerceAtMost(0f)
+            val cam = cameraNow.value
             camera = Offset(
-                camera.x.coerceIn(minX, 0f),
-                camera.y.coerceIn(minY, 0f)
+                cam.x.coerceIn(minX, 0f),
+                cam.y.coerceIn(minY, 0f)
             )
         }
 
         // 以 focus 点为锚缩放（focus 指向的世界点保持不动）
         fun zoomBy(factor: Float, focus: Offset) {
-            val oldCell = baseCell * zoom
-            zoom = (zoom * factor).coerceIn(0.35f, 4.0f)
-            val newCell = baseCell * zoom
-            if (newCell != oldCell) {
+            val oldZoom = zoomNow.value
+            val oldCell = baseCell * oldZoom
+            val newZoom = (oldZoom * factor).coerceIn(0.35f, 4.0f)
+            val newCell = baseCell * newZoom
+            zoom = newZoom
+            if (newCell != oldCell && oldCell > 0f) {
+                val cam = cameraNow.value
                 camera = Offset(
-                    focus.x - (focus.x - camera.x) * (newCell / oldCell),
-                    focus.y - (focus.y - camera.y) * (newCell / oldCell)
+                    focus.x - (focus.x - cam.x) * (newCell / oldCell),
+                    focus.y - (focus.y - cam.y) * (newCell / oldCell)
                 )
                 clampCamera()
             }
         }
+        val zoomByNow = rememberUpdatedState(::zoomBy)
 
         // 初始镜头：对准解锁区中心（大地图不要从左上角荒地开始）
         var cameraReady by remember { mutableStateOf(false) }
@@ -326,7 +341,7 @@ fun CampusView(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(inPlacementMode, state.campusLevel, pendingSpec) {
+                .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var totalDrag = Offset.Zero
@@ -352,7 +367,7 @@ fun CampusView(
                                 if (oldDist > 12f && dist > 12f) {
                                     val raw = dist / oldDist
                                     val boosted = 1f + (raw - 1f) * 1.8f
-                                    zoomBy(boosted, centroid)
+                                    zoomByNow.value(boosted, centroid)
                                     dragged = true
                                 }
                             } else {
@@ -365,7 +380,8 @@ fun CampusView(
                                     totalDrag += delta
                                     if (totalDrag.getDistance() > 12f) {
                                         dragged = true
-                                        camera = Offset(camera.x + delta.x, camera.y + delta.y)
+                                        val cam = cameraNow.value
+                                        camera = Offset(cam.x + delta.x, cam.y + delta.y)
                                         clampCamera()
                                     }
                                 }
@@ -375,12 +391,20 @@ fun CampusView(
                             event.changes.forEach { if (it.positionChanged()) it.consume() }
                         }
                         if (!dragged) {
-                            val world = Offset(down.position.x - camera.x, down.position.y - camera.y)
-                            val cx = (world.x / cell).toInt().coerceIn(0, BT.GRID_W - 1)
-                            val cy = (world.y / cell).toInt().coerceIn(0, BT.GRID_H - 1)
-                            if (inPlacementMode) {
-                                val rect = BT.unlockedRect(state.campusLevel)
-                                val spec = pendingSpec
+                            val liveCell = cellNow.value
+                            val liveCam = cameraNow.value
+                            val world = Offset(
+                                down.position.x - liveCam.x,
+                                down.position.y - liveCam.y
+                            )
+                            if (liveCell <= 0f) return@awaitEachGesture
+                            val cx = kotlin.math.floor(world.x / liveCell).toInt()
+                                .coerceIn(0, BT.GRID_W - 1)
+                            val cy = kotlin.math.floor(world.y / liveCell).toInt()
+                                .coerceIn(0, BT.GRID_H - 1)
+                            if (placementNow.value) {
+                                val rect = BT.unlockedRect(campusLevelNow.value)
+                                val spec = pendingSpecNow.value
                                 val maxX = (rect.x1 - (spec?.w ?: 1)).coerceAtLeast(rect.x0)
                                 val maxY = (rect.y1 - (spec?.h ?: 1)).coerceAtLeast(rect.y0)
                                 ghost = cx.coerceIn(rect.x0, maxX) to cy.coerceIn(rect.y0, maxY)
@@ -730,7 +754,7 @@ fun CampusView(
                         .background(Color(0xCC0B2038))
                         .clickable {
                             val focus = Offset(screenW / 2f, screenH / 2f)
-                            zoomBy(0.7f, focus)
+                            zoomByNow.value(0.7f, focus)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("－", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
@@ -739,7 +763,7 @@ fun CampusView(
                         .background(Color(0xCC0B2038))
                         .clickable {
                             val focus = Offset(screenW / 2f, screenH / 2f)
-                            zoomBy(1.4f, focus)
+                            zoomByNow.value(1.4f, focus)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("＋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
@@ -1177,8 +1201,8 @@ private data class Walker(
     val waitTicks: Int = 0
 )
 
-private const val WALKER_TICK_MS = 40L
-private const val WALKER_STEP = 0.07f
+private const val WALKER_TICK_MS = 70L
+private const val WALKER_STEP = 0.045f
 private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
 private const val WALKER_SUB = 4        // 每张原帧拆 4 个过渡，四帧素材走出 16 拍
 private const val WALKER_IDLE_CYCLE = 1 * WALKER_SUB
@@ -1229,8 +1253,8 @@ private fun advanceWalkers(
     val wx = w.fx * cell
     val wy = w.fy * cell
     val onScreen = wx >= viewL && wx <= viewR && wy >= viewT && wy <= viewB
-    if (!onScreen && (w.phase and 3) != 0) {
-        return@map w.copy(phase = w.phase + 1, moving = false)
+    if (!onScreen) {
+        return@map w
     }
     if (w.waitTicks > 0) return@map w.copy(waitTicks = w.waitTicks - 1, moving = false)
     val tcx = w.tx + 0.5f
@@ -1344,7 +1368,7 @@ private fun BuildingPanelContent(
                     Text("校园已满级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
-                PanelButton("教学配置（点加号开班）") { onOpenTeaching() }
+                PanelButton("教学强度与作息") { onOpenTeaching() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college
@@ -1357,8 +1381,44 @@ private fun BuildingPanelContent(
                         fontSize = 13.sp,
                         color = Color(0xFF617386)
                     )
+                    when (college) {
+                        CollegeType.SCIENCE -> Text(
+                            "理学院专属：实验室课题加速、论文抽检、理科竞赛。没有理学院，科研链会慢一截。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                        CollegeType.LIBERAL_ARTS -> Text(
+                            "人文学院专属：稳住基础招生和校园氛围，月费低，适合开局。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                        CollegeType.ENGINEERING -> Text(
+                            "工学院专属：扩大就业出口和企业委托，建设费最高。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                        CollegeType.BUSINESS -> Text(
+                            "商学院专属：产业合作和社会声誉，对食堂/宿舍满意度帮助有限。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                        CollegeType.ARTS -> Text(
+                            "艺术学院专属：汇演、氛围和满意度。点这里会触发公演邀请。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                        CollegeType.MEDICINE -> Text(
+                            "医学院专属：就业质量最高，可解锁附属医院。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF14648C)
+                        )
+                    }
                     if (placed?.isConstructing != true) {
-                        PanelButton("教学与招生管理") { onOpenTeaching() }
+                        if (college == CollegeType.SCIENCE) {
+                            PanelButton("进入实验室课题") { onOpenResearch() }
+                        } else {
+                            PanelButton("查看培养质量") { onOpenTeaching() }
+                        }
                     } else if (placed.constructionDaysLeft > 0) {
                         val activity = LocalContext.current as? android.app.Activity
                         PanelButtonSmall("看广告 立即竣工") {
@@ -1434,13 +1494,22 @@ private fun BuildingPanelContent(
                             PanelButton("学生生活（食堂/作息）") { onOpenStudentLife() }
                         }
                         FacilityType.CANTEEN -> {
+                            val shortage = (state.studentCount - state.canteenSeats).coerceAtLeast(0)
                             Text(
                                 "餐位 ${state.canteenSeats} · 在校 ${state.studentCount} 人 · 餐标 ${state.avgMealQuality.toInt()}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("餐位不够会扣餐标和满意度。可再建造一栋食堂扩容。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton("学生生活") { onOpenStudentLife() }
+                            if (shortage > 0) {
+                                Text(
+                                    "有 $shortage 人吃不上热饭，月底会弹食堂投诉，满意度和声誉都会掉。",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFB0413E)
+                                )
+                            } else {
+                                Text("餐位够用。学生每天在这里吃饭，窗口太少会排队投诉。", fontSize = 12.sp, color = Color(0xFF617386))
+                            }
+                            PanelButton("食堂窗口与菜品") { onOpenStudentLife() }
                         }
                         FacilityType.SPORTS_FIELD -> {
                             Text(
@@ -1484,20 +1553,21 @@ private fun BuildingPanelContent(
                             val myClasses = viewModel.classesInBuilding(building.id)
                             val roomLevel = facility.level
                             val roomCapacity = com.arktools.xiao.domain.model.FacilityCapacity.classSlots(roomLevel)
+                            val seats = roomCapacity * 30
                             Text(
-                                "本楼 Lv.$roomLevel · 容纳 $roomCapacity 个教学班 · 已绑定 ${myClasses.size} 班",
+                                "本楼 Lv.$roomLevel · 学位 $seats 人 · 已上课 ${myClasses.sumOf { it.studentCount }} 人",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
                             Text(
-                                "容纳规则：教室 Lv1=3班 Lv2=4班 Lv3=6班 Lv4=7班 Lv5+=9班。可重复建造扩班。",
+                                "教室直接决定招生人数。Lv1=90人，Lv2=120人，Lv3=180人。两间教室就按两间加总，不用再去开班。",
                                 fontSize = 11.sp,
                                 color = Color(0xFF617386)
                             )
                             if (myClasses.isEmpty()) {
-                                Text("本楼还没挂上教学班。点下面进教学配置，用加号开班，9月才会按学位招生。", fontSize = 11.sp, color = Color(0xFF617386))
+                                Text("这栋楼还没排上课。9月招生后，学生会按教室学位自动分进去。", fontSize = 11.sp, color = Color(0xFF617386))
                             }
-                            PanelButton("教学配置（点加号开班）") { onOpenTeaching() }
+                            PanelButton("教学强度与作息") { onOpenTeaching() }
                             myClasses.forEach { row ->
                                 Column(
                                     modifier = Modifier
@@ -1583,7 +1653,7 @@ private fun BuildingPanelContent(
                                     }
                                 }
                             }
-                            PanelButton("教学与招生管理") { onOpenTeaching() }
+                            PanelButton("教学强度与作息") { onOpenTeaching() }
                         }
                         FacilityType.MULTIMEDIA_ROOM, FacilityType.LABORATORY, FacilityType.COMPUTER_LAB -> {
                             Text(
@@ -1591,8 +1661,8 @@ private fun BuildingPanelContent(
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            Text("可重复建造。第二栋起边际收益递减，但容量仍会涨。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton("教学配置") { onOpenTeaching() }
+                            Text("实验室/机房专属：加快课题和上课质量。第二栋起边际收益递减，但容量仍会涨。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("进入实验室课题") { onOpenResearch() }
                         }
                         FacilityType.ART_STUDIO -> {
                             Text(
@@ -1600,7 +1670,7 @@ private fun BuildingPanelContent(
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
-                            PanelButton("教学配置") { onOpenTeaching() }
+                            Text("画室专属：提高艺术方向班的创造力和汇演质量。", fontSize = 12.sp, color = Color(0xFF617386))
                         }
                         FacilityType.GARDEN, FacilityType.AUDITORIUM, FacilityType.GATE -> {
                             Text(

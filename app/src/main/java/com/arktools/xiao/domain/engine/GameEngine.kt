@@ -3991,6 +3991,35 @@ class GameEngine @Inject constructor(
                 }
                 committedLifeResult?.let { lifeResult ->
                     st.expLifeExpenses += lifeResult.totalExpenses.toDouble()
+                    val canteenSeats = FacilityCapacity.totalCanteenSeats(school.facilities)
+                    if (st.studentCount > 0 && (canteenSeats <= 0 || st.studentCount > canteenSeats)) {
+                        val shortage = if (canteenSeats <= 0) st.studentCount else st.studentCount - canteenSeats
+                        emitEvent(
+                            GameEvent.ChoiceEvent(
+                                title = "食堂吃不上饭",
+                                message = if (canteenSeats <= 0) {
+                                    "学校还没有食堂，${st.studentCount}名学生只能在校外凑合。家长群已经开始骂。"
+                                } else {
+                                    "食堂只有${canteenSeats}个餐位，却有${st.studentCount}名学生。大约${shortage}人吃不上热饭，投诉已经到校长办公室。"
+                                } + "\n你打算怎么处理？",
+                                choices = listOf(
+                                    EventChoice(
+                                        "加开窗口、延长供餐",
+                                        EventConsequence(cashChange = -6.0, reputationChange = 80)
+                                    ),
+                                    EventChoice(
+                                        "先顶着，让学生错峰",
+                                        EventConsequence(reputationChange = -180)
+                                    ),
+                                    EventChoice(
+                                        "公开道歉并承诺扩建食堂",
+                                        EventConsequence(cashChange = -2.0, reputationChange = 30)
+                                    )
+                                )
+                            ),
+                            school
+                        )
+                    }
                     lifeResult.newIssues.forEach { issue ->
                         emitEvent(
                             GameEvent.ChoiceEvent(
@@ -5574,7 +5603,7 @@ class GameEngine @Inject constructor(
             val tuitionLine = if (st.monthlyRevenue > 0) {
                 "学费入账 ${"%.1f".format(st.monthlyRevenue)}万（${students}人）"
             } else {
-                "本月没有学费入账（在校 ${students} 人）。没开班或没有学生就不会收费。"
+                "本月没有学费入账（在校 ${students} 人）。没有学生或教室学位为空就不会收费。"
             }
             val extraIncome = st.totalMonthlyIncome - st.monthlyRevenue
             val extraLine = if (extraIncome > 0.05) {
@@ -6941,44 +6970,39 @@ class GameEngine @Inject constructor(
     private suspend fun enrollNewStudents(school: School) {
         val policyEffects = policyManager.getPolicyEffects()
         val teachingConfig = teachingManager.config
-        val distribution = teachingConfig.classDistribution  // 全校班型配置，如 {KEY:2, NORMAL:4}
+        val configuredDistribution = teachingConfig.classDistribution
 
-        // 前置条件：必须有教室且有教学配置才能招生
-        if (distribution.isEmpty()) {
-            // 教学方案未配置，无法招生 —— 给玩家明确提示
+        val classroomSlots = FacilityCapacity.totalClassSlots(school.facilities)
+        if (classroomSlots <= 0) {
             emitEvent(GameEvent.NegativeEvent(
                 title = "招生失败",
-                message = "尚未配置教学方案，无法招收新生！请前往「治院 → 教学配置」设置教学班容量。",
+                message = "学校没有可用的教室，无法招收新生！请先到校园地图建造教室。每间教室直接增加学位，不用再去开班。",
                 penaltyCash = 0.0,
                 penaltyReputation = 0
             ), school)
             return
         }
 
-        // 1. 教室硬性约束：教室有效容量 * 3 = 最大班级总数
-        //    升级教室增加有效容量：1级=1, 2级=1.5, 3级=2, 4级=2.5, 5级=3
-        //    v2.8 修复：先乘3再取整，避免单间教室升级到偶数级时截断无效
-        val classroomCount = FacilityCapacity.totalClassSlots(school.facilities)
-        if (classroomCount <= 0) {
-            emitEvent(GameEvent.NegativeEvent(
-                title = "招生失败",
-                message = "学校没有可用的教室，无法招收新生！请先到校园地图建造教室。",
-                penaltyCash = 0.0,
-                penaltyReputation = 0
-            ), school)
-            return
-        }
-        val maxTotalClassesByRoom = classroomCount
-
-        // 2. 教学配置里的班数 = 本届新生班。点一次 + 就加一个班的学位，不再除以 3。
+        // 教室决定学位：Lv1=90人、Lv2=120、Lv3=180……建两间教室就按两间的座位数招生。
+        val classroomSeats = school.facilities
+            .filter { it.type == FacilityType.CLASSROOM && it.isOperational }
+            .sumOf { FacilityCapacity.classSlots(it.level) * 30 }
         val existingUpperClasses = _classes.value.count { it.gradeLevel != GradeLevel.GRADE_1 }
-        val maxFreshmanClasses = (maxTotalClassesByRoom - existingUpperClasses).coerceAtLeast(0)
-        val gradeDistribution: Map<ClassTier, Int> = clampClassDistribution(distribution, maxFreshmanClasses)
-        val gradeClassCount = gradeDistribution.values.sum()
-
-        // 3. 该年级总容量 = 各班型人数上限 × 已开班数（点 + 立刻加学位）
-        val gradeCapacity = gradeDistribution.entries.sumOf { (tier, count) ->
-            tier.maxSize * count
+        val maxFreshmanClasses = (classroomSlots - existingUpperClasses).coerceAtLeast(0)
+        val preferredDistribution = if (configuredDistribution.isEmpty()) {
+            mapOf(ClassTier.NORMAL to maxFreshmanClasses)
+        } else {
+            configuredDistribution
+        }
+        val gradeDistribution: Map<ClassTier, Int> = clampClassDistribution(
+            preferredDistribution,
+            maxFreshmanClasses
+        )
+        val gradeCapacity = if (configuredDistribution.isEmpty()) {
+            classroomSeats
+        } else {
+            gradeDistribution.entries.sumOf { (tier, count) -> tier.maxSize * count }
+                .coerceAtMost(classroomSeats)
         }
 
         // 5. 声誉连续影响招生：没口碑招不满，口碑上去才扩得动（150≈Lv2门槛约 0.89 倍）
@@ -7076,8 +7100,8 @@ class GameEngine @Inject constructor(
         val partnerEnrollBonus = partnerCommissionManager.consumeEnrollmentBonus()
         if (gradeCapacity <= 0) {
             emitEvent(GameEvent.NegativeEvent(
-                title = "没有开班，招不到人",
-                message = "教室有了，但教学配置里一个班都没开。去「治院 → 教学配置」点加号：通识班一次 +50 学位，专业核心班 +40，拔尖班 +30。不开班，9月迎新是空的。",
+                title = "教室学位不够",
+                message = "教室座位数已经被高年级占满。再建一间教室或升级现有教室，9月才能再招新生。",
                 penaltyCash = 0.0,
                 penaltyReputation = 6
             ), school)
@@ -7242,9 +7266,9 @@ class GameEngine @Inject constructor(
             val typeNote = "办学类型：${enrollTier.displayName}·${school.schoolOwnership().displayName}"
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学年开学",
-                message = "${planName}：按已开教学班招到${assignedStudents.size}人（学位上限${gradeCapacity}，已开${gradeClassCount}个新生班）。" +
-                    "当前大一共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班。报考结构：$trackNote。$collegeNote\n" +
-                    "再点加号开班才能招更多。今年录取线约 ${admissionLine} 分。$typeNote",
+                message = "${planName}：按教室学位招到${assignedStudents.size}人（教室学位${gradeCapacity}人）。" +
+                    "当前大一共${existingGradeOneCount + assignedStudents.size}人。报考结构：$trackNote。$collegeNote\n" +
+                    "想再扩招，去校园再建或升级教室，并保证宿舍床位和食堂餐位够用。今年录取线约 ${admissionLine} 分。$typeNote",
                 bonusCash = 0.0,
                 bonusReputation = (assignedStudents.size / 5).toLong() + policyEffects.welfareReputationBonus
             ), school)

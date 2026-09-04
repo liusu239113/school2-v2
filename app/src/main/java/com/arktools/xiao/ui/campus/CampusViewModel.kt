@@ -455,12 +455,7 @@ class CampusViewModel @Inject constructor(
         val scholarshipPct = (scholarship.studentAttractionBonus * 100f).toInt()
         val tuitionPremium = ((school.reputation / 4000.0).coerceIn(0.0, 0.15) * 100).toInt()
         val enrollFactor = ((0.70f + school.reputation / 800f).coerceIn(0.70f, 1.50f) * 100f).toInt()
-        val teaching = teachingManager.config
-        val classLine = if (teaching.totalClasses <= 0) {
-            "还没开班：9月招不到人。去治院→教学配置点加号。"
-        } else {
-            "已开 ${teaching.totalClasses} 班 / ${teaching.totalCapacity} 学位。"
-        }
+        val classLine = "教室学位看校园里的教学楼，宿舍卡床位，食堂管吃饭。"
         return "声誉 ${school.reputation}：招生×$enrollFactor%、学费溢价+$tuitionPremium%。" +
             "方针「${effects.strategyName}」招生${if (enrollPct >= 0) "+" else ""}$enrollPct% · 培养${if (qualityPct >= 0) "+" else ""}$qualityPct%。" +
             "奖学金 ${scholarship.scholarships.size} 项招生+$scholarshipPct%。$classLine 在校 $studentCount 人。"

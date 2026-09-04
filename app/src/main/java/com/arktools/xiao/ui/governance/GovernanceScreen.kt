@@ -199,7 +199,7 @@ fun GovernanceScreen(
         Panel(title = "管理入口") {
             data class Entry(val label: String, val icon: Int, val target: Int)
             val entries = listOf(
-                Entry("教学配置（点加号开班，决定招多少人）", com.arktools.xiao.R.drawable.ic_core_course, 40),
+                Entry("教学强度与作息（招生人数看教室）", com.arktools.xiao.R.drawable.ic_core_course, 40),
                 Entry("科研课题", com.arktools.xiao.R.drawable.ic_research, 41),
                 Entry("大学政策（学费/考试）", com.arktools.xiao.R.drawable.ic_balance, 16),
                 Entry("奖助学金", com.arktools.xiao.R.drawable.ic_gift, 29),

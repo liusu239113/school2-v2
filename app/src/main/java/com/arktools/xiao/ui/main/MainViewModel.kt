@@ -86,8 +86,12 @@ class MainViewModel @Inject constructor(
         .map { it.size }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
-    val teachingConfigured: StateFlow<Boolean> = gameEngine.teachingManager.state
-        .map { it.config.totalClasses > 0 && it.initialized }
+    val teachingConfigured: StateFlow<Boolean> = schoolRepository.getSchoolFlow()
+        .map { school ->
+            (school?.facilities?.count {
+                it.type == com.arktools.xiao.domain.model.FacilityType.CLASSROOM && it.isOperational
+            } ?: 0) > 0
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     // 教程用：监听学生入学数量

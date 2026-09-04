@@ -6,9 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,14 +41,9 @@ fun TeachingScreen(
     val lastActionMessage by viewModel.lastActionMessage.collectAsState()
     val classroomCount by viewModel.classroomCountFlow.collectAsState(initial = 0)
     val classroomCapacity by viewModel.classroomCapacityFlow.collectAsState(initial = 0)
-    val maxClassesPerTier by viewModel.maxClassesPerTierFlow.collectAsState(initial = 10)
-    val totalClasses = state.config.totalClasses
-    // v2.8 修复：教室容量由 classroomCapacityFlow 统一计算（考虑教室等级加成）
-    // 与 GameEngine 招生约束保持一致
-    val isOverCapacity = totalClasses > classroomCapacity && classroomCapacity > 0
 
     PixelGameBackground {
-        LegacyPageHeader("教学配置")
+        LegacyPageHeader("教学强度与作息")
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -78,35 +70,8 @@ fun TeachingScreen(
             }
         }
 
-        // === 教室容量警告 ===
-        if (isOverCapacity) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("⚠️", fontSize = 18.sp)
-                        Text(
-                            text = "教室不足！当前教室容量最多支持${classroomCapacity}个班（含等级加成），" +
-                                    "已配置${totalClasses}个班。请到设施页面建造或升级教室。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-            }
-        }
-
-        // === 教学班容量 ===
-        item { SectionTitle("教学班容量（教室${classroomCount}间，容量${classroomCapacity}个教学班）") }
-        item { ClassDistributionSection(viewModel, state, maxClassesPerTier, classroomCapacity) }
+        item { SectionTitle("招生容量") }
+        item { ClassroomCapacityCard(classroomCount, classroomCapacity) }
 
         // === 教学强度 ===
         item { SectionTitle("教学强度") }
@@ -183,89 +148,33 @@ private fun SectionTitle(title: String) {
     )
 }
 
-// ========= 教学班容量 =========
-
 @Composable
-private fun ClassDistributionSection(viewModel: TeachingViewModel, state: TeachingState, maxPerTier: Int, classroomCapacity: Int) {
-    val config = state.config
-    val totalClasses = config.totalClasses
+private fun ClassroomCapacityCard(classroomCount: Int, classroomCapacity: Int) {
+    val seats = classroomCapacity * 30
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "右边那个加号就是开班。点一次立刻加一个班的新生学位，并扣开办费、增加月费。不开班，9月招不到人。",
+                "招生容量由教室决定，不用再点加号开班。",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF14648C)
             )
+            Text("现有教室 $classroomCount 间", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text(
-                "当前已开 ${config.totalClasses} 班，本届最多招 ${config.totalCapacity} 人。教室还能再开 ${(classroomCapacity - totalClasses).coerceAtLeast(0)} 班。",
+                "可容纳约 $seats 名学生。再建一间教室或升级现有教室，9月就能多招人。",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            ClassTier.entries.forEach { tier ->
-                val currentCount = config.classDistribution[tier] ?: 0
-                // v2.8 修复：每种班型实际可配上限 = min(学校等级允许, 当前数 + 教室剩余容量)
-                // 这确保总班级数不超过教室容量
-                val remainingForThisTier = if (classroomCapacity > 0) {
-                    currentCount + (classroomCapacity - totalClasses).coerceAtLeast(0)
-                } else {
-                    maxPerTier  // 无教室时不限制（初始状态）
-                }
-                val effectiveMax = minOf(maxPerTier, remainingForThisTier)
-                ClassTierRow(
-                    tier = tier,
-                    count = currentCount,
-                    maxCount = effectiveMax,
-                    onCountChange = { viewModel.setClassCount(tier, it) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ClassTierRow(tier: ClassTier, count: Int, maxCount: Int, onCountChange: (Int) -> Unit) {
-    val atLimit = count >= maxCount
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(tier.displayName, fontWeight = FontWeight.Medium, fontSize = 14.sp)
             Text(
-                "点+立刻 +${tier.maxSize}学位 · 开办${tier.setupCost}万 · 月费${tier.monthlyCost}万 · 成绩×${tier.scoreMultiplier}" +
-                    if (atLimit && count > 0) " · 已达上限" else "",
-                fontSize = 11.sp,
-                color = if (atLimit && count > 0) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                tier.purpose,
-                fontSize = 11.sp,
+                "配套：宿舍管床位，食堂管吃饭。床位或餐位不够会卡招生、掉满意度和被投诉。",
+                fontSize = 12.sp,
                 color = Color(0xFF14648C)
             )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = { if (count > 0) onCountChange(count - 1) },
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(Icons.Default.Remove, contentDescription = "减少", modifier = Modifier.size(18.dp))
-            }
             Text(
-                "$count",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                modifier = Modifier.widthIn(min = 24.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                "规则：教室 Lv1=90人，Lv2=120人，Lv3=180人，Lv4=210人，Lv5=270人。两间教室就按两间加总。",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            IconButton(
-                onClick = { if (count < maxCount) onCountChange(count + 1) },
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "增加", modifier = Modifier.size(18.dp))
-            }
         }
     }
 }

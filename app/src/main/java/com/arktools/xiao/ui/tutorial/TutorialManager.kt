@@ -135,20 +135,20 @@ val ALL_TUTORIAL_STEPS: List<TutorialStepData> = buildList {
     add(TutorialStepData(
         mode = TutorialMode.STORY,
         speaker = "教务主任",
-        text = "教师到岗了。接下来必须开班：治院 → 教学配置，点右边那个加号。\n\n加号不是装饰。点一次立刻加一个班的新生学位，并扣开办费。一个班都不开，9月招不到人。"
+        text = "教师到岗了。招生人数看教室：校园里每建一间教室，9月就按那间教室的座位数招生。宿舍管床位，食堂管吃饭，不用再去点加号开班。"
     ))
     add(TutorialStepData(
         mode = TutorialMode.HIGHLIGHT,
         text = "点击底部「治院」",
-        subText = "进去后点「教学配置（开班/强度）」。加号就在每一行班型右边。",
+        subText = "进去后看「教学强度与作息」。招多少人，以校园里的教室为准。",
         highlightTarget = HighlightTarget.TAB_TEACHING,
         arrowDirection = ArrowDirection.DOWN,
         completionCondition = CompletionCondition.TAP_TAB_TEACHING
     ))
     add(TutorialStepData(
         mode = TutorialMode.ACTION,
-        text = "请点加号开出至少一个教学班",
-        subText = "通识班点一次 +50 学位，专业核心班 +40，拔尖班 +30。点完立刻扣开办费。不开班招不到人。",
+        text = "请打开教学页，确认教室已经提供学位",
+        subText = "教室 Lv1=90人。两间教室就按两间加总。不用点加号。",
         highlightTarget = HighlightTarget.FULL_SCREEN,
         completionCondition = CompletionCondition.CONFIGURE_TEACHING
     ))
