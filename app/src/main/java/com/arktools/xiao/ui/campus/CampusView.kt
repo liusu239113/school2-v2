@@ -583,24 +583,30 @@ fun CampusView(
                     val sheet = walkerBitmaps[w.role % walkerBitmaps.size]
                     val fw = sheet.width / 2
                     val fh = sheet.height / 2
-                    val frame = if (w.moving) (w.phase / 2) % 4 else 1
-                    val sx = if (frame % 2 == 1) fw else 0
-                    val sy = if (frame >= 2) fh else 0
+                    val cycle = if (w.moving) w.phase else WALKER_IDLE_CYCLE
+                    val key = ((cycle / WALKER_SUB) % 4 + 4) % 4
+                    val frac = if (w.moving) (cycle % WALKER_SUB) / WALKER_SUB.toFloat() else 0f
                     val hPx = cell * 0.60f
                     val wPx = hPx * fw / fh
                     val cx = wx
                     val bottom = wy
-                    val srcRect = android.graphics.Rect(sx, sy, sx + fw, sy + fh)
                     val dstRect = android.graphics.RectF(cx - wPx / 2f, bottom - hPx, cx + wPx / 2f, bottom)
                     val nc = drawContext.canvas.nativeCanvas
-                    if (w.facingRight) {
-                        nc.drawBitmap(sheet, srcRect, dstRect, walkerPaint)
-                    } else {
+                    if (!w.facingRight) {
                         nc.save()
                         nc.scale(-1f, 1f, cx, bottom - hPx / 2f)
-                        nc.drawBitmap(sheet, srcRect, dstRect, walkerPaint)
-                        nc.restore()
                     }
+                    if (frac <= 0.04f) {
+                        walkerPaint.alpha = 255
+                        nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key), dstRect, walkerPaint)
+                    } else {
+                        walkerPaint.alpha = ((1f - frac) * 255f).toInt().coerceIn(0, 255)
+                        nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key), dstRect, walkerPaint)
+                        walkerPaint.alpha = (frac * 255f).toInt().coerceIn(0, 255)
+                        nc.drawBitmap(sheet, walkerSrcRect(fw, fh, (key + 1) % 4), dstRect, walkerPaint)
+                        walkerPaint.alpha = 255
+                    }
+                    if (!w.facingRight) nc.restore()
                 }
 
                 // 摆放/铺装/搬移幽灵预览：绿=可放，红=不可放（粗描边+四角标记，醒目）
@@ -1168,9 +1174,18 @@ private data class Walker(
     val waitTicks: Int = 0
 )
 
-private const val WALKER_TICK_MS = 50L
-private const val WALKER_STEP = 0.08f   // 每 tick 走的格数（约 1.6 格/秒，20fps）
+private const val WALKER_TICK_MS = 40L
+private const val WALKER_STEP = 0.07f
 private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
+private const val WALKER_SUB = 4        // 每张原帧拆 4 个过渡，四帧素材走出 16 拍
+private const val WALKER_IDLE_CYCLE = 1 * WALKER_SUB
+
+private fun walkerSrcRect(fw: Int, fh: Int, frame: Int): android.graphics.Rect {
+    val f = ((frame % 4) + 4) % 4
+    val sx = if (f % 2 == 1) fw else 0
+    val sy = if (f >= 2) fh else 0
+    return android.graphics.Rect(sx, sy, sx + fw, sy + fh)
+}
 
 private fun walkableKey(x: Int, y: Int): Long = y.toLong() * 1000L + x
 
