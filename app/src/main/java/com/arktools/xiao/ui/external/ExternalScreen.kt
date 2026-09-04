@@ -145,7 +145,8 @@ class ExternalViewModel @Inject constructor(
 
 @Composable
 fun ExternalScreen(
-    viewModel: ExternalViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    viewModel: ExternalViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    onNavigateTo: (Int) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -169,6 +170,31 @@ fun ExternalScreen(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "社会合作 / 扩建",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color(0xFF1E96C8))
+                        .clickable { onNavigateTo(4) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+                Text(
+                    "国际交流",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color(0xFF1E96C8))
+                        .clickable { onNavigateTo(47) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
         }
 
         item {

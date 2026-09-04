@@ -121,6 +121,21 @@ import com.arktools.xiao.ui.studentlife.StudentLifeScreen
 import com.arktools.xiao.ui.scholarship.ScholarshipScreen
 import com.arktools.xiao.ui.timetable.TimetableScreen
 import com.arktools.xiao.ui.exam.ExamScreen
+import com.arktools.xiao.ui.district.DistrictScreen
+import com.arktools.xiao.ui.conference.ConferenceScreen
+import com.arktools.xiao.ui.discipline.DisciplineScreen
+import com.arktools.xiao.ui.graduate.GraduateScreen
+import com.arktools.xiao.ui.international.InternationalScreen
+import com.arktools.xiao.ui.club.ClubScreen
+import com.arktools.xiao.ui.seasonal.SeasonalScreen
+import com.arktools.xiao.ui.reputation.ReputationScreen
+import com.arktools.xiao.ui.principal.PrincipalOfficeScreen
+import com.arktools.xiao.ui.parent.ParentScreen
+import com.arktools.xiao.ui.government.GovernmentScreen
+import com.arktools.xiao.ui.stock.StockScreen
+import com.arktools.xiao.ui.marketing.MarketingScreen
+import com.arktools.xiao.ui.facility.FacilityScreen
+import com.arktools.xiao.ui.event.EventScreen
 import com.arktools.xiao.ui.notification.NotificationViewModel
 import com.arktools.xiao.domain.achievement.AchievementManager
 import androidx.compose.material.icons.filled.Notifications
@@ -767,7 +782,7 @@ fun MainScreen(
                     0 -> CampusView(onNavigateTo = { navigateTo(it) })
                     1 -> GovernanceScreen(onNavigateTo = { navigateTo(it) })
                     2 -> HiringScreen(onNavigateTo = { navigateTo(it) })
-                    3 -> ExternalScreen()
+                    3 -> ExternalScreen(onNavigateTo = { navigateTo(it) })
                     else -> {
                         val lockedModule = GameBalanceConfig.moduleForTab(tab)
                         val campusLevel = school?.campusLevel ?: 1
@@ -780,20 +795,36 @@ fun MainScreen(
                             )
                         } else {
                             when (tab) {
+                                4 -> DistrictScreen()
+                                5 -> ExternalScreen()
+                                6 -> StockScreen()
+                                7 -> FacilityScreen()
                                 8 -> StudentScreen()
                                 10 -> AchievementScreen()
                                 11 -> ReportScreen()
+                                12 -> MarketingScreen()
+                                13 -> EventScreen()
                                 14 -> NotificationScreen(
                                     onNavigateToTab = { tabIndex -> navigateTo(tabIndex) }
                                 )
                                 15 -> AlumniScreen()
                                 16 -> PolicyScreen()
+                                17 -> ClubScreen()
+                                18 -> SeasonalScreen()
+                                20 -> ReputationScreen()
                                 21 -> StudentLifeScreen()
+                                23 -> ConferenceScreen()
+                                27 -> ParentScreen()
+                                28 -> GovernmentScreen()
                                 29 -> ScholarshipScreen()
                                 31 -> TimetableScreen()
                                 32 -> ExamScreen()
+                                33 -> PrincipalOfficeScreen()
                                 Screen.TEACHING_CONFIG -> TeachingScreen()
                                 Screen.RESEARCH_LAB -> ResearchScreen()
+                                Screen.DISCIPLINE -> DisciplineScreen()
+                                Screen.GRADUATE_SCHOOL -> GraduateScreen()
+                                Screen.INTERNATIONAL -> InternationalScreen()
                                 Screen.TEACHER_LIST -> TeacherListScreen()
                                 else -> OverviewScreen(
                                     listState = overviewListState,
@@ -1081,7 +1112,7 @@ private fun getSubPageTitle(tab: Int): String {
         31 -> "专业课表"
         32 -> "教学评估"
         33 -> "校长办公室"
-        40 -> "教学配置"
+        40 -> "教学强度与作息"
         41 -> "科研研究"
         45 -> "学科建设"
         48 -> "教师团队"

@@ -6989,8 +6989,6 @@ class GameEngine @Inject constructor(
      */
     private suspend fun enrollNewStudents(school: School) {
         val policyEffects = policyManager.getPolicyEffects()
-        val teachingConfig = teachingManager.config
-        val configuredDistribution = teachingConfig.classDistribution
 
         val classroomSlots = FacilityCapacity.totalClassSlots(school.facilities)
         if (classroomSlots <= 0) {
@@ -7007,23 +7005,11 @@ class GameEngine @Inject constructor(
         val classroomSeats = school.facilities
             .filter { it.type == FacilityType.CLASSROOM && it.isOperational }
             .sumOf { FacilityCapacity.classSlots(it.level) * 30 }
-        val existingUpperClasses = _classes.value.count { it.gradeLevel != GradeLevel.GRADE_1 }
-        val maxFreshmanClasses = (classroomSlots - existingUpperClasses).coerceAtLeast(0)
-        val preferredDistribution = if (configuredDistribution.isEmpty()) {
-            mapOf(ClassTier.NORMAL to maxFreshmanClasses)
-        } else {
-            configuredDistribution
-        }
-        val gradeDistribution: Map<ClassTier, Int> = clampClassDistribution(
-            preferredDistribution,
-            maxFreshmanClasses
-        )
-        val gradeCapacity = if (configuredDistribution.isEmpty()) {
-            classroomSeats
-        } else {
-            gradeDistribution.entries.sumOf { (tier, count) -> tier.maxSize * count }
-                .coerceAtMost(classroomSeats)
-        }
+        val existingStudentsForSeats = studentRepository.getActiveStudentCount()
+        val gradeCapacity = (classroomSeats - existingStudentsForSeats).coerceAtLeast(0)
+        val normalClassCount = if (ClassTier.NORMAL.maxSize <= 0) 0
+        else (classroomSeats + ClassTier.NORMAL.maxSize - 1) / ClassTier.NORMAL.maxSize
+        val gradeDistribution = mapOf(ClassTier.NORMAL to normalClassCount.coerceAtLeast(1))
 
         // 5. 声誉连续影响招生：没口碑招不满，口碑上去才扩得动（150≈Lv2门槛约 0.89 倍）
         val reputationFactor = (0.70f + school.reputation / 800f).coerceIn(0.70f, 1.50f)
