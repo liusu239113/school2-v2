@@ -1448,7 +1448,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("集中保养一遍",
                         EventConsequence(
-                            cashChange = -(school.facilities.size.toDouble() * 2.0).coerceAtLeast(6.0),
+                            cashChange = -maxOf(6.0, school.facilities.size * 2.0),
                             reputationChange = 220
                         )),
                     EventChoice("先撑着，等有钱再说",

@@ -4008,9 +4008,11 @@ class GameEngine @Inject constructor(
                                         "先压一压，观察几天",
                                         EventConsequence(
                                             cashChange = 0.0,
-                                            reputationChange = -kotlin.math.max(
-                                                80L,
-                                                issue.satisfactionPenalty.toLong() * 12L
+                                            reputationChange = -(
+                                                maxOf(
+                                                    80L,
+                                                    issue.satisfactionPenalty.toLong() * 12L
+                                                )
                                             )
                                         )
                                     ),
