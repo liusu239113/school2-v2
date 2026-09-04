@@ -966,7 +966,7 @@ class EventGenerator @Inject constructor() {
                 message = "老同学推荐了一个商铺投资机会，看起来回报不错。",
                 choices = listOf(
                     EventChoice("拿出一笔钱试试",
-                        EventConsequence(cashChange = 8.0, reputationChange = 40))
+                        EventConsequence(cashChange = 8.0, reputationChange = 40)),
                     EventChoice("不参与", EventConsequence(reputationChange = -80))
                 )
             ))
