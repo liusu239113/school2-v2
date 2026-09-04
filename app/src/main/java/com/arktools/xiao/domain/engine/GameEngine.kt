@@ -4000,22 +4000,25 @@ class GameEngine @Inject constructor(
                                     EventChoice(
                                         "立刻派人处理",
                                         EventConsequence(
-                                            cashChange = -kotlin.math.max(1.0, issue.satisfactionPenalty * 0.4),
-                                            reputationChange = 4
+                                            cashChange = -kotlin.math.max(4.0, issue.satisfactionPenalty * 0.8),
+                                            reputationChange = 120
                                         )
                                     ),
                                     EventChoice(
                                         "先压一压，观察几天",
                                         EventConsequence(
                                             cashChange = 0.0,
-                                            reputationChange = -issue.satisfactionPenalty.toLong()
+                                            reputationChange = -kotlin.math.max(
+                                                80L,
+                                                issue.satisfactionPenalty.toLong() * 12L
+                                            )
                                         )
                                     ),
                                     EventChoice(
                                         "公开说明并道歉",
                                         EventConsequence(
-                                            cashChange = -0.5,
-                                            reputationChange = 1
+                                            cashChange = -2.0,
+                                            reputationChange = 40
                                         )
                                     )
                                 )
@@ -4966,15 +4969,15 @@ class GameEngine @Inject constructor(
                         choices = listOf(
                             EventChoice(
                                 "盛大公演",
-                                EventConsequence(cashChange = -12.0, reputationChange = 25L)
+                                EventConsequence(cashChange = -12.0, reputationChange = 420L)
                             ),
                             EventChoice(
                                 "校内简办",
-                                EventConsequence(cashChange = -4.0, reputationChange = 8L)
+                                EventConsequence(cashChange = -4.0, reputationChange = 140L)
                             ),
                             EventChoice(
                                 "本季取消",
-                                EventConsequence(cashChange = 0.0, reputationChange = -3L)
+                                EventConsequence(cashChange = 0.0, reputationChange = -180L)
                             )
                         )
                     ), school)
@@ -5258,7 +5261,7 @@ class GameEngine @Inject constructor(
                     message = "${mEvent.description}\n现在修还是先撑着，结果会在你拍板后揭晓。",
                     choices = listOf(
                         EventChoice("立即维修", EventConsequence(cashChange = -mEvent.repairCost)),
-                        EventChoice("暂不处理", EventConsequence(reputationChange = -2))
+                        EventChoice("暂不处理", EventConsequence(reputationChange = -140))
                     )
                 ))
             }
@@ -8335,19 +8338,21 @@ class GameEngine @Inject constructor(
                                 "专项辅导",
                                 EventConsequence(
                                     cashChange = -interventionCost,
+                                    reputationChange = 80L,
                                     studentAcademicBoost = 8f
                                 )
                             ),
                             EventChoice(
                                 "辅导员谈话",
                                 EventConsequence(
+                                    reputationChange = 20L,
                                     studentAcademicBoost = 4f
                                 )
                             ),
                             EventChoice(
                                 "暂不处理",
                                 EventConsequence(
-                                    reputationChange = if (ratio > 0.35f) -2L else 0L
+                                    reputationChange = if (ratio > 0.35f) -220L else -90L
                                 )
                             )
                         )

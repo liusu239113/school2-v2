@@ -143,7 +143,7 @@ class EventGenerator @Inject constructor() {
                         choices = listOf(
                             EventChoice("加大投入",
                                 EventConsequence(cashChange = -5.0, reputationChange = 800)),
-                            EventChoice("保持现状", EventConsequence(reputationChange = -1))
+                            EventChoice("保持现状", EventConsequence(reputationChange = -80))
                         )
                     )
                 ) else emptyList()
@@ -274,7 +274,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("举办开放日",
                         EventConsequence(cashChange = -1.0, reputationChange = 400)),
-                    EventChoice("暂时低调发展", EventConsequence(reputationChange = -1))
+                    EventChoice("暂时低调发展", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -299,7 +299,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("签约合作",
                         EventConsequence(cashChange = -20.0, reputationChange = 2000)),
-                    EventChoice("暂缓考虑", EventConsequence(reputationChange = -1))
+                    EventChoice("暂缓考虑", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -320,7 +320,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("大方接待，展示自信",
                         EventConsequence(reputationChange = 200)),
-                    EventChoice("婉拒参观，避免泄密", EventConsequence(reputationChange = -1))
+                    EventChoice("婉拒参观，避免泄密", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -332,7 +332,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("表示兴趣",
                         EventConsequence(reputationChange = 300)),
-                    EventChoice("专注本校发展", EventConsequence(reputationChange = -1))
+                    EventChoice("专注本校发展", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -375,7 +375,7 @@ class EventGenerator @Inject constructor() {
                         choices = listOf(
                             EventChoice("接受合作",
                                 EventConsequence(cashChange = -3.0, reputationChange = 600)),
-                            EventChoice("暂时婉拒", EventConsequence(reputationChange = -1))
+                            EventChoice("暂时婉拒", EventConsequence(reputationChange = -80))
                         )
                     ))
                 }
@@ -389,7 +389,7 @@ class EventGenerator @Inject constructor() {
                         choices = listOf(
                             EventChoice("全面升级",
                                 EventConsequence(cashChange = -8.0, reputationChange = 400)),
-                            EventChoice("暂缓，继续用传统教学", EventConsequence(reputationChange = -1))
+                            EventChoice("暂缓，继续用传统教学", EventConsequence(reputationChange = -80))
                         )
                     ))
                 }
@@ -502,7 +502,7 @@ class EventGenerator @Inject constructor() {
                             EventChoice("建立合作关系",
                                 EventConsequence(cashChange = -8.0, reputationChange = 900)),
                             EventChoice("暂不考虑",
-                                EventConsequence(reputationChange = -1))
+                                EventConsequence(reputationChange = -80))
                         )
                     ))
                 }
@@ -550,7 +550,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("购入土地",
                         EventConsequence(cashChange = -50.0, reputationChange = 800)),
-                    EventChoice("暂不考虑", EventConsequence(reputationChange = -1))
+                    EventChoice("暂不考虑", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -574,7 +574,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("统一品牌升级",
                         EventConsequence(cashChange = -15.0, reputationChange = 1500)),
-                    EventChoice("各校区独立运营", EventConsequence(reputationChange = -1))
+                    EventChoice("各校区独立运营", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -602,7 +602,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("启动课程优化",
                         EventConsequence(reputationChange = 500)),
-                    EventChoice("维持现状", EventConsequence(reputationChange = -1))
+                    EventChoice("维持现状", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -639,7 +639,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("出席晚宴并当场认捐",
                         EventConsequence(cashChange = -10.0, reputationChange = 800)),
-                    EventChoice("礼貌婉拒", EventConsequence(reputationChange = -1))
+                    EventChoice("礼貌婉拒", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -673,7 +673,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("设立基金",
                         EventConsequence(cashChange = -20.0, reputationChange = 1500)),
-                    EventChoice("暂不考虑", EventConsequence(reputationChange = -1))
+                    EventChoice("暂不考虑", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -694,7 +694,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("拿一笔钱去做理财",
                         EventConsequence(cashChange = -20.0)),
-                    EventChoice("资金留着备用", EventConsequence(reputationChange = -1))
+                    EventChoice("资金留着备用", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -718,7 +718,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("全面配合",
                         EventConsequence(reputationChange = 300)),
-                    EventChoice("尽力应付", EventConsequence(reputationChange = -1))
+                    EventChoice("尽力应付", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -738,7 +738,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("参与评选",
                         EventConsequence(cashChange = -2.0, reputationChange = 800)),
-                    EventChoice("今年不参加", EventConsequence(reputationChange = -1))
+                    EventChoice("今年不参加", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -758,7 +758,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("配合准备宣传素材",
                         EventConsequence(reputationChange = 400)),
-                    EventChoice("不必麻烦家长", EventConsequence(reputationChange = -1))
+                    EventChoice("不必麻烦家长", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -771,7 +771,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("欢迎来访",
                         EventConsequence(reputationChange = 1500)),
-                    EventChoice("委婉谢绝", EventConsequence(reputationChange = -1))
+                    EventChoice("委婉谢绝", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -925,7 +925,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("婉拒，留在学校",
                         EventConsequence(reputationChange = 500)),
-                    EventChoice("表示考虑中", EventConsequence(reputationChange = -1))
+                    EventChoice("表示考虑中", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -954,7 +954,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("深感触动，重拾教育理想",
                         EventConsequence(teacherLoyaltyChange = 15)),
-                    EventChoice("感谢关心，继续做自己的事", EventConsequence(reputationChange = -1))
+                    EventChoice("感谢关心，继续做自己的事", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -965,9 +965,9 @@ class EventGenerator @Inject constructor() {
                 title = "个人投资机会",
                 message = "老同学推荐了一个商铺投资机会，看起来回报不错。",
                 choices = listOf(
-                    EventChoice("投入",
-                        EventConsequence(cashChange = 0.0)),  // 实际效果在engine中处理
-                    EventChoice("不参与", EventConsequence(reputationChange = -1))
+                    EventChoice("拿出一笔钱试试",
+                        EventConsequence(cashChange = 8.0, reputationChange = 40))
+                    EventChoice("不参与", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -979,7 +979,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("匿名给学校一笔钱",
                         EventConsequence(cashChange = 10.0)),
-                    EventChoice("不捐", EventConsequence(reputationChange = -1))
+                    EventChoice("不捐", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -999,8 +999,8 @@ class EventGenerator @Inject constructor() {
                 title = "心理压力",
                 message = "多次被调查让你倍感压力，失眠越来越严重。是否休个短假调整？",
                 choices = listOf(
-                    EventChoice("休假三天调整", EventConsequence(reputationChange = -1)),
-                    EventChoice("咬牙坚持", EventConsequence(teacherLoyaltyChange = -3))
+                    EventChoice("休假三天调整", EventConsequence(teacherLoyaltyChange = 8)),
+                    EventChoice("咬牙坚持", EventConsequence(teacherLoyaltyChange = -12, reputationChange = -60))
                 )
             ))
         }
@@ -1012,8 +1012,8 @@ class EventGenerator @Inject constructor() {
                 message = "你的家人突发疾病需要住院，医疗费用不菲。",
                 choices = listOf(
                     EventChoice("用个人积蓄支付",
-                        EventConsequence(reputationChange = -1)),
-                    EventChoice("先借钱应急", EventConsequence(reputationChange = -1))
+                        EventConsequence(reputationChange = -80)),
+                    EventChoice("先借钱应急", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1032,7 +1032,7 @@ class EventGenerator @Inject constructor() {
                 title = "匿名举报信",
                 message = "办公室收到一封匿名举报信，措辞含糊但暗示有人知道一些事。",
                 choices = listOf(
-                    EventChoice("加强保密意识，低调一段时间", EventConsequence(reputationChange = -1)),
+                    EventChoice("加强保密意识，低调一段时间", EventConsequence(reputationChange = -80)),
                     EventChoice("查出是谁写的", EventConsequence(teacherLoyaltyChange = -10))
                 )
             ))
@@ -1051,8 +1051,8 @@ class EventGenerator @Inject constructor() {
                 title = "知情人暗示",
                 message = "一位了解内情的行政人员找你私聊：'校长，最近外面风声紧，你注意点。'",
                 choices = listOf(
-                    EventChoice("感谢提醒，收敛行为", EventConsequence(reputationChange = -1)),
-                    EventChoice("不以为然", EventConsequence(reputationChange = -1))
+                    EventChoice("感谢提醒，收敛行为", EventConsequence(reputationChange = -80)),
+                    EventChoice("不以为然", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1072,8 +1072,8 @@ class EventGenerator @Inject constructor() {
                 title = "资产转移念头",
                 message = "个人资产已经很可观，要不要把钱转移到更安全的地方？",
                 choices = listOf(
-                    EventChoice("投资海外房产", EventConsequence(reputationChange = -1)),
-                    EventChoice("保持原样", EventConsequence(reputationChange = -1))
+                    EventChoice("投资海外房产", EventConsequence(reputationChange = -80)),
+                    EventChoice("保持原样", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1084,8 +1084,8 @@ class EventGenerator @Inject constructor() {
                 title = "洗心革面？",
                 message = "经历了停职处分后，你站在镜子前反思：以后还要继续走灰色地带吗？",
                 choices = listOf(
-                    EventChoice("痛定思痛，从此清廉", EventConsequence(reputationChange = -1)),
-                    EventChoice("吃一堑长一智，以后更小心", EventConsequence(reputationChange = -1))
+                    EventChoice("痛定思痛，从此清廉", EventConsequence(reputationChange = -80)),
+                    EventChoice("吃一堑长一智，以后更小心", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1105,8 +1105,8 @@ class EventGenerator @Inject constructor() {
                 title = "会计疑问",
                 message = "新来的会计翻看旧账时提出了一些疑问，问你几笔支出的去向。",
                 choices = listOf(
-                    EventChoice("编造理由搪塞", EventConsequence(reputationChange = -1)),
-                    EventChoice("安排老会计'带教'新会计", EventConsequence(reputationChange = -1))
+                    EventChoice("编造理由搪塞", EventConsequence(reputationChange = -80)),
+                    EventChoice("安排老会计'带教'新会计", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1117,8 +1117,8 @@ class EventGenerator @Inject constructor() {
                 title = "工程商送礼",
                 message = "学校装修工程的承包商临走时放下一个厚厚的信封在你办公桌上。",
                 choices = listOf(
-                    EventChoice("收下",
-                        EventConsequence(reputationChange = -1)),
+                    EventChoice("把信封收下",
+                        EventConsequence(cashChange = 5.0, reputationChange = -220)),
                     EventChoice("退回去，明确拒绝", EventConsequence(reputationChange = 100))
                 )
             ))
@@ -1139,8 +1139,8 @@ class EventGenerator @Inject constructor() {
                 message = "收到本区校长联谊会的邀请函，是个拓展人脉的好机会。",
                 choices = listOf(
                     EventChoice("出席联谊会",
-                        EventConsequence(reputationChange = -1)),
-                    EventChoice("太忙了不去", EventConsequence(reputationChange = -1))
+                        EventConsequence(cashChange = -2.0, reputationChange = 120)),
+                    EventChoice("太忙了不去", EventConsequence(reputationChange = -90))
                 )
             ))
         }
@@ -1152,8 +1152,8 @@ class EventGenerator @Inject constructor() {
                 message = "关系网越来越大，每月的应酬开销不小，是否精简社交圈？",
                 choices = listOf(
                     EventChoice("维持现有社交圈",
-                        EventConsequence(reputationChange = -1)),
-                    EventChoice("减少不必要的应酬", EventConsequence(reputationChange = -1))
+                        EventConsequence(reputationChange = -80)),
+                    EventChoice("减少不必要的应酬", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1169,7 +1169,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("提前做好应对准备",
                         EventConsequence(reputationChange = 200)),
-                    EventChoice("等正式消息出来再说", EventConsequence(reputationChange = -1))
+                    EventChoice("等正式消息出来再说", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1185,7 +1185,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("私下给记者一笔润笔",
                         EventConsequence(cashChange = -3.0, reputationChange = 800)),
-                    EventChoice("算了，清清白白", EventConsequence(reputationChange = -1))
+                    EventChoice("算了，清清白白", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1201,7 +1201,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("请求协助",
                         EventConsequence(reputationChange = 200)),
-                    EventChoice("自己加强保安", EventConsequence(reputationChange = -1))
+                    EventChoice("自己加强保安", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1214,7 +1214,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("了解详情，积极准备",
                         EventConsequence(reputationChange = 400)),
-                    EventChoice("不感兴趣", EventConsequence(reputationChange = -1))
+                    EventChoice("不感兴趣", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1227,7 +1227,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("安排插班",
                         EventConsequence(reputationChange = -100)),
-                    EventChoice("委婉拒绝", EventConsequence(reputationChange = -1))
+                    EventChoice("委婉拒绝", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1255,7 +1255,7 @@ class EventGenerator @Inject constructor() {
                         EventConsequence(teacherLoyaltyChange = 10)),
                     EventChoice("设立公开评选制度",
                         EventConsequence(reputationChange = 300)),
-                    EventChoice("延期评选", EventConsequence(reputationChange = -1))
+                    EventChoice("延期评选", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1270,7 +1270,7 @@ class EventGenerator @Inject constructor() {
                         EventConsequence(cashChange = -5.0)),
                     EventChoice("驳回报告",
                         EventConsequence(teacherLoyaltyChange = 5)),
-                    EventChoice("缩减规模后批准", EventConsequence(reputationChange = -1))
+                    EventChoice("缩减规模后批准", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1283,7 +1283,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("试点推行",
                         EventConsequence(reputationChange = 500)),
-                    EventChoice("暂缓讨论", EventConsequence(reputationChange = -1)),
+                    EventChoice("暂缓讨论", EventConsequence(reputationChange = -80)),
                     EventChoice("折中方案：部分科目试行",
                         EventConsequence(reputationChange = 200))
                 )
@@ -1360,27 +1360,27 @@ class EventGenerator @Inject constructor() {
                 title = "学生才艺展示",
                 message = "课间有学生拉起了乐器，围了一圈人。教务想把这事做成公开活动。",
                 choices = listOf(
-                    EventChoice("给个舞台，正式办一场", EventConsequence(cashChange = -1.2, reputationChange = 8)),
-                    EventChoice("让他们自己玩，别扰课", EventConsequence(reputationChange = -1)),
-                    EventChoice("录下来发招生宣传", EventConsequence(cashChange = -0.3, reputationChange = 5))
+                    EventChoice("给个舞台，正式办一场", EventConsequence(cashChange = -4.0, reputationChange = 180)),
+                    EventChoice("让他们自己玩，别扰课", EventConsequence(reputationChange = -60)),
+                    EventChoice("录下来发招生宣传", EventConsequence(cashChange = -1.5, reputationChange = 90))
                 )
             ))
             events.add(GameEvent.ChoiceEvent(
                 title = "走廊鞭炮",
                 message = "有人在教学楼放了鞭炮，邻居已经打电话来了。",
                 choices = listOf(
-                    EventChoice("公开处分并上门道歉", EventConsequence(cashChange = -0.8, reputationChange = 2)),
-                    EventChoice("内部警告，对外说是演习", EventConsequence(reputationChange = -6)),
-                    EventChoice("请物业一起压一压风波", EventConsequence(cashChange = -1.5, reputationChange = 1))
+                    EventChoice("公开处分并上门道歉", EventConsequence(cashChange = -3.0, reputationChange = 120)),
+                    EventChoice("内部警告，对外说是演习", EventConsequence(reputationChange = -180)),
+                    EventChoice("请物业一起压一压风波", EventConsequence(cashChange = -2.5, reputationChange = 40))
                 )
             ))
             events.add(GameEvent.ChoiceEvent(
                 title = "丢失零花钱",
                 message = "几名学生说抽屉里的钱不见了，班里开始互相猜疑。",
                 choices = listOf(
-                    EventChoice("装监控并开会澄清", EventConsequence(cashChange = -2.0, reputationChange = 4)),
-                    EventChoice("让班主任私下查", EventConsequence(reputationChange = -2)),
-                    EventChoice("先垫一笔安抚家长", EventConsequence(cashChange = -1.0, reputationChange = 3))
+                    EventChoice("装监控并开会澄清", EventConsequence(cashChange = -5.0, reputationChange = 150)),
+                    EventChoice("让班主任私下查", EventConsequence(reputationChange = -90)),
+                    EventChoice("先垫一笔安抚家长", EventConsequence(cashChange = -2.0, reputationChange = 70))
                 )
             ))
         }
@@ -1391,27 +1391,27 @@ class EventGenerator @Inject constructor() {
                 title = "学生请愿",
                 message = "一群学生联名请愿希望学校延长图书馆开放时间，并增设自习室。你如何回应？",
                 choices = listOf(
-                    EventChoice("同意延长开放时间", EventConsequence(reputationChange = 5)),
-                    EventChoice("暂时搁置，下学期再议", EventConsequence(reputationChange = -2))
+                    EventChoice("同意延长开放时间", EventConsequence(cashChange = -2.0, reputationChange = 160)),
+                    EventChoice("暂时搁置，下学期再议", EventConsequence(reputationChange = -120))
                 )
             ))
             events.add(GameEvent.PositiveEvent(
                 title = "运动会佳绩",
                 message = "学校田径队在区级运动会上斩获多枚奖牌，为校争光！",
-                bonusCash = 0.0,
-                bonusReputation = 6
+                bonusCash = 3.0,
+                bonusReputation = 250
             ))
             events.add(GameEvent.NegativeEvent(
                 title = "课间打闹受伤",
                 message = "两名学生课间追逐打闹时一人摔倒受伤，家长到校交涉。已妥善处理。",
-                penaltyCash = 0.5,
-                penaltyReputation = 3
+                penaltyCash = 4.0,
+                penaltyReputation = 180
             ))
             events.add(GameEvent.PositiveEvent(
                 title = "学生发明创造",
                 message = "一名学生的小发明在青少年科技创新大赛中获奖，学校名声传播！",
-                bonusCash = 0.0,
-                bonusReputation = 8
+                bonusCash = 2.0,
+                bonusReputation = 320
             ))
         }
 
@@ -1421,15 +1421,15 @@ class EventGenerator @Inject constructor() {
                 title = "学生会竞选",
                 message = "学生会换届选举即将举行，两位候选人竞争激烈。是否由校方介入引导？",
                 choices = listOf(
-                    EventChoice("让学生自主选举", EventConsequence(reputationChange = 5)),
-                    EventChoice("校方指导推荐人选", EventConsequence(reputationChange = -3))
+                    EventChoice("让学生自主选举", EventConsequence(reputationChange = 140)),
+                    EventChoice("校方指导推荐人选", EventConsequence(reputationChange = -110))
                 )
             ))
             events.add(GameEvent.PositiveEvent(
                 title = "校园文化节",
                 message = "学生自发组织的文化节吸引了众多家长和社区居民参观，学校知名度大增！",
-                bonusCash = 0.0,
-                bonusReputation = 10
+                bonusCash = 4.0,
+                bonusReputation = 400
             ))
         }
 
@@ -1448,11 +1448,11 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("集中保养一遍",
                         EventConsequence(
-                            cashChange = -school.facilities.size.toDouble(),
-                            reputationChange = 6
+                            cashChange = -(school.facilities.size.toDouble() * 2.0).coerceAtLeast(6.0),
+                            reputationChange = 220
                         )),
                     EventChoice("先撑着，等有钱再说",
-                        EventConsequence(reputationChange = -4))
+                        EventConsequence(reputationChange = -160))
                 )
             ))
         }
@@ -1483,7 +1483,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("举办活动",
                         EventConsequence(cashChange = -2.0, reputationChange = 300)),
-                    EventChoice("下次再说", EventConsequence(reputationChange = -1))
+                    EventChoice("下次再说", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1495,7 +1495,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("加装过滤软件",
                         EventConsequence(cashChange = -1.0, reputationChange = 100)),
-                    EventChoice("加强巡查", EventConsequence(reputationChange = -1))
+                    EventChoice("加强巡查", EventConsequence(reputationChange = -80))
                 )
             ))
         }
@@ -1667,7 +1667,7 @@ class EventGenerator @Inject constructor() {
                 choices = listOf(
                     EventChoice("积极申报",
                         EventConsequence(cashChange = -1.0, reputationChange = 100)),
-                    EventChoice("嫌麻烦不申报", EventConsequence(reputationChange = -1))
+                    EventChoice("嫌麻烦不申报", EventConsequence(reputationChange = -80))
                 )
             ))
         }

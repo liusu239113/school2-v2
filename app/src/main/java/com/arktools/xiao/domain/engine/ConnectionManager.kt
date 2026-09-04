@@ -251,9 +251,9 @@ class ConnectionManager @Inject constructor() {
                     message = "${connection.name}邀请你参加商会聚餐，可以认识不少人。",
                     choices = listOf(
                         EventChoice("赴宴应酬",
-                            EventConsequence(cashChange = -1.0)),
+                            EventConsequence(cashChange = -2.0, reputationChange = 90)),
                         EventChoice("婉拒，忙于校务",
-                            EventConsequence(reputationChange = -1))
+                            EventConsequence(reputationChange = -70))
                     )
                 )
             }
@@ -266,7 +266,7 @@ class ConnectionManager @Inject constructor() {
                             EventChoice("配合采访",
                                 EventConsequence(reputationChange = 800)),
                             EventChoice("礼貌推脱",
-                                EventConsequence(reputationChange = -1))
+                                EventConsequence(reputationChange = -90))
                         )
                     )
                 } else null

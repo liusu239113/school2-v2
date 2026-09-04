@@ -726,45 +726,45 @@ class PressureSystemManager @Inject constructor() {
                 type = BehaviorEventType.BULLYING,
                 description = "有家长反映其孩子在学校遭到同学欺凌，要求学校处理。",
                 choices = listOf(
-                    BehaviorChoice("严肃处分欺凌者+心理辅导", -2f, -2L, 1.0, "家长表示满意，事件平息"),
-                    BehaviorChoice("召集双方家长调解", 0f, -1L, 0.5, "调解基本成功，但暗流涌动"),
-                    BehaviorChoice("轻描淡写处理", 5f, 0L, 0.0, "受害者家长可能向教育局投诉")
+                    BehaviorChoice("严肃处分欺凌者+心理辅导", 4f, 160L, 4.0, "家长表示满意，事件平息"),
+                    BehaviorChoice("召集双方家长调解", 1f, 40L, 1.5, "调解基本成功，但暗流涌动"),
+                    BehaviorChoice("轻描淡写处理", -8f, -220L, 0.0, "受害者家长可能向教育局投诉")
                 )
             )
             BehaviorEventType.MENTAL_HEALTH -> StudentBehaviorEvent(
                 type = BehaviorEventType.MENTAL_HEALTH,
                 description = "学业导师报告有学生出现严重心理问题，情绪低落、不愿上课。",
                 choices = listOf(
-                    BehaviorChoice("聘请专业心理咨询师（长期）", 3f, 5L, 3.0, "建立心理援助体系，学生感受到关怀"),
-                    BehaviorChoice("安排学业导师一对一谈心", 1f, 0L, 0.0, "有所缓解但非专业处理"),
-                    BehaviorChoice("通知家长自行处理", -3f, -3L, 0.0, "学生状况恶化，家长不满")
+                    BehaviorChoice("聘请专业心理咨询师（长期）", 6f, 180L, 8.0, "建立心理援助体系，学生感受到关怀"),
+                    BehaviorChoice("安排学业导师一对一谈心", 2f, 40L, 0.0, "有所缓解但非专业处理"),
+                    BehaviorChoice("通知家长自行处理", -6f, -200L, 0.0, "学生状况恶化，家长不满")
                 )
             )
             BehaviorEventType.ROMANCE -> StudentBehaviorEvent(
                 type = BehaviorEventType.ROMANCE,
                 description = "发现多对学生早恋，部分家长来电询问学校态度。",
                 choices = listOf(
-                    BehaviorChoice("开展青春期教育讲座", 2f, 2L, 0.5, "引导学生正确看待感情"),
-                    BehaviorChoice("严令禁止，违者处分", -5f, 0L, 0.0, "引发学生逆反，但短期纪律好转"),
-                    BehaviorChoice("默许不管", 1f, -2L, 0.0, "部分家长不满学校放任态度")
+                    BehaviorChoice("开展青春期教育讲座", 3f, 120L, 2.0, "引导学生正确看待感情"),
+                    BehaviorChoice("严令禁止，违者处分", -6f, -40L, 0.0, "引发学生逆反，但短期纪律好转"),
+                    BehaviorChoice("默许不管", -2f, -150L, 0.0, "部分家长不满学校放任态度")
                 )
             )
             BehaviorEventType.INTERNET_ADDICTION -> StudentBehaviorEvent(
                 type = BehaviorEventType.INTERNET_ADDICTION,
                 description = "多名学生沉迷手机游戏，上课频繁走神，成绩明显下滑。",
                 choices = listOf(
-                    BehaviorChoice("上课期间统一收手机+家校联动", 3f, 3L, 0.5, "成绩逐步回升"),
-                    BehaviorChoice("没收手机、严厉惩罚", -4f, 0L, 0.0, "立竿见影但学生怨声载道"),
-                    BehaviorChoice("不做强制规定", -2f, -3L, 0.0, "问题持续蔓延")
+                    BehaviorChoice("上课期间统一收手机+家校联动", 4f, 140L, 2.0, "成绩逐步回升"),
+                    BehaviorChoice("没收手机、严厉惩罚", -5f, -30L, 0.0, "立竿见影但学生怨声载道"),
+                    BehaviorChoice("不做强制规定", -4f, -160L, 0.0, "问题持续蔓延")
                 )
             )
             BehaviorEventType.CHEATING -> StudentBehaviorEvent(
                 type = BehaviorEventType.CHEATING,
                 description = "期中考试发现大面积作弊行为，涉及多个班级。",
                 choices = listOf(
-                    BehaviorChoice("全部成绩作废、重新考试+处分", -3f, 5L, 0.0, "维护了公平，但学生压力增大"),
-                    BehaviorChoice("个别处理，不公开", 0f, -2L, 0.0, "未能彻底解决，下次可能再犯"),
-                    BehaviorChoice("加强监考制度+诚信教育", 1f, 3L, 0.3, "长远效果好，树立校风")
+                    BehaviorChoice("全部成绩作废、重新考试+处分", -2f, 160L, 3.0, "维护了公平，但学生压力增大"),
+                    BehaviorChoice("个别处理，不公开", -1f, -140L, 0.0, "未能彻底解决，下次可能再犯"),
+                    BehaviorChoice("加强监考制度+诚信教育", 3f, 120L, 2.0, "长远效果好，树立校风")
                 )
             )
         }
