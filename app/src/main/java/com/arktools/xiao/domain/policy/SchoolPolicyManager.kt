@@ -593,7 +593,8 @@ class SchoolPolicyManager @Inject constructor(
                 classOfficersJson = p.collegeDevelopment.classOfficersJson,
                 classFacilityMapJson = p.collegeDevelopment.classFacilityMapJson,
                 constructingColleges = p.collegeDevelopment.constructingColleges,
-                collegeDeadlines = p.collegeDevelopment.collegeDeadlines
+                collegeDeadlines = p.collegeDevelopment.collegeDeadlines,
+                buildingOps = p.collegeDevelopment.buildingOps
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -643,7 +644,8 @@ class SchoolPolicyManager @Inject constructor(
                     classOfficersJson = data.classOfficersJson,
                     classFacilityMapJson = data.classFacilityMapJson,
                     constructingColleges = data.constructingColleges,
-                    collegeDeadlines = data.collegeDeadlines
+                    collegeDeadlines = data.collegeDeadlines,
+                    buildingOps = data.buildingOps
                 ),
                 admissionTrackPlan = com.arktools.xiao.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
@@ -1018,7 +1020,8 @@ data class PolicyPersistData(
     val classOfficersJson: String = "",
     val classFacilityMapJson: String = "",
     val constructingColleges: Map<String, Int> = emptyMap(),
-    val collegeDeadlines: Map<String, Long> = emptyMap()
+    val collegeDeadlines: Map<String, Long> = emptyMap(),
+    val buildingOps: BuildingOps = BuildingOps()
 )
 
 data class ManagedCollegeResult(
@@ -1050,26 +1053,116 @@ data class CollegeDevelopment(
     val classFacilityMapJson: String = "",
     val constructingColleges: Map<String, Int> = emptyMap(),
     val collegeDeadlines: Map<String, Long> = emptyMap(),
+    val buildingOps: BuildingOps = BuildingOps(),
     val lastReviewYear: Int = 0,
     val lastReviewReputation: Long = 0L,
     val lastReviewResearch: Int = 0,
     val lastReviewStudents: Int = 0,
     val lastReviewSatisfaction: Float = 0f
 ) {
-    fun monthlyCostWan(): Double = founded.sumOf { it.monthlyCostWan }
+    fun monthlyCostWan(): Double {
+        var cost = founded.sumOf { it.monthlyCostWan }
+        val ops = buildingOps
+        if (ops.scienceLabOpen) cost += 1.2
+        if (ops.liberalOpenDay) cost += 0.8
+        if (ops.engineeringWorkshop) cost += 1.6
+        if (ops.businessFair) cost += 1.4
+        if (ops.artsShow) cost += 1.5
+        if (ops.medicineRounds) cost += 1.8
+        if (ops.hospitalClinic) cost += 2.0
+        if (ops.libraryNight) cost += 0.6
+        if (ops.sportsMeet) cost += 1.0
+        if (ops.jobFair) cost += 1.2
+        if (ops.conferenceHost) cost += 1.8
+        if (ops.multimediaDrill) cost += 0.7
+        if (ops.gardenFestival) cost += 0.4
+        if (ops.auditoriumNight) cost += 1.1
+        if (ops.gateReception) cost += 0.5
+        if (ops.incubatorIntern) cost += 1.5
+        if (ops.intlExchange) cost += 2.2
+        cost += ops.extraWindows * 0.8
+        return cost
+    }
 
-    fun extraResearchDays(): Int = if (founded.contains(CollegeType.SCIENCE)) 1 else 0
+    fun extraResearchDays(): Int {
+        var days = if (founded.contains(CollegeType.SCIENCE)) 1 else 0
+        if (buildingOps.scienceLabOpen) days += 1
+        return days
+    }
 
-    fun enrollmentMultiplier(): Float = 1f + founded.sumOf { it.enrollmentBonus.toDouble() }.toFloat()
+    fun enrollmentMultiplier(): Float {
+        var bonus = founded.sumOf { it.enrollmentBonus.toDouble() }.toFloat()
+        if (buildingOps.liberalOpenDay) bonus += 0.04f
+        if (buildingOps.engineeringWorkshop) bonus += 0.03f
+        if (buildingOps.businessFair) bonus += 0.05f
+        if (buildingOps.artsShow) bonus += 0.02f
+        if (buildingOps.sportsMeet) bonus += 0.03f
+        if (buildingOps.gateReception) bonus += 0.02f
+        return 1f + bonus
+    }
 
-    fun qualityMultiplier(): Float = 1f + founded.sumOf { it.qualityBonus.toDouble() }.toFloat()
+    fun qualityMultiplier(): Float {
+        var bonus = founded.sumOf { it.qualityBonus.toDouble() }.toFloat()
+        if (buildingOps.scienceLabOpen) bonus += 0.04f
+        if (buildingOps.engineeringWorkshop) bonus += 0.03f
+        if (buildingOps.libraryNight) bonus += 0.03f
+        if (buildingOps.multimediaDrill) bonus += 0.03f
+        return 1f + bonus
+    }
 
-    fun satisfactionModifier(): Float = founded.sumOf { it.satisfactionBonus.toDouble() }.toFloat()
+    fun satisfactionModifier(): Float {
+        var bonus = founded.sumOf { it.satisfactionBonus.toDouble() }.toFloat()
+        if (buildingOps.artsShow) bonus += 3f
+        if (buildingOps.sportsMeet) bonus += 2f
+        if (buildingOps.gardenFestival) bonus += 2f
+        if (buildingOps.auditoriumNight) bonus += 2f
+        if (buildingOps.liberalOpenDay) bonus += 1f
+        return bonus
+    }
 
-    fun reputationModifier(): Long = founded.sumOf { it.reputationBonus }
+    fun reputationModifier(): Long {
+        var bonus = founded.sumOf { it.reputationBonus }
+        if (buildingOps.businessFair) bonus += 6L
+        if (buildingOps.artsShow) bonus += 4L
+        if (buildingOps.conferenceHost) bonus += 8L
+        if (buildingOps.gateReception) bonus += 3L
+        if (buildingOps.intlExchange) bonus += 6L
+        if (buildingOps.hospitalClinic) bonus += 5L
+        return bonus
+    }
 
-    fun employmentBonus(): Float = founded.sumOf { it.employmentBonus.toDouble() }.toFloat()
+    fun employmentBonus(): Float {
+        var bonus = founded.sumOf { it.employmentBonus.toDouble() }.toFloat()
+        if (buildingOps.engineeringWorkshop) bonus += 0.04f
+        if (buildingOps.businessFair) bonus += 0.03f
+        if (buildingOps.jobFair) bonus += 0.05f
+        if (buildingOps.incubatorIntern) bonus += 0.04f
+        if (buildingOps.medicineRounds) bonus += 0.03f
+        return bonus
+    }
 }
+
+@Serializable
+data class BuildingOps(
+    val scienceLabOpen: Boolean = false,
+    val liberalOpenDay: Boolean = false,
+    val engineeringWorkshop: Boolean = false,
+    val businessFair: Boolean = false,
+    val artsShow: Boolean = false,
+    val medicineRounds: Boolean = false,
+    val hospitalClinic: Boolean = false,
+    val libraryNight: Boolean = false,
+    val sportsMeet: Boolean = false,
+    val jobFair: Boolean = false,
+    val conferenceHost: Boolean = false,
+    val multimediaDrill: Boolean = false,
+    val gardenFestival: Boolean = false,
+    val auditoriumNight: Boolean = false,
+    val gateReception: Boolean = false,
+    val incubatorIntern: Boolean = false,
+    val intlExchange: Boolean = false,
+    val extraWindows: Int = 0
+)
 
 enum class CollegeType(
     val displayName: String,

@@ -128,17 +128,17 @@ enum class FacilityType(
     val repeatable: Boolean = false
 ) {
     // Teaching facilities — 建设成本适中，维护费合理（占学费收入10-20%为宜）
-    CLASSROOM("标准教室", "提供班级槽位(Lv1:3班,Lv2:4班,Lv3:6班,Lv4:7班,Lv5:9班)，可重复建造扩容", 18.0, 0.6, 5, FacilityCategory.TEACHING, repeatable = true),
-    MULTIMEDIA_ROOM("多媒体教室", "现代化教学设备，教学质量+10%/级。可重复建造扩容", 35.0, 1.2, 3, FacilityCategory.TEACHING, repeatable = true),
-    LABORATORY("实验室", "实验台位决定理科课容量。可重复建造分馆", 50.0, 1.8, 3, FacilityCategory.TEACHING, repeatable = true),
-    COMPUTER_LAB("计算机房", "机位决定信息技术课容量。可重复建造", 40.0, 1.5, 3, FacilityCategory.TEACHING, repeatable = true),
-    ART_STUDIO("艺术工作室", "工位决定艺术课容量。可重复建造", 25.0, 0.8, 3, FacilityCategory.TEACHING, repeatable = true),
+    CLASSROOM("标准教室", "教室学位直接决定招生人数。Lv1=90人，两间教室按两间加总。", 18.0, 0.6, 5, FacilityCategory.TEACHING, repeatable = true),
+    MULTIMEDIA_ROOM("多媒体教室", "公开课和演示课场地，打开演练后教学质量上升。", 35.0, 1.2, 3, FacilityCategory.TEACHING, repeatable = true),
+    LABORATORY("实验室", "理学院课题台位。打开夜间实验室可加快科研日。", 50.0, 1.8, 3, FacilityCategory.TEACHING, repeatable = true),
+    COMPUTER_LAB("计算机房", "工学院机位，决定信息技术课容量和课题速度。", 40.0, 1.5, 3, FacilityCategory.TEACHING, repeatable = true),
+    ART_STUDIO("艺术工作室", "艺术学院工位，打开汇演后满意度和口碑上升。", 25.0, 0.8, 3, FacilityCategory.TEACHING, repeatable = true),
 
     // Support facilities
-    LIBRARY("图书馆", "阅览席决定科研速度。可重复建分馆", 30.0, 1.0, 5, FacilityCategory.SUPPORT, repeatable = true),
-    SPORTS_FIELD("运动场", "容纳量决定体育课和社团。可重复建造", 45.0, 1.2, 3, FacilityCategory.SUPPORT, repeatable = true),
-    CANTEEN("食堂", "餐位决定饮食质量。可重复建造扩容", 28.0, 1.0, 3, FacilityCategory.SUPPORT, repeatable = true),
-    DORMITORY("宿舍楼", "床位决定住宿体验。可重复建造扩容", 95.0, 2.4, 3, FacilityCategory.SUPPORT, repeatable = true),
+    LIBRARY("图书馆", "阅览席决定科研速度。可开夜间阅览加快课题。", 30.0, 1.0, 5, FacilityCategory.SUPPORT, repeatable = true),
+    SPORTS_FIELD("运动场", "运动会和体育课场地。可办校运会拉招生和满意度。", 45.0, 1.2, 3, FacilityCategory.SUPPORT, repeatable = true),
+    CANTEEN("食堂", "餐位决定能不能吃上热饭。可加窗口，不够会投诉。", 28.0, 1.0, 3, FacilityCategory.SUPPORT, repeatable = true),
+    DORMITORY("宿舍楼", "床位卡招生上限。点开本楼可看每层住了谁。", 95.0, 2.4, 3, FacilityCategory.SUPPORT, repeatable = true),
 
     // Prestige facilities
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),

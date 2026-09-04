@@ -3849,7 +3849,14 @@ class GameEngine @Inject constructor(
             val incubatorRunning = school.facilities.any {
                 it.type == FacilityType.INCUBATOR && it.isOperational
             }
-            val effectiveSupportLevel = if (incubatorRunning) employmentSupportLevel + 1 else employmentSupportLevel
+            val ops = policyManager.policies.value.collegeDevelopment.buildingOps
+            val collegeEmploymentBoost = (policyManager.getPolicyEffects().collegeEmploymentBonus * 10f).toInt()
+            val effectiveSupportLevel = employmentSupportLevel +
+                (if (incubatorRunning) 1 else 0) +
+                (if (ops.jobFair) 1 else 0) +
+                (if (ops.incubatorIntern) 1 else 0) +
+                (if (ops.engineeringWorkshop) 1 else 0) +
+                collegeEmploymentBoost
             val totalGovBoost = govBoostForEmployment + academicEmploymentBoost +
                 partnerCommissionManager.consumeEmploymentBoost()
             st.employmentResult = employmentMarket.advanceMonth(
@@ -3971,6 +3978,11 @@ class GameEngine @Inject constructor(
                     com.arktools.xiao.domain.studentlife.LifeMonthlyResult? = null
                 val operationResult = commitStudentLifeOperationLocked { latest ->
                     studentLifeManager.updateStudentCount(st.studentCount)
+                    studentLifeManager.syncCampusCapacity(
+                        FacilityCapacity.totalBeds(latest.facilities),
+                        FacilityCapacity.totalCanteenSeats(latest.facilities) +
+                            policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows * 40
+                    )
                     val lifeResult = studentLifeManager.advanceMonth(
                         st.studentCount,
                         school.currentYear,

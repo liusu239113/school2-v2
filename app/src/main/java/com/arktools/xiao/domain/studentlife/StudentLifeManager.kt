@@ -121,6 +121,19 @@ class StudentLifeManager @Inject constructor() {
     private val _state = MutableStateFlow(StudentLifeState())
     val state: StateFlow<StudentLifeState> = _state.asStateFlow()
 
+    fun syncCampusCapacity(dormBeds: Int, canteenSeats: Int) {
+        _state.update { state ->
+            val facilities = state.facilities.toMutableMap()
+            facilities[LifeAspect.DORMITORY]?.let { dorm ->
+                facilities[LifeAspect.DORMITORY] = dorm.copy(capacity = dormBeds.coerceAtLeast(1))
+            }
+            facilities[LifeAspect.CAFETERIA]?.let { cafe ->
+                facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = canteenSeats.coerceAtLeast(1))
+            }
+            state.copy(facilities = facilities)
+        }
+    }
+
     fun reset() {
         val initialFacilities = LifeAspect.entries.associateWith { aspect ->
             LifeFacility(

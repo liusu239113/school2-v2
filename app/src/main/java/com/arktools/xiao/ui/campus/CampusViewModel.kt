@@ -1467,4 +1467,59 @@ class CampusViewModel @Inject constructor(
             }
         }
     }
+
+    fun buildingOps(): com.arktools.xiao.domain.policy.BuildingOps =
+        policyManager.policies.value.collegeDevelopment.buildingOps
+
+    fun toggleBuildingOp(
+        label: String,
+        monthlyCost: Double,
+        update: (com.arktools.xiao.domain.policy.BuildingOps) -> com.arktools.xiao.domain.policy.BuildingOps
+    ) {
+        viewModelScope.safeLaunch {
+            val dev = policyManager.policies.value.collegeDevelopment
+            val next = update(dev.buildingOps)
+            policyManager.replaceCollegeDevelopment(dev.copy(buildingOps = next))
+            val result = schoolRepository.mutateSchool { school ->
+                school.policyJson = policyManager.toJson()
+                true
+            }
+            if (result != null) {
+                audioManager.playCardOpen()
+                _state.value = _state.value.copy(
+                    message = "$label 已切换。每月额外开支约 ${"%.1f".format(monthlyCost)} 万，会写进招生、科研或就业。"
+                )
+            } else {
+                audioManager.playEventNegative()
+                _state.value = _state.value.copy(message = "$label 保存失败")
+            }
+        }
+    }
+
+    fun addCanteenWindow() {
+        viewModelScope.safeLaunch {
+            val cost = 4.0
+            val result = schoolRepository.mutateSchool { school ->
+                if (school.cash < cost) {
+                    _state.value = _state.value.copy(message = "加窗口需要 4 万，经费不够")
+                    return@mutateSchool false
+                }
+                school.cash -= cost
+                val dev = policyManager.policies.value.collegeDevelopment
+                val ops = dev.buildingOps.copy(extraWindows = (dev.buildingOps.extraWindows + 1).coerceAtMost(6))
+                policyManager.replaceCollegeDevelopment(dev.copy(buildingOps = ops))
+                school.policyJson = policyManager.toJson()
+                true
+            }
+            if (result != null) {
+                val windows = buildingOps().extraWindows
+                audioManager.playBuildFacility()
+                _state.value = _state.value.copy(
+                    message = "食堂加开一扇窗口，现在额外餐位 ${windows * 40}。月底排队会按新餐位算。"
+                )
+            } else {
+                audioManager.playEventNegative()
+            }
+        }
+    }
 }
