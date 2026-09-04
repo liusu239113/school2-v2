@@ -236,7 +236,6 @@ fun CampusView(
                 clampCamera()
             }
         }
-        val zoomByNow = rememberUpdatedState(::zoomBy)
 
         // 初始镜头：对准解锁区中心（大地图不要从左上角荒地开始）
         var cameraReady by remember { mutableStateOf(false) }
@@ -367,7 +366,19 @@ fun CampusView(
                                 if (oldDist > 12f && dist > 12f) {
                                     val raw = dist / oldDist
                                     val boosted = 1f + (raw - 1f) * 1.8f
-                                    zoomByNow.value(boosted, centroid)
+                                    val oldZoom = zoomNow.value
+                                    val oldCell = baseCell * oldZoom
+                                    val newZoom = (oldZoom * boosted).coerceIn(0.35f, 4.0f)
+                                    val newCell = baseCell * newZoom
+                                    zoom = newZoom
+                                    if (newCell != oldCell && oldCell > 0f) {
+                                        val cam = cameraNow.value
+                                        camera = Offset(
+                                            centroid.x - (centroid.x - cam.x) * (newCell / oldCell),
+                                            centroid.y - (centroid.y - cam.y) * (newCell / oldCell)
+                                        )
+                                        clampCamera()
+                                    }
                                     dragged = true
                                 }
                             } else {
@@ -754,7 +765,7 @@ fun CampusView(
                         .background(Color(0xCC0B2038))
                         .clickable {
                             val focus = Offset(screenW / 2f, screenH / 2f)
-                            zoomByNow.value(0.7f, focus)
+                            zoomBy(0.7f, focus)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("－", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
@@ -763,7 +774,7 @@ fun CampusView(
                         .background(Color(0xCC0B2038))
                         .clickable {
                             val focus = Offset(screenW / 2f, screenH / 2f)
-                            zoomByNow.value(1.4f, focus)
+                            zoomBy(1.4f, focus)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("＋", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
