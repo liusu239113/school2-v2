@@ -258,6 +258,16 @@ fun CampusView(
         }
         var walkers by remember { mutableStateOf(emptyList<Walker>()) }
 
+        // 升级校园后新解锁地块的高亮提示（金色边框渐隐 9 秒）
+        var unlockFlashUntil by remember { mutableStateOf(0L) }
+        var lastLevelSeen by remember { mutableStateOf(state.campusLevel) }
+        LaunchedEffect2(state.campusLevel) {
+            if (state.campusLevel > lastLevelSeen) {
+                unlockFlashUntil = System.currentTimeMillis() + 9000L
+            }
+            lastLevelSeen = state.campusLevel
+        }
+
         // 人数驱动：每 10 名在校生出现 1 个小人（上限 32）
         LaunchedEffect2(listOf(state.studentCount, walkableSet)) {
             val target = (state.studentCount / 10).coerceIn(0, WALKER_MAX)
@@ -535,8 +545,33 @@ fun CampusView(
                     }
                 }
 
+                // 新解锁地块高亮：升级后 9 秒内金色边框+淡金填充渐隐
+                val nowMs = System.currentTimeMillis()
+                if (nowMs < unlockFlashUntil && state.campusLevel > 1) {
+                    val nr = BT.unlockedRect(state.campusLevel)
+                    val flashAlpha = ((unlockFlashUntil - nowMs) / 9000f).coerceIn(0f, 1f)
+                    drawRect(
+                        Color(0x33FFD54F).copy(alpha = 0.30f * flashAlpha),
+                        Offset(nr.x0 * cell, nr.y0 * cell),
+                        Size((nr.x1 - nr.x0) * cell, (nr.y1 - nr.y0) * cell)
+                    )
+                    drawRect(
+                        Color(0xFFFFD54F).copy(alpha = flashAlpha),
+                        Offset(nr.x0 * cell, nr.y0 * cell),
+                        Size((nr.x1 - nr.x0) * cell, (nr.y1 - nr.y0) * cell),
+                        style = Stroke(5f)
+                    )
+                }
+
                 // 行走学生小人：脚底对齐格底，比路灯略小；像素硬边渲染
+                val viewL = -camera.x - cell
+                val viewR = -camera.x + screenW + cell
+                val viewT = -camera.y - cell
+                val viewB = -camera.y + screenH + cell
                 walkers.forEach { w ->
+                    val wx = w.fx * cell
+                    val wy = w.fy * cell
+                    if (wx < viewL || wx > viewR || wy < viewT || wy > viewB) return@forEach
                     val sheet = walkerBitmaps[w.role % walkerBitmaps.size]
                     val fw = sheet.width / 2
                     val fh = sheet.height / 2
@@ -545,8 +580,8 @@ fun CampusView(
                     val sy = if (frame >= 2) fh else 0
                     val hPx = cell * 0.60f
                     val wPx = hPx * fw / fh
-                    val cx = w.fx * cell
-                    val bottom = w.fy * cell
+                    val cx = wx
+                    val bottom = wy
                     val srcRect = android.graphics.Rect(sx, sy, sx + fw, sy + fh)
                     val dstRect = android.graphics.RectF(cx - wPx / 2f, bottom - hPx, cx + wPx / 2f, bottom)
                     val nc = drawContext.canvas.nativeCanvas
@@ -1120,7 +1155,7 @@ private data class Walker(
 
 private const val WALKER_TICK_MS = 120L
 private const val WALKER_STEP = 0.16f   // 每 tick 走的格数（约 1.3 格/秒）
-private const val WALKER_MAX = 32       // 性能上限：超过该数量不增人
+private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
 
 private fun walkableKey(x: Int, y: Int): Long = y.toLong() * 1000L + x
 

@@ -1400,8 +1400,13 @@ class CampusViewModel @Inject constructor(
             val unlockText = if (unlocked.isNotEmpty()) {
                 " 新开放：${unlocked.joinToString("、") { it.displayName }}"
             } else ""
+            val oldRect = com.arktools.xiao.ui.campus.CampusBuildTypes.unlockedRect(school.campusLevel)
+            val newRect = com.arktools.xiao.ui.campus.CampusBuildTypes.unlockedRect(newLevel)
+            val newCells = (newRect.x1 - newRect.x0) * (newRect.y1 - newRect.y0) -
+                (oldRect.x1 - oldRect.x0) * (oldRect.y1 - oldRect.y0)
+            val landText = if (newCells > 0) " 新开用地 +$newCells 格（金色高亮区域）" else ""
             _state.value = _state.value.copy(
-                message = "校园升级成功！当前 Lv.$newLevel（赠送1间教室）$unlockText"
+                message = "校园升级成功！当前 Lv.$newLevel（赠送1间教室）$landText$unlockText"
             )
         }
     }
