@@ -1339,6 +1339,7 @@ private fun BuildingPanelContent(
                     Text("校园已满级。后期靠连盖宿舍/分馆、开下一轮课题和铺满地图，而不是再升一级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
+                PanelButton("教学配置（点加号开班）") { onOpenTeaching() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college
@@ -1489,8 +1490,9 @@ private fun BuildingPanelContent(
                                 color = Color(0xFF617386)
                             )
                             if (myClasses.isEmpty()) {
-                                Text("本楼暂无绑定班级（新班会按实际教室容量自动分配）", fontSize = 11.sp, color = Color(0xFF617386))
+                                Text("本楼还没挂上教学班。点下面进教学配置，用加号开班，9月才会按学位招生。", fontSize = 11.sp, color = Color(0xFF617386))
                             }
+                            PanelButton("教学配置（点加号开班）") { onOpenTeaching() }
                             myClasses.forEach { row ->
                                 Column(
                                     modifier = Modifier

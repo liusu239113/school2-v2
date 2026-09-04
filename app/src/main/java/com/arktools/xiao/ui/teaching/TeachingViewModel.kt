@@ -8,8 +8,10 @@ import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.teaching.TeachingManager
 import com.arktools.xiao.domain.teaching.TeachingState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -26,6 +28,9 @@ class TeachingViewModel @Inject constructor(
     val state: StateFlow<TeachingState> = teachingManager.state
 
     val config: TeachingConfig get() = teachingManager.config
+
+    private val _lastActionMessage = MutableStateFlow("")
+    val lastActionMessage: StateFlow<String> = _lastActionMessage.asStateFlow()
 
     /** 各学院/专业的真实培养质量：来自在读学生的满意度与学业分 */
     data class CollegeTrainingQuality(
@@ -86,8 +91,33 @@ class TeachingViewModel @Inject constructor(
     // ========= 班型管理 =========
 
     fun setClassCount(tier: ClassTier, count: Int) {
-        teachingManager.setClassCount(tier, count)
-        persistConfig()
+        val current = config.classDistribution[tier] ?: 0
+        val next = count.coerceAtLeast(0)
+        if (next == current) return
+        viewModelScope.launch {
+            if (next > current) {
+                val added = next - current
+                val setup = tier.setupCost * added
+                val seats = tier.maxSize * added
+                val school = schoolRepository.getSchool()
+                if (school == null || school.cash < setup) {
+                    _lastActionMessage.value =
+                        "经费不够：再开 ${added} 个${tier.displayName}要 ${"%.1f".format(setup)} 万，点加号不会生效。"
+                    return@launch
+                }
+                schoolRepository.deductCash(setup)
+                teachingManager.setClassCount(tier, next)
+                persistConfig()
+                _lastActionMessage.value =
+                    "已开 ${added} 个${tier.displayName}：立刻 +${seats} 个新生学位，扣开办费 ${"%.1f".format(setup)} 万，月费再 +${"%.1f".format(tier.monthlyCost * added)} 万。不开班 9 月招不满。"
+                return@launch
+            }
+            teachingManager.setClassCount(tier, next)
+            persistConfig()
+            val removed = current - next
+            _lastActionMessage.value =
+                "已关掉 ${removed} 个${tier.displayName}：下季少招 ${tier.maxSize * removed} 人，月费同步减少。"
+        }
     }
 
     fun getClassCount(tier: ClassTier): Int {

@@ -2372,9 +2372,7 @@ class GameEngine @Inject constructor(
                 val maxClassNum = gradeClasses.maxOfOrNull { it.classNumber } ?: 0
 
                 // 按班型配置计算每年级需要的班数
-                val gradeDistribution = distribution.mapValues { (_, count) ->
-                    (count / 3).coerceAtLeast(if (count > 0) 1 else 0)
-                }.filter { it.value > 0 }
+                val gradeDistribution = distribution.filter { it.value > 0 }
                 val perGradeCapacity = gradeDistribution.entries.sumOf { (tier, count) -> tier.maxSize * count }
 
                 // 计算需要多少个新班级
@@ -6726,6 +6724,27 @@ class GameEngine @Inject constructor(
         return ClassTier.NORMAL
     }
 
+    /** 教室不够时按班型顺序截断，保证点加号加出来的班都能坐下。 */
+    private fun clampClassDistribution(
+        distribution: Map<ClassTier, Int>,
+        maxClasses: Int
+    ): Map<ClassTier, Int> {
+        if (maxClasses <= 0) return emptyMap()
+        var remaining = maxClasses
+        val result = linkedMapOf<ClassTier, Int>()
+        for (tier in ClassTier.entries) {
+            val want = distribution[tier] ?: 0
+            if (want <= 0) continue
+            val take = want.coerceAtMost(remaining)
+            if (take > 0) {
+                result[tier] = take
+                remaining -= take
+            }
+            if (remaining <= 0) break
+        }
+        return result
+    }
+
     private suspend fun updateStudentProgress(school: School) {
         val activeStudents = studentRepository.getActiveStudents()
         if (activeStudents.isEmpty()) return
@@ -6895,19 +6914,15 @@ class GameEngine @Inject constructor(
         }
         val maxTotalClassesByRoom = classroomCount
 
-        // 2. 按班型配置计算每年级的班级分布（全校配置 / 3 个年级，向上取整避免截断）
-        val totalConfiguredClasses = distribution.values.sum().coerceAtLeast(1)
-        val gradeDistribution: Map<ClassTier, Int> = distribution.mapValues { (_, count) ->
-            ((count + 2) / 3).coerceAtLeast(if (count > 0) 1 else 0)  // 向上取整：7/3=3, 5/3=2, 3/3=1
-        }.filter { it.value > 0 }
+        // 2. 教学配置里的班数 = 本届新生班。点一次 + 就加一个班的学位，不再除以 3。
+        val existingUpperClasses = _classes.value.count { it.gradeLevel != GradeLevel.GRADE_1 }
+        val maxFreshmanClasses = (maxTotalClassesByRoom - existingUpperClasses).coerceAtLeast(0)
+        val gradeDistribution: Map<ClassTier, Int> = clampClassDistribution(distribution, maxFreshmanClasses)
+        val gradeClassCount = gradeDistribution.values.sum()
 
-        // 3. 受教室约束：每年级实际可用班数不超过 maxTotalClassesByRoom / 3
-        val maxClassesPerGrade = (maxTotalClassesByRoom / 3).coerceAtLeast(1)
-        val gradeClassCount = gradeDistribution.values.sum().coerceAtMost(maxClassesPerGrade)
-
-        // 4. 该年级总容量 = 各班型的 maxSize 之和
+        // 3. 该年级总容量 = 各班型人数上限 × 已开班数（点 + 立刻加学位）
         val gradeCapacity = gradeDistribution.entries.sumOf { (tier, count) ->
-            tier.maxSize * count.coerceAtMost(maxClassesPerGrade)
+            tier.maxSize * count
         }
 
         // 5. 声誉连续影响招生：没口碑招不满，口碑上去才扩得动（150≈Lv2门槛约 0.89 倍）
@@ -6917,8 +6932,7 @@ class GameEngine @Inject constructor(
         val dimBonus = repDimensions.values.sumOf { dim ->
             ((dim.score - 100.0) / 2500.0).coerceIn(0.0, 0.05) // 起步 0，每维最多 +5%
         }.toFloat()
-        val avgClassSize = if (gradeClassCount > 0) gradeCapacity / gradeClassCount else 40
-        val baseEnroll = (avgClassSize * 2.5f).toInt()  // 基础：约2.5个班的量
+        val baseEnroll = gradeCapacity  // 开了多少学位，就按这个量去招；声誉/方针再乘倍率
 
         // 6. 校友推荐加成
         val alumniBonus = alumniNetwork.getEnrollmentBonus()
@@ -7004,6 +7018,14 @@ class GameEngine @Inject constructor(
             penaltyHeadroomForFreshmen
         ).minOrNull() ?: capacityCap
         val partnerEnrollBonus = partnerCommissionManager.consumeEnrollmentBonus()
+        if (gradeCapacity <= 0) {
+            emitEvent(GameEvent.NegativeEvent(
+                title = "没有开班，招不到人",
+                message = "教室有了，但教学配置里一个班都没开。去「治院 → 教学配置」点加号：通识班一次 +50 学位，专业核心班 +40，拔尖班 +30。不开班，9月迎新是空的。",
+                penaltyCash = 0.0,
+                penaltyReputation = 6
+            ), school)
+        }
         val targetEnrollCount = if (gradeCapacity <= 0) 0 else {
             (rawEnroll * (1f + partnerEnrollBonus)).toInt().coerceIn(0, effectiveCapacityCap)
         }
@@ -7164,8 +7186,9 @@ class GameEngine @Inject constructor(
             val typeNote = "办学类型：${enrollTier.displayName}·${school.schoolOwnership().displayName}"
             emitEvent(GameEvent.PositiveEvent(
                 title = "新学年开学",
-                message = "${planName}：本届补招${assignedStudents.size}名新生，当前新生共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班级。报考结构：$trackNote。$collegeNote\n" +
-                    "今年录取线约 ${admissionLine} 分。$typeNote",
+                message = "${planName}：按已开教学班招到${assignedStudents.size}人（学位上限${gradeCapacity}，已开${gradeClassCount}个新生班）。" +
+                    "当前大一共${existingGradeOneCount + assignedStudents.size}人，分入${actualClassCount}个班。报考结构：$trackNote。$collegeNote\n" +
+                    "再点加号开班才能招更多。今年录取线约 ${admissionLine} 分。$typeNote",
                 bonusCash = 0.0,
                 bonusReputation = (assignedStudents.size / 5).toLong() + policyEffects.welfareReputationBonus
             ), school)

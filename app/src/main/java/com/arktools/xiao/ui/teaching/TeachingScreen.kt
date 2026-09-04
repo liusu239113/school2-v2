@@ -41,6 +41,7 @@ fun TeachingScreen(
     viewModel: TeachingViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val lastActionMessage by viewModel.lastActionMessage.collectAsState()
     val classroomCount by viewModel.classroomCountFlow.collectAsState(initial = 0)
     val classroomCapacity by viewModel.classroomCapacityFlow.collectAsState(initial = 0)
     val maxClassesPerTier by viewModel.maxClassesPerTierFlow.collectAsState(initial = 10)
@@ -60,6 +61,22 @@ fun TeachingScreen(
     ) {
         // === 概览卡片 ===
         item { OverviewCard(state) }
+        if (lastActionMessage.isNotBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFDCF1FB))
+                ) {
+                    Text(
+                        lastActionMessage,
+                        modifier = Modifier.padding(12.dp),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF14648C)
+                    )
+                }
+            }
+        }
 
         // === 教室容量警告 ===
         if (isOverCapacity) {
@@ -175,8 +192,14 @@ private fun ClassDistributionSection(viewModel: TeachingViewModel, state: Teachi
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "教学班数量决定招生容量。拔尖/核心班成绩涨得快、月费高；通识班便宜但培养慢。分班立刻进月结成本和毕业质量。",
-                fontSize = 11.sp,
+                "右边那个加号就是开班。点一次立刻加一个班的新生学位，并扣开办费、增加月费。不开班，9月招不到人。",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF14648C)
+            )
+            Text(
+                "当前已开 ${config.totalClasses} 班，本届最多招 ${config.totalCapacity} 人。教室还能再开 ${(classroomCapacity - totalClasses).coerceAtLeast(0)} 班。",
+                fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             ClassTier.entries.forEach { tier ->
@@ -211,11 +234,16 @@ private fun ClassTierRow(tier: ClassTier, count: Int, maxCount: Int, onCountChan
         Column(modifier = Modifier.weight(1f)) {
             Text(tier.displayName, fontWeight = FontWeight.Medium, fontSize = 14.sp)
             Text(
-                "容量${tier.maxSize}人/班 | 成绩×${tier.scoreMultiplier} | 月费${tier.monthlyCost}万/班 | " +
-                        if (atLimit && count > 0) "已达上限" else "上限${maxCount}班",
+                "点+立刻 +${tier.maxSize}学位 · 开办${tier.setupCost}万 · 月费${tier.monthlyCost}万 · 成绩×${tier.scoreMultiplier}" +
+                    if (atLimit && count > 0) " · 已达上限" else "",
                 fontSize = 11.sp,
                 color = if (atLimit && count > 0) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                tier.purpose,
+                fontSize = 11.sp,
+                color = Color(0xFF14648C)
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

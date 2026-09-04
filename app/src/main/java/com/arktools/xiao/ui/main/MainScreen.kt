@@ -354,6 +354,16 @@ fun MainScreen(
             tutorialManager.notifyAction(CompletionCondition.CONFIGURE_TEACHING)
         }
     }
+    LaunchedEffect(showTutorial, tutorialManager.currentStepIndex, selectedTab) {
+        if (
+            showTutorial &&
+            tutorialManager.isActive &&
+            tutorialManager.currentStep.completionCondition == CompletionCondition.CONFIGURE_TEACHING &&
+            selectedTab == Screen.GOVERNANCE
+        ) {
+            navigateTo(Screen.TEACHING_CONFIG)
+        }
+    }
     LaunchedEffect(studentCount, tutorialManager.currentStepIndex) {
         if (studentCount > 0 && showTutorial) {
             tutorialManager.notifyAction(CompletionCondition.WAIT_ENROLLMENT)

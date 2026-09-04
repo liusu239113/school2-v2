@@ -515,7 +515,7 @@ private fun getActionHint(condition: CompletionCondition): String {
         CompletionCondition.TAP_TAB_OVERVIEW -> "请点击「校园」标签 ↓"
         CompletionCondition.TAP_TAB_DISTRICT -> "请点击「外联」标签 ↓"
         CompletionCondition.HIRE_TEACHER -> "等待你招聘教师..."
-        CompletionCondition.CONFIGURE_TEACHING -> "等待你完成教学配置..."
+        CompletionCondition.CONFIGURE_TEACHING -> "请点加号开班（立刻加学位、扣开办费）..."
         CompletionCondition.NAVIGATE_STUDENT -> "请进入学生生活或学生事务"
         CompletionCondition.NAVIGATE_FACILITY -> "请回到校园点开一座建筑"
         CompletionCondition.NAVIGATE_REPORT -> "请在治院打开数据报表"
