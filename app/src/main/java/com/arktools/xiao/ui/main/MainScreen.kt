@@ -110,6 +110,7 @@ import com.arktools.adsdk.ui.PrivacyPolicyDialog
 import com.arktools.xiao.ui.login.TapTapLoginScreen
 import com.arktools.xiao.ui.login.ComplianceManager
 import com.taptap.sdk.login.TapTapLogin
+import com.arktools.xiao.ui.achievement.AchievementScreen
 import com.arktools.xiao.ui.achievement.AchievementToastOverlay
 import com.arktools.xiao.ui.report.ReportScreen
 import com.arktools.xiao.ui.notification.NotificationScreen
@@ -764,6 +765,7 @@ fun MainScreen(
                         } else {
                             when (tab) {
                                 8 -> StudentScreen()
+                                10 -> AchievementScreen()
                                 11 -> ReportScreen()
                                 14 -> NotificationScreen(
                                     onNavigateToTab = { tabIndex -> navigateTo(tabIndex) }
@@ -787,7 +789,8 @@ fun MainScreen(
                                     onNavigateToPolicy = { navigateTo(Screen.POLICY) },
                                     onNavigateToTeacher = { navigateTo(Screen.TEACHER) },
                                     onNavigateToResearch = { navigateTo(41) },
-                                    onNavigateToScholarship = { navigateTo(Screen.SCHOLARSHIP) }
+                                    onNavigateToScholarship = { navigateTo(Screen.SCHOLARSHIP) },
+                                    onNavigateToAchievement = { navigateTo(Screen.ACHIEVEMENT) }
                                 )
                             }
                         }
@@ -1040,7 +1043,7 @@ private fun getSubPageTitle(tab: Int): String {
         6 -> "股票投资"
         7 -> "校园建设"
         8 -> "学生事务"
-        10 -> "大学荣誉"
+        10 -> "成就墙"
         11 -> "办学报表"
         12 -> "招生传播"
         13 -> "校园事件"

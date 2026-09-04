@@ -80,6 +80,7 @@ fun OverviewScreen(
     onNavigateToTeacher: () -> Unit = {},
     onNavigateToResearch: () -> Unit = {},
     onNavigateToScholarship: () -> Unit = {},
+    onNavigateToAchievement: () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     viewModel: OverviewViewModel = hiltViewModel()
 ) {
@@ -344,7 +345,8 @@ fun OverviewScreen(
                 LedgerEntry("奖助学金", "直接影响生源与口碑", R.drawable.ic_scholarship, GameModule.SCHOLARSHIP, onNavigateToScholarship),
                 LedgerEntry("校友与就业", "毕业去向会回写声誉和捐赠", R.drawable.ic_graduation, GameModule.ALUMNI, onNavigateToAlumni),
                 LedgerEntry("在校生名册", "班级、年级和在读情况", R.drawable.ic_student_roster, null, onNavigateToStudent),
-                LedgerEntry("通知待办", "周报、事件和待处理事项", R.drawable.ic_notification, null, onNavigateToNotification)
+                LedgerEntry("通知待办", "周报、事件和待处理事项", R.drawable.ic_notification, null, onNavigateToNotification),
+                LedgerEntry("成就墙", "解锁给经费和声誉，不是空牌子", R.drawable.ic_trophy, null, onNavigateToAchievement)
             )
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 entries.chunked(2).forEach { row ->

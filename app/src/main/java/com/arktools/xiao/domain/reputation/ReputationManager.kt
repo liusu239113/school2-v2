@@ -284,7 +284,7 @@ class ReputationManager @Inject constructor() {
         sportsInvestmentScore: Float = 0f,
         artsInvestmentScore: Float = 0f
     ): Float {
-        val baseGrowth = 2.0f  // 基础被动成长
+        val baseGrowth = 0.35f  // 被动声誉极慢，主动经营（竞赛/委托/奖学金发放）才是主通道
 
         // 政府评级因子：AAA(0)=1.3, AA(1)=1.15, A(2)=1.05, B(3)=1.0, C(4)=0.9, D(5)=0.75
         val govFactor = when (governmentGradeOrdinal) {

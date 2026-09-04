@@ -199,6 +199,7 @@ class ScholarshipManager @Inject constructor() {
                 totalBudgetAllocated = current.totalBudgetAllocated + amountPerStudent * maxRecipients
             )
         }
+        recalcBonuses()
     }
 
     /**
@@ -217,6 +218,7 @@ class ScholarshipManager @Inject constructor() {
                                 template.amountPerStudent * template.maxRecipients
                     )
                 }
+                recalcBonuses()
             }
         }
     }
@@ -294,28 +296,32 @@ class ScholarshipManager @Inject constructor() {
             }
         }
 
-        // 计算持续性加成：基于奖学金数量
-        val totalScholarships = _state.value.scholarships.size
-        // 奖学金数量基础加成（每个+3%，上限30%）
-        val enrollmentBonus = (totalScholarships * 0.03f).coerceAtMost(0.3f)
-        // 退学率降低：每个奖学金降低2%，上限20%
-        val retentionEffect = (totalScholarships * 0.02f).coerceAtMost(0.2f)
-
-        _state.update { current ->
-            current.copy(
-                studentAttractionBonus = enrollmentBonus,
-                retentionBonus = retentionEffect,
-                reputationBonus = totalScholarships * 2
-            )
-        }
+        recalcBonuses()
 
         return ScholarshipMonthResult(
             expenses = totalExpenses,
             newRecipients = newRecipients,
-            retentionEffect = retentionEffect,
-            enrollmentBonus = enrollmentBonus,
+            retentionEffect = _state.value.retentionBonus,
+            enrollmentBonus = _state.value.studentAttractionBonus,
             reputationGain = reputationGain
         )
+    }
+
+    /** 按在设奖项的名额与金额重算招生/留存/声誉，设立或取消后立刻生效。 */
+    fun recalcBonuses() {
+        val active = _state.value.scholarships.filter { it.isActive }
+        val slots = active.sumOf { it.maxRecipients }
+        val yearlyBudget = active.sumOf { it.amountPerStudent * it.maxRecipients }
+        val enrollmentBonus = (slots * 0.012f + yearlyBudget.toFloat() * 0.04f).coerceIn(0f, 0.28f)
+        val retentionEffect = (slots * 0.008f).coerceAtMost(0.18f)
+        val reputationBonus = (slots / 2).coerceAtMost(18)
+        _state.update { current ->
+            current.copy(
+                studentAttractionBonus = enrollmentBonus,
+                retentionBonus = retentionEffect,
+                reputationBonus = reputationBonus
+            )
+        }
     }
 
     /**
@@ -327,6 +333,7 @@ class ScholarshipManager @Inject constructor() {
                 scholarships = current.scholarships.filter { it.id != scholarshipId }
             )
         }
+        recalcBonuses()
     }
 
     /**
@@ -402,6 +409,7 @@ class ScholarshipManager @Inject constructor() {
                 retentionBonus = data.retentionBonus,
                 reputationBonus = data.reputationBonus
             )
+            recalcBonuses()
         } catch (e: Exception) {
             throw IllegalArgumentException("ScholarshipManager.restoreFromJson failed", e)
         }

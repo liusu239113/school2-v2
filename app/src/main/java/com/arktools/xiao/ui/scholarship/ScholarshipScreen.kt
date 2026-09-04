@@ -71,7 +71,7 @@ fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
                         .padding(20.dp)
                 ) {
                     Column {
-                        Text("开学就能设，直接影响招生和口碑", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("设立立刻加招生和留存，3月/9月按名额发钱换声誉", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(Modifier.height(12.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),

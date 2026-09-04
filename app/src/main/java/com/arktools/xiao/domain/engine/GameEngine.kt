@@ -1965,7 +1965,7 @@ class GameEngine @Inject constructor(
                         actionTabIndex = when (posType) {
                             com.arktools.xiao.domain.model.NotificationType.TEACHER -> 2
                             com.arktools.xiao.domain.model.NotificationType.STUDENT -> 8
-                            com.arktools.xiao.domain.model.NotificationType.MILESTONE -> 11
+                            com.arktools.xiao.domain.model.NotificationType.MILESTONE -> 10
                             else -> 11
                         }
                     )
@@ -2006,7 +2006,7 @@ class GameEngine @Inject constructor(
                     type = com.arktools.xiao.domain.model.NotificationType.MILESTONE,
                     priority = com.arktools.xiao.domain.model.NotificationPriority.HIGH,
                     gameYear = year, gameMonth = month, gameDay = day,
-                    actionTabIndex = 11
+                    actionTabIndex = 10
                 )
             }
             is GameEvent.ChoiceEvent -> { /* 选择事件通过对话框处理，不进通知 */ }
@@ -3361,31 +3361,39 @@ class GameEngine @Inject constructor(
         if (school.currentDay == 1) {
             val newAchievements = achievementManager.checkAchievements(school)
             if (newAchievements.isNotEmpty()) {
+                val cashReward = newAchievements.size * 8.0
+                val repReward = newAchievements.size * 6L
+                schoolRepository.mutateSchool { latest ->
+                    latest.cash += cashReward
+                    latest.reputation += repReward
+                    latest.achievementJson = achievementManager.toJson()
+                    true
+                }
                 if (newAchievements.size >= 4) {
-                    // 同月解锁过多时合并为一条摘要，避免通知刷屏
                     notificationManager.addNotification(
                         title = "一次性解锁 ${newAchievements.size} 项成就",
-                        message = newAchievements.joinToString("、") { it.title },
+                        message = newAchievements.joinToString("、") { it.title } +
+                            "。奖励经费 +${cashReward.toInt()}万、声誉 +$repReward。",
                         type = com.arktools.xiao.domain.model.NotificationType.MILESTONE,
                         priority = com.arktools.xiao.domain.model.NotificationPriority.NORMAL,
                         gameYear = school.currentYear,
                         gameMonth = school.currentMonth,
                         gameDay = school.currentDay,
-                        actionLabel = "查看报表",
-                        actionTabIndex = 11
+                        actionLabel = "查看成就",
+                        actionTabIndex = 10
                     )
                 } else {
                     newAchievements.forEach { achievement ->
                         notificationManager.addNotification(
                             title = "成就解锁：${achievement.title}",
-                            message = achievement.description,
+                            message = achievement.description + " 奖励经费 +8万、声誉 +6。",
                             type = com.arktools.xiao.domain.model.NotificationType.MILESTONE,
                             priority = com.arktools.xiao.domain.model.NotificationPriority.NORMAL,
                             gameYear = school.currentYear,
                             gameMonth = school.currentMonth,
                             gameDay = school.currentDay,
-                            actionLabel = "查看报表",
-                            actionTabIndex = 11
+                            actionLabel = "查看成就",
+                            actionTabIndex = 10
                         )
                     }
                 }
@@ -6254,8 +6262,10 @@ class GameEngine @Inject constructor(
             GameBalanceConfig.getTuitionMultiplier(school.campusLevel) *
             school.schoolTier().tuitionMultiplier *
             school.schoolOwnership().tuitionMultiplier
+        // 声誉品牌溢价：口碑越高，同样的学生能收更高学费（上限 +15%）
+        val reputationTuition = 1.0 + (school.reputation / 4000.0).coerceIn(0.0, 0.15)
         val totalMonthlyRevenue =
-            activeStudentCount * tuitionPerStudent * revenueMultiplier
+            activeStudentCount * tuitionPerStudent * revenueMultiplier * reputationTuition
 
         if (totalMonthlyRevenue > 0) {
             checkNotNull(schoolRepository.mutateSchool { latest ->
@@ -6362,14 +6372,16 @@ class GameEngine @Inject constructor(
         val totalStudents = studentRepository.getActiveStudents().size
         val teachers = teacherRepository.getTeachers()
 
-        // 教学质量评分：基于教师能力均值（0-100）
+        // 教学质量评分统一到 0-100（教师技能有 0-100 与 0-1000 两套旧档）
         val teachingQuality = if (teachers.isNotEmpty()) {
-            teachers.map { it.averageSkill.toFloat() }.average().toFloat()
+            val raw = teachers.map { it.averageSkill.toFloat() }.average().toFloat()
+            if (raw > 150f) (raw / 10f).coerceIn(0f, 100f) else raw.coerceIn(0f, 100f)
         } else 0f
 
-        // 声誉增长：基于教学质量和学生规模
-        // v3.2 提速：让"升到 Lv.2"在一学年内可达，靠结项委托/竞赛做主动冲刺
-        val baseReputationGain = (teachingQuality * 0.20f + totalStudents * 0.10f).toLong()
+        // 声誉必须靠经营换，不能靠“人多就涨”。被动封顶，竞赛/委托/奖学金发放才是冲刺手段。
+        val baseReputationGain = (teachingQuality * 0.05f + totalStudents * 0.012f)
+            .toLong()
+            .coerceAtMost(12L)
 
         // Semester calendar bonus (graduation, exams, sports, etc.)
         val calendarBonus = SemesterCalendar.getReputationBonus(school.currentMonth)
@@ -6385,8 +6397,8 @@ class GameEngine @Inject constructor(
         val avgSatisfaction = studentRepository.getAverageSatisfaction()
         val studentSatisfactionBonus = ((avgSatisfaction - 50f) * 0.1f).toLong()  // >50 positive, <50 negative
 
-        // 奖学金声誉加成（每个奖学金项目每月+2声誉）
-        val scholarshipRepBonus = scholarshipManager.state.value.reputationBonus.toLong()
+        // 奖学金的月度声誉只在发放月由 advanceMonth 结算，这里不再每个月白给
+        val scholarshipRepBonus = 0L
 
         // 政策声誉修正（每月额外声誉增减，来自学费/考试/课外活动等政策组合）
         val policyRepModifier = policyManager.getPolicyEffects().reputationModifier
@@ -6898,19 +6910,12 @@ class GameEngine @Inject constructor(
             tier.maxSize * count.coerceAtMost(maxClassesPerGrade)
         }
 
-        // 5. 计算基础招生数（声誉驱动 + 声誉维度加成）
-        val reputationFactor = when {
-            school.reputation >= 10000 -> 1.5f
-            school.reputation >= 5000 -> 1.3f
-            school.reputation >= 2000 -> 1.1f
-            school.reputation >= 500 -> 1.0f
-            school.reputation >= 100 -> 0.9f
-            else -> 0.8f  // 新学校也能招到基本学生，不应过度惩罚
-        }
+        // 5. 声誉连续影响招生：没口碑招不满，口碑上去才扩得动（150≈Lv2门槛约 0.89 倍）
+        val reputationFactor = (0.70f + school.reputation / 800f).coerceIn(0.70f, 1.50f)
         // 声誉维度加成：各维度分数越高，特定方面越吸引学生
         val repDimensions = reputationManager.state.value.dimensions
         val dimBonus = repDimensions.values.sumOf { dim ->
-            (dim.score / 200.0).coerceAtMost(0.1) // 每个维度最多+10%，5维度总计最多+50%
+            ((dim.score - 100.0) / 2500.0).coerceIn(0.0, 0.05) // 起步 0，每维最多 +5%
         }.toFloat()
         val avgClassSize = if (gradeClassCount > 0) gradeCapacity / gradeClassCount else 40
         val baseEnroll = (avgClassSize * 2.5f).toInt()  // 基础：约2.5个班的量
@@ -7990,9 +7995,16 @@ class GameEngine @Inject constructor(
         val gap = if (missing.isNotEmpty()) "待建：${missing.joinToString("、")}。" else "基础建筑已齐，可升级或装扮校园。"
         val satLine = if (students.isEmpty()) "尚无在校生。" else "学生满意度 ${avgSat.toInt()}。"
         val cashLine = "经费 ${"%.0f".format(school.cash)}万，按当前师资大约还能撑 ${"%.1f".format(monthsLeft.coerceAtMost(99.0))} 个月。"
+        val effects = policyManager.getPolicyEffects()
+        val scholarship = scholarshipManager.state.value
+        val enrollPct = ((effects.enrollmentMultiplier - 1f) * 100f).toInt()
+        val qualityPct = ((effects.qualityMultiplier - 1f) * 100f).toInt()
+        val loopLine = "方针「${effects.strategyName}」招生${if (enrollPct >= 0) "+" else ""}$enrollPct% · 培养${if (qualityPct >= 0) "+" else ""}$qualityPct%。" +
+            "奖学金 ${scholarship.scholarships.size} 项招生+${(scholarship.studentAttractionBonus * 100f).toInt()}%。" +
+            "声誉 ${school.reputation} 决定招生和学费溢价。"
         notificationManager.addNotification(
             title = "校园周报 · ${school.currentMonth}月${school.currentDay}日",
-            message = "$season $gap $satLine $cashLine",
+            message = "$season $gap $satLine $cashLine $loopLine",
             type = com.arktools.xiao.domain.model.NotificationType.FINANCIAL,
             priority = if (missing.isNotEmpty() || monthsLeft < 3.0) {
                 com.arktools.xiao.domain.model.NotificationPriority.HIGH

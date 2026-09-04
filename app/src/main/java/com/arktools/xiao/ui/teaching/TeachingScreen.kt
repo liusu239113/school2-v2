@@ -175,7 +175,7 @@ private fun ClassDistributionSection(viewModel: TeachingViewModel, state: Teachi
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "教学班数量决定全校招生容量（每年招入约三分之一新生）。这是大学教学班，不是高中重点班。",
+                "教学班数量决定招生容量。拔尖/核心班成绩涨得快、月费高；通识班便宜但培养慢。分班立刻进月结成本和毕业质量。",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -211,7 +211,7 @@ private fun ClassTierRow(tier: ClassTier, count: Int, maxCount: Int, onCountChan
         Column(modifier = Modifier.weight(1f)) {
             Text(tier.displayName, fontWeight = FontWeight.Medium, fontSize = 14.sp)
             Text(
-                "容量${tier.maxSize}人/班 | 月费${tier.monthlyCost}万/班 | " +
+                "容量${tier.maxSize}人/班 | 成绩×${tier.scoreMultiplier} | 月费${tier.monthlyCost}万/班 | " +
                         if (atLimit && count > 0) "已达上限" else "上限${maxCount}班",
                 fontSize = 11.sp,
                 color = if (atLimit && count > 0) MaterialTheme.colorScheme.error

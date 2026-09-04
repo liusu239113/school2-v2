@@ -121,13 +121,19 @@ fun GovernanceScreen(
                         .padding(vertical = 6.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "${goal.icon} ${goal.displayName}",
-                        fontSize = 13.sp,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        color = Color(0xFF182635),
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "${goal.icon} ${goal.displayName}",
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            color = Color(0xFF182635)
+                        )
+                        Text(
+                            goal.description,
+                            fontSize = 11.sp,
+                            color = Color(0xFF617386)
+                        )
+                    }
                     if (selected) Text("✓", color = Color(0xFF1E96C8), fontWeight = FontWeight.Bold)
                 }
             }
@@ -145,13 +151,19 @@ fun GovernanceScreen(
                         .padding(vertical = 6.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "${strategy.icon} ${strategy.displayName}",
-                        fontSize = 13.sp,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        color = Color(0xFF182635),
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "${strategy.icon} ${strategy.displayName}",
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            color = Color(0xFF182635)
+                        )
+                        Text(
+                            strategy.effectSummary,
+                            fontSize = 11.sp,
+                            color = Color(0xFF617386)
+                        )
+                    }
                     if (selected) Text("✓", color = Color(0xFF1E96C8), fontWeight = FontWeight.Bold)
                 }
             }
@@ -167,7 +179,8 @@ fun GovernanceScreen(
                 Entry("奖助学金", com.arktools.xiao.R.drawable.ic_gift, 29),
                 Entry("学期课表", com.arktools.xiao.R.drawable.ic_core_course, 31),
                 Entry("考试管理", com.arktools.xiao.R.drawable.ic_memo, 32),
-                Entry("办学报表", com.arktools.xiao.R.drawable.ic_chart, 11)
+                Entry("办学报表", com.arktools.xiao.R.drawable.ic_chart, 11),
+                Entry("成就墙（解锁给经费和声誉）", com.arktools.xiao.R.drawable.ic_trophy, 10)
             )
             entries.forEach { entry ->
                 Row(

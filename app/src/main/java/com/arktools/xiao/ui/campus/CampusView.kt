@@ -268,8 +268,10 @@ fun CampusView(
             lastLevelSeen = state.campusLevel
         }
 
-        // 人数驱动：每 10 名在校生出现 1 个小人（上限 32）
-        LaunchedEffect2(listOf(state.studentCount, walkableSet)) {
+        val panelOpen = state.selected != null
+        // 人数驱动：每 10 名在校生 1 个小人。弹窗打开时冻结，避免点建筑被刷新打断。
+        LaunchedEffect2("${state.studentCount}|${walkableSet.size}|$panelOpen") {
+            if (panelOpen) return@LaunchedEffect2
             val target = (state.studentCount / 10).coerceIn(0, WALKER_MAX)
             val cur = walkers.toMutableList()
             while (cur.size < target) {
@@ -287,11 +289,17 @@ fun CampusView(
             walkers = cur
         }
 
-        // 走路循环：~8fps 逻辑步进，像素动画足够流畅且开销极小
-        LaunchedEffect2(walkableSet) {
+        // 走路循环：约 20fps，弹窗打开时停步，点建筑不再被重绘抢焦点
+        LaunchedEffect2("${walkableSet.size}|$panelOpen") {
+            if (panelOpen) return@LaunchedEffect2
             while (true) {
                 kotlinx.coroutines.delay(WALKER_TICK_MS)
-                walkers = advanceWalkers(walkers, walkableSet)
+                if (state.selected != null) break
+                val viewL = -camera.x - cell
+                val viewR = -camera.x + screenW + cell
+                val viewT = -camera.y - cell
+                val viewB = -camera.y + screenH + cell
+                walkers = advanceWalkers(walkers, walkableSet, viewL, viewR, viewT, viewB, cell)
             }
         }
 
@@ -575,7 +583,7 @@ fun CampusView(
                     val sheet = walkerBitmaps[w.role % walkerBitmaps.size]
                     val fw = sheet.width / 2
                     val fh = sheet.height / 2
-                    val frame = if (w.moving) (w.phase / 3) % 4 else 1
+                    val frame = if (w.moving) (w.phase / 2) % 4 else 1
                     val sx = if (frame % 2 == 1) fw else 0
                     val sy = if (frame >= 2) fh else 0
                     val hPx = cell * 0.60f
@@ -673,6 +681,13 @@ fun CampusView(
                     color = Color(0xFFFFD54F),
                     fontSize = 10.sp
                 )
+                if (state.loopHint.isNotBlank()) {
+                    Text(
+                        state.loopHint,
+                        color = Color(0xFFB8C7D6),
+                        fontSize = 10.sp
+                    )
+                }
                 Text(
                     "班槽 ${state.classSlots} · 阅览 ${state.librarySeats} · 实验台 ${state.labBenches} · 机位 ${state.computerSeats}",
                     color = Color(0xFFB8C7D6),
@@ -1153,8 +1168,8 @@ private data class Walker(
     val waitTicks: Int = 0
 )
 
-private const val WALKER_TICK_MS = 120L
-private const val WALKER_STEP = 0.16f   // 每 tick 走的格数（约 1.3 格/秒）
+private const val WALKER_TICK_MS = 50L
+private const val WALKER_STEP = 0.08f   // 每 tick 走的格数（约 1.6 格/秒，20fps）
 private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
 
 private fun walkableKey(x: Int, y: Int): Long = y.toLong() * 1000L + x
@@ -1183,8 +1198,22 @@ private fun buildWalkableSet(state: CampusViewModel.CampusUiState): Set<Long> {
 private fun walkerNeighbors(x: Int, y: Int): List<Pair<Int, Int>> =
     listOf(x + 1 to y, x - 1 to y, x to y + 1, x to y - 1)
 
-private fun advanceWalkers(list: List<Walker>, walkable: Set<Long>): List<Walker> = list.map { w ->
+private fun advanceWalkers(
+    list: List<Walker>,
+    walkable: Set<Long>,
+    viewL: Float,
+    viewR: Float,
+    viewT: Float,
+    viewB: Float,
+    cell: Float
+): List<Walker> = list.map { w ->
     if (walkable.isEmpty()) return@map w
+    val wx = w.fx * cell
+    val wy = w.fy * cell
+    val onScreen = wx >= viewL && wx <= viewR && wy >= viewT && wy <= viewB
+    if (!onScreen && (w.phase and 3) != 0) {
+        return@map w.copy(phase = w.phase + 1, moving = false)
+    }
     if (w.waitTicks > 0) return@map w.copy(waitTicks = w.waitTicks - 1, moving = false)
     val tcx = w.tx + 0.5f
     val tcy = w.ty + 0.9f   // 目标格底部（脚底对齐）
@@ -1273,6 +1302,9 @@ private fun BuildingPanelContent(
                     fontSize = 12.sp,
                     color = Color(0xFF14648C)
                 )
+                if (state.loopHint.isNotBlank()) {
+                    Text(state.loopHint, fontSize = 12.sp, color = Color(0xFF14648C))
+                }
                 Text(
                     "满意度 ${state.avgSatisfaction.toInt()} · 住宿 ${state.avgDormSatisfaction.toInt()} · 餐标 ${state.avgMealQuality.toInt()}",
                     fontSize = 12.sp,
@@ -1358,7 +1390,9 @@ private fun BuildingPanelContent(
                     Text(facility.type.description, fontSize = 13.sp, color = Color(0xFF617386))
                     when (facility.type) {
                         FacilityType.DORMITORY -> {
-                            val roster = viewModel.dormRoster(building.id)
+                            val roster = remember(building.id, state.studentCount, state.placed) {
+                                viewModel.dormRoster(building.id)
+                            }
                             Text(
                                 "本楼床位 ${roster.beds} · 入住 ${roster.occupied} 人 · 全校床位 ${state.dormBeds}/${state.studentCount}",
                                 fontSize = 12.sp,
@@ -1465,6 +1499,11 @@ private fun BuildingPanelContent(
                                         .padding(8.dp)
                                 ) {
                                     Text(row.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                    Text(
+                                        "${row.classTierName} · 成绩×${"%.1f".format(row.scoreMultiplier)} · 月费随班型走",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF14648C)
+                                    )
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)

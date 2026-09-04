@@ -111,7 +111,8 @@ class CampusViewModel @Inject constructor(
         val schoolTierName: String = "应用型本科",
         val schoolOwnershipName: String = "民办",
         val allowedCollegeNames: Set<String> = emptySet(),
-        val monthlyGrantPerStudent: Double = 0.0
+        val monthlyGrantPerStudent: Double = 0.0,
+        val loopHint: String = ""
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -154,7 +155,9 @@ class CampusViewModel @Inject constructor(
         val advisorAvatarRes: Int = 0,
         val officers: Map<ClassOfficerRole, String>,
         val facilityId: String,
-        val students: List<ClassStudentInfo> = emptyList()
+        val students: List<ClassStudentInfo> = emptyList(),
+        val classTierName: String = "通识教学班",
+        val scoreMultiplier: Float = 1f
     )
 
     data class AdvisorOption(
@@ -288,7 +291,8 @@ class CampusViewModel @Inject constructor(
                     schoolTierName = school.schoolTier().displayName,
                     schoolOwnershipName = school.schoolOwnership().displayName,
                     allowedCollegeNames = school.schoolTier().allowedColleges,
-                    monthlyGrantPerStudent = school.schoolOwnership().monthlyGrantPerStudent
+                    monthlyGrantPerStudent = school.schoolOwnership().monthlyGrantPerStudent,
+                    loopHint = loopHint(school, students.size)
                 )
             }
         }
@@ -394,7 +398,9 @@ class CampusViewModel @Inject constructor(
                 advisorAvatarRes = advisor?.let { com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(it) } ?: 0,
                 officers = officers[cls.id].orEmpty().mapValues { it.value.name },
                 facilityId = roomId,
-                students = classStudents
+                students = classStudents,
+                classTierName = cls.classTier.displayName,
+                scoreMultiplier = cls.classTier.scoreMultiplier
             )
         }
         _classRows.value = rows
@@ -439,6 +445,19 @@ class CampusViewModel @Inject constructor(
             DormFloor(n, grouped[n].orEmpty())
         }
         return DormRoster(facilityId, beds, assigned.size.coerceAtMost(beds), floorList)
+    }
+
+    private fun loopHint(school: com.arktools.xiao.domain.model.School, studentCount: Int): String {
+        val effects = policyManager.getPolicyEffects()
+        val scholarship = gameEngine.scholarshipManager.state.value
+        val enrollPct = ((effects.enrollmentMultiplier - 1f) * 100f).toInt()
+        val qualityPct = ((effects.qualityMultiplier - 1f) * 100f).toInt()
+        val scholarshipPct = (scholarship.studentAttractionBonus * 100f).toInt()
+        val tuitionPremium = ((school.reputation / 4000.0).coerceIn(0.0, 0.15) * 100).toInt()
+        val enrollFactor = ((0.70f + school.reputation / 800f).coerceIn(0.70f, 1.50f) * 100f).toInt()
+        return "声誉 ${school.reputation}：招生×$enrollFactor%、学费溢价+$tuitionPremium%。" +
+            "方针「${effects.strategyName}」招生${if (enrollPct >= 0) "+" else ""}$enrollPct% · 培养${if (qualityPct >= 0) "+" else ""}$qualityPct%。" +
+            "奖学金 ${scholarship.scholarships.size} 项招生+$scholarshipPct%。在校 $studentCount 人。"
     }
 
     fun campusUpgradeHint(): String {
@@ -1320,6 +1339,7 @@ class CampusViewModel @Inject constructor(
         facility: Facility?,
         kind: CampusBuilding.Kind
     ) {
+        audioManager.playCardOpen()
         _state.value = _state.value.copy(
             selected = CampusBuilding(
                 id = b.facilityId.ifBlank { b.key },

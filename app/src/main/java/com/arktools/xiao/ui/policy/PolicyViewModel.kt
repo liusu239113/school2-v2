@@ -18,7 +18,7 @@ class PolicyViewModel @Inject constructor(
     private val policyManager: SchoolPolicyManager,
     private val gameEngine: GameEngine,
     private val audioManager: AudioManager,
-    schoolRepository: com.arktools.xiao.domain.repository.SchoolRepository
+    private val schoolRepository: com.arktools.xiao.domain.repository.SchoolRepository
 ) : ViewModel() {
 
     val policies: StateFlow<SchoolPolicies> = policyManager.policies
@@ -41,40 +41,83 @@ class PolicyViewModel @Inject constructor(
     fun setTuitionLevel(level: TuitionLevel) {
         val oldLevel = policyManager.policies.value.tuitionLevel
         policyManager.setTuitionLevel(level)
-        // 学费上调时通知派系
+        persistPolicies()
         if (level.ordinal > oldLevel.ordinal) {
             gameEngine.notifyFactionDecision(SchoolDecision.RAISE_TUITION)
         }
+        announceEffects()
     }
 
     fun setExamDifficulty(difficulty: ExamDifficulty) {
         policyManager.setExamDifficulty(difficulty)
-        // 严格考试标准 → 通知保守派
+        persistPolicies()
         if (difficulty == ExamDifficulty.CHALLENGING || difficulty == ExamDifficulty.RIGOROUS) {
             gameEngine.notifyFactionDecision(SchoolDecision.STRICT_DISCIPLINE)
         }
+        announceEffects()
     }
-    fun setTeacherPayPolicy(policy: TeacherPayPolicy) = policyManager.setTeacherPayPolicy(policy)
+    fun setTeacherPayPolicy(policy: TeacherPayPolicy) {
+        policyManager.setTeacherPayPolicy(policy)
+        persistPolicies()
+        announceEffects()
+    }
     fun setExtracurricularPolicy(policy: ExtracurricularPolicy) {
         policyManager.setExtracurricularPolicy(policy)
-        // 增加课外活动 → 通知改革派
+        persistPolicies()
         if (policy == ExtracurricularPolicy.RICH || policy == ExtracurricularPolicy.WORLD_CLASS) {
             gameEngine.notifyFactionDecision(SchoolDecision.CLUB_ACTIVITY)
         }
+        announceEffects()
     }
-    fun setAdmissionPolicy(policy: AdmissionPolicy) = policyManager.setAdmissionPolicy(policy)
-    fun setEnrollmentPlan(plan: EnrollmentPlan) = policyManager.setEnrollmentPlan(plan)
-    fun setUniversityStrategy(strategy: UniversityStrategy) = policyManager.setUniversityStrategy(strategy)
+    fun setAdmissionPolicy(policy: AdmissionPolicy) {
+        policyManager.setAdmissionPolicy(policy)
+        persistPolicies()
+        announceEffects()
+    }
+    fun setEnrollmentPlan(plan: EnrollmentPlan) {
+        policyManager.setEnrollmentPlan(plan)
+        persistPolicies()
+        announceEffects()
+    }
+    fun setUniversityStrategy(strategy: UniversityStrategy) {
+        policyManager.setUniversityStrategy(strategy)
+        persistPolicies()
+        announceEffects()
+    }
     fun adjustBudget(line: BudgetLine, delta: Int) {
         val next = policyManager.policies.value.budgetAllocation.adjust(line, delta)
         policyManager.setBudgetAllocation(next)
+        persistPolicies()
         audioManager.playBudgetSlide()
     }
-    fun setAnnualGoal(goal: AnnualGoal) = policyManager.setAnnualGoal(goal)
+    fun setAnnualGoal(goal: AnnualGoal) {
+        policyManager.setAnnualGoal(goal)
+        persistPolicies()
+    }
+
+    private fun persistPolicies() {
+        viewModelScope.safeLaunch {
+            schoolRepository.mutateSchool { school ->
+                school.policyJson = policyManager.toJson()
+                true
+            }
+        }
+    }
+
+    private fun announceEffects() {
+        val e = policyManager.getPolicyEffects()
+        val enrollPct = ((e.enrollmentMultiplier - 1f) * 100f).toInt()
+        val qualityPct = ((e.qualityMultiplier - 1f) * 100f).toInt()
+        val tuitionPct = ((e.tuitionMultiplier - 1f) * 100f).toInt()
+        fun signed(n: Int) = if (n >= 0) "+$n%" else "$n%"
+        _operationMessage.value =
+            "已生效：学费收入 ${signed(tuitionPct)} · 招生 ${signed(enrollPct)} · 培养质量 ${signed(qualityPct)} · 月声誉 ${if (e.reputationModifier >= 0) "+" else ""}${e.reputationModifier} · 专项开支 ${"%.1f".format(e.monthlySpecialBudgetCost)}万"
+    }
     fun playUiClick() = audioManager.playButtonClick()
     fun adjustAdmissionTrack(track: com.arktools.xiao.domain.model.AdmissionTrack, delta: Int) {
         val next = policyManager.policies.value.admissionTrackPlan.adjust(track, delta)
         policyManager.setAdmissionTrackPlan(next)
+        persistPolicies()
         audioManager.playBudgetSlide()
     }
     fun openCoreCourse(college: CollegeType) {
