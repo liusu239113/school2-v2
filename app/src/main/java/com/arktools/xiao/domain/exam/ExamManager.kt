@@ -34,6 +34,8 @@ class ExamManager @Inject constructor() {
     private val examRecords: MutableList<ExamRecord> = mutableListOf()
     // 学生成绩记录
     private val studentScores: MutableMap<String, MutableList<StudentScore>> = mutableMapOf()
+    /** 下次考试的考前辅导加分，用完清零。 */
+    private var coachingBonus: Float = 0f
 
     /**
      * 月度推进：判断是否需要组织考试
@@ -47,7 +49,8 @@ class ExamManager @Inject constructor() {
         teacherAvgSkill: Float,
         monthlyExamFrequency: Int = 1,
         intensityScoreMultiplier: Float = 1.0f,
-        teachers: List<Teacher> = emptyList()
+        teachers: List<Teacher> = emptyList(),
+        subjectHoursByClass: Map<String, Map<Subject, Int>> = emptyMap()
     ): ExamResult {
         val examType = getExamTypeForMonth(month, monthlyExamFrequency) ?: return ExamResult()
 
@@ -63,7 +66,16 @@ class ExamManager @Inject constructor() {
         // 为每个学生生成各科成绩
         val newScores = mutableListOf<StudentScore>()
         students.forEach { student ->
-            val scores = generateStudentScores(student, examType, teacherAvgSkill, intensityScoreMultiplier, exam.id, teachers)
+            val scores = generateStudentScores(
+                student,
+                examType,
+                teacherAvgSkill,
+                intensityScoreMultiplier,
+                exam.id,
+                teachers,
+                subjectHoursByClass[student.classId].orEmpty(),
+                coachingBonus
+            )
             newScores.addAll(scores)
             val list = studentScores.getOrPut(student.id) { mutableListOf() }
             list.addAll(scores)
@@ -100,6 +112,7 @@ class ExamManager @Inject constructor() {
             }
         }
 
+        coachingBonus = 0f
         return ExamResult(
             examHeld = true,
             examType = examType,
@@ -171,6 +184,15 @@ class ExamManager @Inject constructor() {
         return normalizedAverage(classScores)
     }
 
+    fun coachingBonus(): Float = coachingBonus
+
+    /** 下次考试全校加分。花经费买，用完清零。 */
+    fun buyCoaching(bonus: Float): Boolean {
+        if (bonus <= 0f) return false
+        coachingBonus = (coachingBonus + bonus).coerceAtMost(12f)
+        return true
+    }
+
     // ======= 内部方法 =======
 
     private fun getExamTypeForMonth(month: Int, monthlyExamFrequency: Int = 1): ExamType? {
@@ -197,7 +219,9 @@ class ExamManager @Inject constructor() {
         teacherAvgSkill: Float,
         intensityScoreMultiplier: Float = 1.0f,
         examRecordId: String = "",
-        teachers: List<Teacher> = emptyList()
+        teachers: List<Teacher> = emptyList(),
+        subjectHours: Map<Subject, Int> = emptyMap(),
+        coaching: Float = 0f
     ): List<StudentScore> {
         val subjects = getExamSubjects(student.gradeLevel, examType)
 
@@ -249,8 +273,9 @@ class ExamManager @Inject constructor() {
             // 将乘法改为加权加成：基础分 + (基础分 × (倍率-1) × 衰减因子)
             val rawBase = baseAbility + subjectBonus + randomFactor + difficulty
             val intensityBonus = rawBase * (intensityScoreMultiplier - 1f) * 0.6f
+            val hourBonus = ((subjectHours[subject] ?: 4) - 4) * 1.2f
             // 先生成 0..100 得分率，再按科目卷面满分换算原始分。
-            val normalizedScore = (rawBase + intensityBonus).coerceIn(10f, 100f)
+            val normalizedScore = (rawBase + intensityBonus + hourBonus + coaching).coerceIn(10f, 100f)
             val rawScore = subject.rawScoreFromNormalized(normalizedScore)
 
             StudentScore(
@@ -339,6 +364,7 @@ class ExamManager @Inject constructor() {
     fun toJson(): String {
         val data = ExamData(
             scoreSchemeVersion = CURRENT_SCORE_SCHEME_VERSION,
+            coachingBonus = coachingBonus,
             records = examRecords.map { r ->
                 SerializableExamRecord(r.id, r.year, r.month, r.type.name, r.participantCount, r.averageScore)
             },
@@ -408,6 +434,7 @@ class ExamManager @Inject constructor() {
             examRecords.addAll(restoredRecords)
             studentScores.clear()
             studentScores.putAll(restoredScores)
+            coachingBonus = data.coachingBonus
         } catch (e: Exception) {
             throw IllegalArgumentException("ExamManager.fromJson failed", e)
         }
@@ -472,6 +499,7 @@ data class ExamResult(
 data class ExamData(
     /** null means a pre-v2 all-subject 100-point record. */
     val scoreSchemeVersion: Int? = null,
+    val coachingBonus: Float = 0f,
     val records: List<SerializableExamRecord> = emptyList(),
     val scores: Map<String, List<SerializableScore>> = emptyMap()
 )

@@ -158,7 +158,8 @@ fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
             items(state.scholarships) { scholarship ->
                 ScholarshipCard(
                     scholarship = scholarship,
-                    onCancel = { viewModel.cancelScholarship(scholarship.id) }
+                    onCancel = { viewModel.cancelScholarship(scholarship.id) },
+                    onAdjust = { delta -> viewModel.adjustRecipients(scholarship.id, delta) }
                 )
             }
         }
@@ -236,7 +237,11 @@ private fun BonusChip(label: String, value: String) {
 }
 
 @Composable
-private fun ScholarshipCard(scholarship: Scholarship, onCancel: () -> Unit) {
+private fun ScholarshipCard(
+    scholarship: Scholarship,
+    onCancel: () -> Unit,
+    onAdjust: (Int) -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -262,9 +267,14 @@ private fun ScholarshipCard(scholarship: Scholarship, onCancel: () -> Unit) {
                     }
                     Text(scholarship.description, fontSize = 12.sp, color = Color.Gray)
                     Text(
-                        "${scholarship.criteria.displayName} | ${formatScholarshipAmount(scholarship.amountPerStudent)}/人 × ${scholarship.maxRecipients}名额",
+                        "${scholarship.criteria.displayName} | ${formatScholarshipAmount(scholarship.amountPerStudent)}/人 × ${scholarship.maxRecipients}名额。加名额立刻加招生，减名额立刻少开支。",
                         fontSize = 11.sp, color = Color(0xFF7B1FA2)
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onAdjust(-1) }) { Text("名额-") }
+                        Text("${scholarship.maxRecipients}", fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { onAdjust(1) }) { Text("名额+") }
+                    }
                 }
                 IconButton(onClick = onCancel, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "取消", tint = Color.Gray, modifier = Modifier.size(18.dp))

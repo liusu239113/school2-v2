@@ -3644,11 +3644,15 @@ class GameEngine @Inject constructor(
                 st.teacherAvgSkill = if (st.allTeachersCache.isNotEmpty()) {
                     st.allTeachersCache.map { it.averageSkill.toFloat() }.average().toFloat()
                 } else 30f
+                val hoursByClass = _classes.value.associate { cls ->
+                    cls.id to timetableManager.getSubjectHoursForClass(cls)
+                }
                 val examResult = examManager.advanceMonth(
                     school.currentYear, school.currentMonth, activeStudentsForExam, st.teacherAvgSkill,
                     monthlyExamFrequency = teachingManager.config.monthlyExamFrequency,
                     intensityScoreMultiplier = teachingManager.config.intensity.scoreMultiplier,
-                    teachers = st.allTeachersCache
+                    teachers = st.allTeachersCache,
+                    subjectHoursByClass = hoursByClass
                 )
                 // 考试结束后，将更新后的 academicScore 持久化
                 if (examResult.examHeld) {

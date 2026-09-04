@@ -60,15 +60,6 @@ fun ExamScreen(
     Scaffold(
         containerColor = Color.Transparent
     ) { padding ->
-        if (uiState.examHistory.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.Assessment,
-                title = "暂无考试记录",
-                description = "考试将自动安排：阶段考核(3/5/9/11月)、期中(4/10月)、期末(1/7月)"
-            )
-            return@Scaffold
-        }
-
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -76,7 +67,40 @@ fun ExamScreen(
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 最近一次考试摘要
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("考试不是看板", fontWeight = FontWeight.Bold)
+                        Text(
+                            "分数进学业分，影响毕业、奖学金和声誉。课表加某科课时，该科下次考试更高。不点辅导就按班型和师资硬考。",
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            "下次考试辅导 +${uiState.coachingBonus.toInt()} 分（上限 +12）",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (uiState.message.isNotBlank()) {
+                            Text(uiState.message, fontSize = 12.sp, color = AccentOrange)
+                        }
+                        androidx.compose.material3.Button(onClick = { viewModel.buyCoaching() }) {
+                            Text("花 4 万买考前辅导（下次全校 +3）")
+                        }
+                    }
+                }
+            }
+            if (uiState.examHistory.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Default.Assessment,
+                        title = "还没考过",
+                        description = "阶段考核 3/5/9/11 月，期中 4/10 月，期末 1/7 月。去课表加课时，或在这里买辅导。"
+                    )
+                }
+            }
             uiState.latestExam?.let { exam ->
                 item {
                     LatestExamCard(exam)

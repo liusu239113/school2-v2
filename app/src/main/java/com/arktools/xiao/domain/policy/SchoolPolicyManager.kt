@@ -928,10 +928,10 @@ data class BudgetAllocation(
 }
 
 enum class BudgetLine(val displayName: String, val description: String) {
-    TEACHING("教学投入", "提高课堂质量和毕业成果"),
-    RESEARCH("科研投入", "加快研究进度"),
-    CAMPUS_LIFE("校园生活", "改善宿舍食堂和学生满意度"),
-    SOCIETY("社会合作", "换取声誉和外部支持")
+    TEACHING("教学投入", "每点培养质量 +2%，毕业分数更高"),
+    RESEARCH("科研投入", "满 4 点每周多 1 天科研进度"),
+    CAMPUS_LIFE("校园生活", "每点满意度约 +2.5，宿舍食堂体验更好"),
+    SOCIETY("社会合作", "每点每月声誉 +2，外联更好做")
 }
 
 /**

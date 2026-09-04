@@ -131,7 +131,7 @@ fun TimetableScreen(
                 )
             } else {
                 Text(
-                    "点击课程格子可调课",
+                    "点格子只是换节次。真正改分数：点「调整课时」。某科每多 1 节，下次考试该科大约 +1.2 分。",
                     fontSize = 11.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(bottom = 4.dp)

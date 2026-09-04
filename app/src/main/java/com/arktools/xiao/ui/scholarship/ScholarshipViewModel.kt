@@ -40,6 +40,11 @@ class ScholarshipViewModel @Inject constructor(
         persistScholarships()
     }
 
+    fun adjustRecipients(scholarshipId: String, delta: Int) {
+        scholarshipManager.adjustRecipients(scholarshipId, delta)
+        persistScholarships()
+    }
+
     fun getTemplates(year: Int): List<Scholarship> = scholarshipManager.getTemplates(year)
 
     private fun persistScholarships() {

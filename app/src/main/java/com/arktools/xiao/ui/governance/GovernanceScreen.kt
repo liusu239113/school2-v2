@@ -46,6 +46,8 @@ fun GovernanceScreen(
 ) {
     val policies by viewModel.policies.collectAsState()
     val operationMessage by viewModel.operationMessage.collectAsState()
+    val campusLevel by viewModel.campusLevel.collectAsState()
+    val goalSnapshot by viewModel.goalSnapshot.collectAsState()
 
     Column(
         modifier = Modifier
@@ -95,7 +97,10 @@ fun GovernanceScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(line.displayName, fontSize = 13.sp, color = Color(0xFF182635), modifier = Modifier.weight(1f))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(line.displayName, fontSize = 13.sp, color = Color(0xFF182635))
+                        Text(line.description, fontSize = 11.sp, color = Color(0xFF617386))
+                    }
                     StepButton("−", enabled = value > 0) { viewModel.adjustBudget(line, -1) }
                     Text(
                         "$value",
@@ -110,9 +115,26 @@ fun GovernanceScreen(
         }
 
         // ===== 年度目标 =====
-        Panel(title = "年度目标（6阶段考核核）") {
+        Panel(title = "年度目标（6月真考核，达标给钱和声誉）") {
+            Text(
+                "现在：在校 ${goalSnapshot.students} 人 · 科研 ${goalSnapshot.research} 项 · 声誉 ${goalSnapshot.reputation} · 满意度 ${goalSnapshot.satisfaction.toInt()}% · 就业 ${(goalSnapshot.employmentRate * 100).toInt()}%",
+                fontSize = 12.sp,
+                color = Color(0xFF14648C)
+            )
             AnnualGoal.entries.forEach { goal ->
                 val selected = policies.collegeDevelopment.annualGoal == goal
+                val preview = goal.evaluate(
+                    campusLevel = campusLevel,
+                    students = goalSnapshot.students,
+                    research = goalSnapshot.research,
+                    reputation = goalSnapshot.reputation,
+                    satisfaction = goalSnapshot.satisfaction,
+                    employmentRate = goalSnapshot.employmentRate,
+                    previousReputation = policies.collegeDevelopment.lastReviewReputation,
+                    previousResearch = policies.collegeDevelopment.lastReviewResearch,
+                    previousStudents = policies.collegeDevelopment.lastReviewStudents,
+                    previousSatisfaction = policies.collegeDevelopment.lastReviewSatisfaction
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -128,11 +150,15 @@ fun GovernanceScreen(
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                             color = Color(0xFF182635)
                         )
-                        Text(
-                            goal.description,
-                            fontSize = 11.sp,
-                            color = Color(0xFF617386)
-                        )
+                        Text(goal.requirementSummary(campusLevel), fontSize = 11.sp, color = Color(0xFF617386))
+                        Text(goal.rewardSummary(campusLevel), fontSize = 11.sp, color = Color(0xFF14648C))
+                        if (selected) {
+                            Text(
+                                if (preview.success) "按当前数据能达标" else "按当前数据还差：${preview.detail}",
+                                fontSize = 11.sp,
+                                color = if (preview.success) Color(0xFF2E9B78) else Color(0xFFB0413E)
+                            )
+                        }
                     }
                     if (selected) Text("✓", color = Color(0xFF1E96C8), fontWeight = FontWeight.Bold)
                 }

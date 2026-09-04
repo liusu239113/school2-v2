@@ -336,6 +336,19 @@ class ScholarshipManager @Inject constructor() {
         recalcBonuses()
     }
 
+    /** 加/减名额：立刻改招生加成和学期发放开支。 */
+    fun adjustRecipients(scholarshipId: String, delta: Int) {
+        _state.update { current ->
+            current.copy(
+                scholarships = current.scholarships.map { item ->
+                    if (item.id != scholarshipId) item
+                    else item.copy(maxRecipients = (item.maxRecipients + delta).coerceIn(1, 40))
+                }
+            )
+        }
+        recalcBonuses()
+    }
+
     /**
      * 获取模板列表
      */

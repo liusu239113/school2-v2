@@ -18,19 +18,41 @@ class PolicyViewModel @Inject constructor(
     private val policyManager: SchoolPolicyManager,
     private val gameEngine: GameEngine,
     private val audioManager: AudioManager,
-    private val schoolRepository: com.arktools.xiao.domain.repository.SchoolRepository
+    private val schoolRepository: com.arktools.xiao.domain.repository.SchoolRepository,
+    private val studentRepository: com.arktools.xiao.domain.repository.StudentRepository,
+    private val researchRepository: com.arktools.xiao.domain.repository.ResearchRepository
 ) : ViewModel() {
 
     val policies: StateFlow<SchoolPolicies> = policyManager.policies
 
+    data class GoalSnapshot(
+        val campusLevel: Int = 1,
+        val students: Int = 0,
+        val research: Int = 0,
+        val reputation: Long = 0,
+        val satisfaction: Float = 0f,
+        val employmentRate: Float = 0f
+    )
+
     private val _campusLevel = MutableStateFlow(1)
-    /** 当前校园等级：年度目标达标条件按等级换算展示。 */
     val campusLevel: StateFlow<Int> = _campusLevel.asStateFlow()
+
+    private val _goalSnapshot = MutableStateFlow(GoalSnapshot())
+    val goalSnapshot: StateFlow<GoalSnapshot> = _goalSnapshot.asStateFlow()
 
     init {
         viewModelScope.safeLaunch {
             schoolRepository.getSchoolFlow().collect { school ->
-                if (school != null) _campusLevel.value = school.campusLevel
+                if (school == null) return@collect
+                _campusLevel.value = school.campusLevel
+                _goalSnapshot.value = GoalSnapshot(
+                    campusLevel = school.campusLevel,
+                    students = runCatching { studentRepository.getActiveStudentCount() }.getOrDefault(0),
+                    research = runCatching { researchRepository.getUnlockedMethods().size }.getOrDefault(0),
+                    reputation = school.reputation,
+                    satisfaction = runCatching { studentRepository.getAverageSatisfaction() }.getOrDefault(0f),
+                    employmentRate = gameEngine.employmentMarket.state.value.stats.employmentRate
+                )
             }
         }
     }
@@ -89,10 +111,14 @@ class PolicyViewModel @Inject constructor(
         policyManager.setBudgetAllocation(next)
         persistPolicies()
         audioManager.playBudgetSlide()
+        announceEffects()
     }
     fun setAnnualGoal(goal: AnnualGoal) {
         policyManager.setAnnualGoal(goal)
         persistPolicies()
+        val snap = _goalSnapshot.value
+        _operationMessage.value =
+            "学年目标改成「${goal.displayName}」。${goal.requirementSummary(snap.campusLevel)}。${goal.rewardSummary(snap.campusLevel)} 6月按这个考，现在不改钱。"
     }
 
     private fun persistPolicies() {

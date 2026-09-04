@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.model.SchoolClass
 import com.arktools.xiao.domain.model.Subject
+import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.repository.TeacherRepository
 import com.arktools.xiao.domain.timetable.WeeklyTimetable
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,7 +35,8 @@ data class TimetableUiState(
 @HiltViewModel
 class TimetableViewModel @Inject constructor(
     private val gameEngine: GameEngine,
-    private val teacherRepository: TeacherRepository
+    private val teacherRepository: TeacherRepository,
+    private val schoolRepository: SchoolRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TimetableUiState())
@@ -100,10 +102,13 @@ class TimetableViewModel @Inject constructor(
                 val updated = gameEngine.timetableManager.swapSlots(
                     classId, first.dayOfWeek, first.periodIndex, dayOfWeek, periodIndex
                 )
+                if (updated != null) {
+                    viewModelScope.safeLaunch { persistTimetable() }
+                }
                 _uiState.value = current.copy(
                     currentTimetable = updated ?: current.currentTimetable,
                     selectedSlot = null,
-                    swapHint = if (updated != null) "调课成功" else "调课失败"
+                    swapHint = if (updated != null) "调课成功（只换节次，分数看课时）" else "调课失败：教师撞课"
                 )
             }
         }
@@ -172,12 +177,13 @@ class TimetableViewModel @Inject constructor(
             gameEngine.timetableManager.setCustomSubjectHours(classId, hours)
             val allTeachers = teacherRepository.getTeachers()
             gameEngine.timetableManager.regenerateTimetable(schoolClass, allTeachers)
+            persistTimetable()
             _uiState.value = _uiState.value.copy(
                 currentTimetable = gameEngine.timetableManager.getAllTimetables()[classId],
                 showSubjectSettings = false,
                 currentSubjectHours = emptyMap(),
                 subjectSettingsError = null,
-                swapHint = "课表已按新课时重新生成"
+                swapHint = "课表已按新课时重排：某科每多 1 节，下次考试该科大约 +1.2 分。"
             )
         }
     }
@@ -192,13 +198,21 @@ class TimetableViewModel @Inject constructor(
             gameEngine.timetableManager.resetCustomSubjectHours(classId)
             val allTeachers = teacherRepository.getTeachers()
             gameEngine.timetableManager.regenerateTimetable(schoolClass, allTeachers)
+            persistTimetable()
             _uiState.value = _uiState.value.copy(
                 currentTimetable = gameEngine.timetableManager.getAllTimetables()[classId],
                 showSubjectSettings = false,
                 currentSubjectHours = emptyMap(),
                 subjectSettingsError = null,
-                swapHint = "已恢复班型默认课表"
+                swapHint = "已恢复班型默认课表，下次考试按默认课时计分。"
             )
+        }
+    }
+
+    private suspend fun persistTimetable() {
+        schoolRepository.mutateSchool { school ->
+            school.timetableJson = gameEngine.timetableManager.toJson()
+            true
         }
     }
 }
