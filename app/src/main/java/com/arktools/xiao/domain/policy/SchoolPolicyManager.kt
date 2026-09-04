@@ -1162,7 +1162,29 @@ data class BuildingOps(
     val incubatorIntern: Boolean = false,
     val intlExchange: Boolean = false,
     val extraWindows: Int = 0
-)
+) {
+    fun activationScore(): Int {
+        var n = extraWindows
+        if (scienceLabOpen) n += 1
+        if (liberalOpenDay) n += 1
+        if (engineeringWorkshop) n += 1
+        if (businessFair) n += 1
+        if (artsShow) n += 1
+        if (medicineRounds) n += 1
+        if (hospitalClinic) n += 1
+        if (libraryNight) n += 1
+        if (sportsMeet) n += 1
+        if (jobFair) n += 1
+        if (conferenceHost) n += 1
+        if (multimediaDrill) n += 1
+        if (gardenFestival) n += 1
+        if (auditoriumNight) n += 1
+        if (gateReception) n += 1
+        if (incubatorIntern) n += 1
+        if (intlExchange) n += 1
+        return n
+    }
+}
 
 enum class CollegeType(
     val displayName: String,

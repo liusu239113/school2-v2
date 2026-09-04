@@ -1439,37 +1439,37 @@ private fun BuildingPanelContent(
                         when (college) {
                             CollegeType.SCIENCE -> {
                                 PanelButton(if (ops.scienceLabOpen) "关闭夜间实验室" else "开放夜间实验室") {
-                                    viewModel.toggleBuildingOp("夜间实验室", 1.2) { it.copy(scienceLabOpen = !it.scienceLabOpen) }
+                                    viewModel.toggleBuildingOp("夜间实验室", 1.2, 3.0, 40L) { it.copy(scienceLabOpen = !it.scienceLabOpen) }
                                 }
                                 PanelButton("进入实验室课题") { onOpenResearch() }
                             }
                             CollegeType.LIBERAL_ARTS -> {
                                 PanelButton(if (ops.liberalOpenDay) "停办公众开放日" else "举办公众开放日") {
-                                    viewModel.toggleBuildingOp("人文学院开放日", 0.8) { it.copy(liberalOpenDay = !it.liberalOpenDay) }
+                                    viewModel.toggleBuildingOp("人文学院开放日", 0.8, 2.0, 60L) { it.copy(liberalOpenDay = !it.liberalOpenDay) }
                                 }
                                 PanelButton("学科建设") { onOpenDiscipline() }
                             }
                             CollegeType.ENGINEERING -> {
                                 PanelButton(if (ops.engineeringWorkshop) "停工训工坊" else "开办企业工坊") {
-                                    viewModel.toggleBuildingOp("工学院工坊", 1.6) { it.copy(engineeringWorkshop = !it.engineeringWorkshop) }
+                                    viewModel.toggleBuildingOp("工学院工坊", 1.6, 4.0, 50L) { it.copy(engineeringWorkshop = !it.engineeringWorkshop) }
                                 }
                                 PanelButton("进入机房课题") { onOpenResearch() }
                             }
                             CollegeType.BUSINESS -> {
                                 PanelButton(if (ops.businessFair) "收摊产业对接" else "举办产业对接会") {
-                                    viewModel.toggleBuildingOp("商学院对接会", 1.4) { it.copy(businessFair = !it.businessFair) }
+                                    viewModel.toggleBuildingOp("商学院对接会", 1.4, 5.0, 80L) { it.copy(businessFair = !it.businessFair) }
                                 }
                                 PanelButton("外联合作") { onOpenDistrict() }
                             }
                             CollegeType.ARTS -> {
                                 PanelButton(if (ops.artsShow) "停办学期汇演" else "举办学期汇演") {
-                                    viewModel.toggleBuildingOp("艺术汇演", 1.5) { it.copy(artsShow = !it.artsShow) }
+                                    viewModel.toggleBuildingOp("艺术汇演", 1.5, 4.0, 70L) { it.copy(artsShow = !it.artsShow) }
                                 }
                                 PanelButton("学生生活") { onOpenStudentLife() }
                             }
                             CollegeType.MEDICINE -> {
                                 PanelButton(if (ops.medicineRounds) "停临床见习" else "安排临床见习") {
-                                    viewModel.toggleBuildingOp("医学院见习", 1.8) { it.copy(medicineRounds = !it.medicineRounds) }
+                                    viewModel.toggleBuildingOp("医学院见习", 1.8, 6.0, 50L) { it.copy(medicineRounds = !it.medicineRounds) }
                                 }
                                 PanelButton("研究生院") { onOpenGraduate() }
                             }
@@ -1501,7 +1501,7 @@ private fun BuildingPanelContent(
                 val ops = viewModel.buildingOps()
                 Text("附属医院投入后每月提供诊疗收入与声誉加成。", fontSize = 13.sp, color = Color(0xFF182635))
                 PanelButton(if (ops.hospitalClinic) "关闭对外门诊" else "开放对外门诊") {
-                    viewModel.toggleBuildingOp("医院门诊", 2.0) { it.copy(hospitalClinic = !it.hospitalClinic) }
+                    viewModel.toggleBuildingOp("医院门诊", 2.0, 8.0, 90L) { it.copy(hospitalClinic = !it.hospitalClinic) }
                 }
             }
             CampusViewModel.CampusBuilding.Kind.FACILITY -> {
@@ -1553,12 +1553,11 @@ private fun BuildingPanelContent(
                             PanelButton("学生生活（食堂/作息）") { onOpenStudentLife() }
                         }
                         FacilityType.CANTEEN -> {
-                            val ops = viewModel.buildingOps()
-                            val extraSeats = ops.extraWindows * 40
-                            val seats = state.canteenSeats + extraSeats
+                            val extraSeats = viewModel.buildingOps().extraWindows * 40
+                            val seats = state.canteenSeats
                             val shortage = (state.studentCount - seats).coerceAtLeast(0)
                             Text(
-                                "餐位 $seats（含窗口 +$extraSeats） · 在校 ${state.studentCount} 人 · 餐标 ${state.avgMealQuality.toInt()}",
+                                "餐位 $seats（含加开窗口 +$extraSeats） · 在校 ${state.studentCount} 人 · 餐标 ${state.avgMealQuality.toInt()}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF14648C)
                             )
@@ -1583,7 +1582,7 @@ private fun BuildingPanelContent(
                             )
                             Text("体育馆提高学生体力和满意度。场地不够就再建一座。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton(if (ops.sportsMeet) "停办校运会" else "举办校运会") {
-                                viewModel.toggleBuildingOp("校运会", 1.0) { it.copy(sportsMeet = !it.sportsMeet) }
+                                viewModel.toggleBuildingOp("校运会", 1.0, 3.0, 50L) { it.copy(sportsMeet = !it.sportsMeet) }
                             }
                         }
                         FacilityType.EMPLOYMENT_CENTER -> {
@@ -1595,7 +1594,7 @@ private fun BuildingPanelContent(
                             )
                             Text("就业中心只管毕业出口。打开双选会后就业支持升一档。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton(if (ops.jobFair) "收摊双选会" else "举办双选会") {
-                                viewModel.toggleBuildingOp("就业双选会", 1.2) { it.copy(jobFair = !it.jobFair) }
+                                viewModel.toggleBuildingOp("就业双选会", 1.2, 4.0, 60L) { it.copy(jobFair = !it.jobFair) }
                             }
                             PanelButton("就业与校友") { onOpenEmployment() }
                         }
@@ -1608,7 +1607,7 @@ private fun BuildingPanelContent(
                             )
                             Text("承办会议会提高声誉，并打开会议系统。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton(if (ops.conferenceHost) "停办承办会议" else "承办学术会议") {
-                                viewModel.toggleBuildingOp("承办会议", 1.8) { it.copy(conferenceHost = !it.conferenceHost) }
+                                viewModel.toggleBuildingOp("承办会议", 1.8, 6.0, 100L) { it.copy(conferenceHost = !it.conferenceHost) }
                             }
                             PanelButton("会议系统") { onOpenConference() }
                         }
@@ -1625,7 +1624,7 @@ private fun BuildingPanelContent(
                                 Text("建好图书馆后课题链会在这里显示，科研日会加快。", fontSize = 12.sp, color = Color(0xFF617386))
                             }
                             PanelButton(if (ops.libraryNight) "关闭夜间阅览" else "开放夜间阅览") {
-                                viewModel.toggleBuildingOp("夜间阅览", 0.6) { it.copy(libraryNight = !it.libraryNight) }
+                                viewModel.toggleBuildingOp("夜间阅览", 0.6, 1.5, 20L) { it.copy(libraryNight = !it.libraryNight) }
                             }
                             PanelButton("进入科研") { onOpenResearch() }
                         }
@@ -1745,7 +1744,7 @@ private fun BuildingPanelContent(
                             Text("实验室/机房加快课题。多媒体教室可开公开课演练。", fontSize = 12.sp, color = Color(0xFF617386))
                             if (facility.type == FacilityType.MULTIMEDIA_ROOM) {
                                 PanelButton(if (ops.multimediaDrill) "停公开课演练" else "开放公开课演练") {
-                                    viewModel.toggleBuildingOp("公开课演练", 0.7) { it.copy(multimediaDrill = !it.multimediaDrill) }
+                                    viewModel.toggleBuildingOp("公开课演练", 0.7, 2.0, 30L) { it.copy(multimediaDrill = !it.multimediaDrill) }
                                 }
                             }
                             PanelButton("进入实验室课题") { onOpenResearch() }
@@ -1759,21 +1758,21 @@ private fun BuildingPanelContent(
                             )
                             Text("画室专属：提高艺术方向班的创造力和汇演质量。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton(if (ops.artsShow) "停办学期汇演" else "举办学期汇演") {
-                                viewModel.toggleBuildingOp("艺术汇演", 1.5) { it.copy(artsShow = !it.artsShow) }
+                                viewModel.toggleBuildingOp("艺术汇演", 1.5, 4.0, 70L) { it.copy(artsShow = !it.artsShow) }
                             }
                         }
                         FacilityType.GARDEN -> {
                             val ops = viewModel.buildingOps()
                             Text("校园花园稳住教师忠诚和学生品德。", fontSize = 12.sp, color = Color(0xFF14648C))
                             PanelButton(if (ops.gardenFestival) "停办花季开放" else "举办花季开放") {
-                                viewModel.toggleBuildingOp("花季开放", 0.4) { it.copy(gardenFestival = !it.gardenFestival) }
+                                viewModel.toggleBuildingOp("花季开放", 0.4, 1.0, 20L) { it.copy(gardenFestival = !it.gardenFestival) }
                             }
                         }
                         FacilityType.AUDITORIUM -> {
                             val ops = viewModel.buildingOps()
                             Text("大礼堂提高声誉和活动奖励。", fontSize = 12.sp, color = Color(0xFF14648C))
                             PanelButton(if (ops.auditoriumNight) "停办晚会" else "举办全校晚会") {
-                                viewModel.toggleBuildingOp("全校晚会", 1.1) { it.copy(auditoriumNight = !it.auditoriumNight) }
+                                viewModel.toggleBuildingOp("全校晚会", 1.1, 3.5, 50L) { it.copy(auditoriumNight = !it.auditoriumNight) }
                             }
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
@@ -1781,14 +1780,14 @@ private fun BuildingPanelContent(
                             val ops = viewModel.buildingOps()
                             Text("校门决定第一印象，打开接待日后招生和声誉上升。", fontSize = 12.sp, color = Color(0xFF14648C))
                             PanelButton(if (ops.gateReception) "停办接待日" else "开放校园接待日") {
-                                viewModel.toggleBuildingOp("校门接待日", 0.5) { it.copy(gateReception = !it.gateReception) }
+                                viewModel.toggleBuildingOp("校门接待日", 0.5, 1.5, 40L) { it.copy(gateReception = !it.gateReception) }
                             }
                         }
                         FacilityType.INCUBATOR -> {
                             val ops = viewModel.buildingOps()
                             Text("校企合作中心提高就业支持和实习出口。", fontSize = 12.sp, color = Color(0xFF14648C))
                             PanelButton(if (ops.incubatorIntern) "停实习输送" else "开启实习输送") {
-                                viewModel.toggleBuildingOp("实习输送", 1.5) { it.copy(incubatorIntern = !it.incubatorIntern) }
+                                viewModel.toggleBuildingOp("实习输送", 1.5, 5.0, 40L) { it.copy(incubatorIntern = !it.incubatorIntern) }
                             }
                             PanelButton("外联合作") { onOpenDistrict() }
                         }
@@ -1796,7 +1795,7 @@ private fun BuildingPanelContent(
                             val ops = viewModel.buildingOps()
                             Text("国际交流中心打开后，海外合作声誉上升。", fontSize = 12.sp, color = Color(0xFF14648C))
                             PanelButton(if (ops.intlExchange) "暂停交换生" else "开展交换生项目") {
-                                viewModel.toggleBuildingOp("交换生项目", 2.2) { it.copy(intlExchange = !it.intlExchange) }
+                                viewModel.toggleBuildingOp("交换生项目", 2.2, 8.0, 90L) { it.copy(intlExchange = !it.intlExchange) }
                             }
                             PanelButton("国际交流") { onOpenInternational() }
                         }

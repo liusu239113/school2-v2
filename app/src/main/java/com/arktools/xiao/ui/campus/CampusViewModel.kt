@@ -112,7 +112,8 @@ class CampusViewModel @Inject constructor(
         val schoolOwnershipName: String = "民办",
         val allowedCollegeNames: Set<String> = emptySet(),
         val monthlyGrantPerStudent: Double = 0.0,
-        val loopHint: String = ""
+        val loopHint: String = "",
+        val buildingOps: com.arktools.xiao.domain.policy.BuildingOps = com.arktools.xiao.domain.policy.BuildingOps()
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -277,7 +278,10 @@ class CampusViewModel @Inject constructor(
                     currentDay = school.currentDay,
                     currentYear = school.currentYear,
                     dormBeds = com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities),
-                    canteenSeats = com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(school.facilities),
+                    canteenSeats = com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(
+                        school.facilities,
+                        dev.buildingOps.extraWindows
+                    ),
                     classSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities),
                     librarySeats = com.arktools.xiao.domain.model.FacilityCapacity.totalLibrarySeats(school.facilities),
                     labBenches = com.arktools.xiao.domain.model.FacilityCapacity.totalLabBenches(school.facilities),
@@ -292,7 +296,8 @@ class CampusViewModel @Inject constructor(
                     schoolOwnershipName = school.schoolOwnership().displayName,
                     allowedCollegeNames = school.schoolTier().allowedColleges,
                     monthlyGrantPerStudent = school.schoolOwnership().monthlyGrantPerStudent,
-                    loopHint = loopHint(school, students.size)
+                    loopHint = loopHint(school, students.size),
+                    buildingOps = dev.buildingOps
                 )
             }
         }
@@ -320,7 +325,12 @@ class CampusViewModel @Inject constructor(
                     },
                     terrain = BT.decodeTerrain(dev.terrainMap)
                         .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
-                    tutorialDone = dev.tutorialDone
+                    tutorialDone = dev.tutorialDone,
+                    buildingOps = dev.buildingOps,
+                    canteenSeats = com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(
+                        _state.value.facilities,
+                        dev.buildingOps.extraWindows
+                    )
                 )
             }
         }
@@ -1469,29 +1479,50 @@ class CampusViewModel @Inject constructor(
     }
 
     fun buildingOps(): com.arktools.xiao.domain.policy.BuildingOps =
-        policyManager.policies.value.collegeDevelopment.buildingOps
+        _state.value.buildingOps
 
     fun toggleBuildingOp(
         label: String,
         monthlyCost: Double,
+        startupCost: Double,
+        reputationHit: Long,
         update: (com.arktools.xiao.domain.policy.BuildingOps) -> com.arktools.xiao.domain.policy.BuildingOps
     ) {
         viewModelScope.safeLaunch {
             val dev = policyManager.policies.value.collegeDevelopment
-            val next = update(dev.buildingOps)
-            policyManager.replaceCollegeDevelopment(dev.copy(buildingOps = next))
+            val current = dev.buildingOps
+            val next = update(current)
+            val turningOn = next.activationScore() > current.activationScore()
             val result = schoolRepository.mutateSchool { school ->
+                if (turningOn && school.cash < startupCost) {
+                    _state.value = _state.value.copy(
+                        message = "$label 启动需要 ${"%.1f".format(startupCost)} 万，当前经费不够"
+                    )
+                    return@mutateSchool false
+                }
+                if (turningOn) {
+                    school.cash -= startupCost
+                    school.reputation = (school.reputation + reputationHit).coerceAtLeast(0)
+                }
+                policyManager.replaceCollegeDevelopment(dev.copy(buildingOps = next))
                 school.policyJson = policyManager.toJson()
                 true
             }
             if (result != null) {
                 audioManager.playCardOpen()
-                _state.value = _state.value.copy(
-                    message = "$label 已切换。每月额外开支约 ${"%.1f".format(monthlyCost)} 万，会写进招生、科研或就业。"
-                )
+                val extra = if (turningOn) {
+                    "立刻扣 ${"%.1f".format(startupCost)} 万" +
+                        (if (reputationHit != 0L) "，声誉${if (reputationHit > 0) "+" else ""}$reputationHit" else "") +
+                        "。之后每月约 ${"%.1f".format(monthlyCost)} 万。"
+                } else {
+                    "已关闭，下月起不再扣这笔专项。"
+                }
+                _state.value = _state.value.copy(message = "$label：$extra")
             } else {
                 audioManager.playEventNegative()
-                _state.value = _state.value.copy(message = "$label 保存失败")
+                if (_state.value.message.isNullOrBlank()) {
+                    _state.value = _state.value.copy(message = "$label 未能生效")
+                }
             }
         }
     }

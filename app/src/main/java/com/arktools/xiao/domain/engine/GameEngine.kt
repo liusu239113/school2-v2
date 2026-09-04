@@ -3216,7 +3216,7 @@ class GameEngine @Inject constructor(
             android.util.Log.w("GameEngine", "College construction daily advance failed", it)
         }
 
-        val extraResearchDays = policyManager.getPolicyEffects().extraResearchDays.coerceIn(0, 2)
+        val extraResearchDays = policyManager.getPolicyEffects().extraResearchDays.coerceIn(0, 4)
         val completedResearch = buildList {
             addAll(researchRepository.advanceResearchDay())
             repeat(extraResearchDays) {
@@ -3850,7 +3850,7 @@ class GameEngine @Inject constructor(
                 it.type == FacilityType.INCUBATOR && it.isOperational
             }
             val ops = policyManager.policies.value.collegeDevelopment.buildingOps
-            val collegeEmploymentBoost = (policyManager.getPolicyEffects().collegeEmploymentBonus * 10f).toInt()
+            val collegeEmploymentBoost = if (policyManager.getPolicyEffects().collegeEmploymentBonus >= 0.03f) 1 else 0
             val effectiveSupportLevel = employmentSupportLevel +
                 (if (incubatorRunning) 1 else 0) +
                 (if (ops.jobFair) 1 else 0) +
@@ -3980,8 +3980,10 @@ class GameEngine @Inject constructor(
                     studentLifeManager.updateStudentCount(st.studentCount)
                     studentLifeManager.syncCampusCapacity(
                         FacilityCapacity.totalBeds(latest.facilities),
-                        FacilityCapacity.totalCanteenSeats(latest.facilities) +
-                            policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows * 40
+                        FacilityCapacity.totalCanteenSeats(
+                            latest.facilities,
+                            policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
+                        )
                     )
                     val lifeResult = studentLifeManager.advanceMonth(
                         st.studentCount,
@@ -4003,7 +4005,10 @@ class GameEngine @Inject constructor(
                 }
                 committedLifeResult?.let { lifeResult ->
                     st.expLifeExpenses += lifeResult.totalExpenses.toDouble()
-                    val canteenSeats = FacilityCapacity.totalCanteenSeats(school.facilities)
+                    val canteenSeats = FacilityCapacity.totalCanteenSeats(
+                        school.facilities,
+                        policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
+                    )
                     if (st.studentCount > 0 && (canteenSeats <= 0 || st.studentCount > canteenSeats)) {
                         val shortage = if (canteenSeats <= 0) st.studentCount else st.studentCount - canteenSeats
                         emitEvent(
@@ -6919,7 +6924,10 @@ class GameEngine @Inject constructor(
             )
             val canteenRatio = FacilityCapacity.occupancyRatio(
                 activeStudents.size,
-                FacilityCapacity.totalCanteenSeats(school.facilities)
+                FacilityCapacity.totalCanteenSeats(
+                    school.facilities,
+                    policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
+                )
             )
             val crowdingDaily = (
                 FacilityCapacity.overcrowdingPenalty(dormRatio) +
@@ -8084,7 +8092,10 @@ class GameEngine @Inject constructor(
         val teachers = teacherRepository.getTeachers()
         val studentCount = students.size
         val beds = FacilityCapacity.totalBeds(school.facilities)
-        val seats = FacilityCapacity.totalCanteenSeats(school.facilities)
+        val seats = FacilityCapacity.totalCanteenSeats(
+            school.facilities,
+            policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
+        )
         val slots = FacilityCapacity.totalClassSlots(school.facilities)
         val missing = buildList {
             if (FacilityType.CLASSROOM !in types) add("标准教室")
