@@ -55,7 +55,7 @@ fun TeachingScreen(
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         // === 概览卡片 ===
-        item { OverviewCard(state) }
+        item { OverviewCard(state, classroomCount, classroomCapacity) }
         if (lastActionMessage.isNotBlank()) {
             item {
                 Card(
@@ -103,31 +103,35 @@ fun TeachingScreen(
 }
 
 @Composable
-private fun OverviewCard(state: TeachingState) {
+private fun OverviewCard(state: TeachingState, classroomCount: Int, classroomCapacity: Int) {
     val config = state.config
+    val seats = classroomCapacity * 30
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("教学概览", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("9月招生看什么", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(
+                "招生人数 = 教室剩余学位 × 声誉 × 宿舍床位上限。强度、作息、奖学金只是倍率，加不了学位。",
+                fontSize = 12.sp,
+                color = Color(0xFF14648C)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                StatItem("总班数", "${config.totalClasses}个")
-                StatItem("总容量", "${config.totalCapacity}人")
-                StatItem("月成本", "%.1f万".format(config.monthlyOperatingCost()))
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+                StatItem("教室", "${classroomCount}间")
+                StatItem("学位", "${seats}人")
                 StatItem("强度", config.intensity.displayName)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 StatItem("方向", config.subjectTrack.displayName)
                 StatItem("作息", "${config.schedulePolicies.size}项")
+                StatItem("月教学开支", "%.1f万".format(config.monthlyOperatingCost()))
             }
         }
     }

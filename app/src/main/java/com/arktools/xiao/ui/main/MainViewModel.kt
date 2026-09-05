@@ -256,7 +256,7 @@ class MainViewModel @Inject constructor(
                 }
                 // 根据学校状态智能切换 BGM
                 if (school != null && _isGameRunning.value) {
-                    updateBgmByState(school)
+                    updateBgmByState(school, gameEngine.gameOverDetector.crisisState.value)
                     // Auto-save every month (when day resets to 1 and month changes)
                     // 读档恢复阶段不触发自动存档（避免覆盖刚加载的存档）
                     if (!_justLoadedSave.value && school.currentDay == 1 && school.currentMonth != lastAutoSaveMonth) {
@@ -287,9 +287,16 @@ class MainViewModel @Inject constructor(
 
     private var lastBgmRes: String = ""
 
-    private fun updateBgmByState(school: School) {
+    private fun updateBgmByState(
+        school: School,
+        crisis: com.arktools.xiao.domain.engine.CrisisState
+    ) {
         viewModelScope.safeLaunch {
-            val bgmRes = if (school.cash < 50.0) {
+            val inCrisis = school.cash < 20.0 ||
+                crisis == com.arktools.xiao.domain.engine.CrisisState.WARNING ||
+                crisis == com.arktools.xiao.domain.engine.CrisisState.CRITICAL ||
+                crisis == com.arktools.xiao.domain.engine.CrisisState.GAME_OVER
+            val bgmRes = if (inCrisis) {
                 AudioManager.BgmType.CRISIS.resName
             } else {
                 settingsDataStore.selectedCampusBgm.first()

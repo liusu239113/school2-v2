@@ -73,7 +73,10 @@ class AutoHandleManager @Inject constructor() {
         if (!cfg.enabled) return null
 
         return when (event) {
-            is GameEvent.ChoiceEvent -> getChoiceAutoAction(event, cfg)
+            is GameEvent.ChoiceEvent -> {
+                if (event.title.contains("校长月度决策")) null
+                else getChoiceAutoAction(event, cfg)
+            }
             is GameEvent.PositiveEvent -> {
                 if (cfg.positiveAutoClose) {
                     AutoHandleResult.AutoClose

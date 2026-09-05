@@ -868,11 +868,11 @@ class CampusViewModel @Inject constructor(
 
     fun buildingAt(cellX: Int, cellY: Int): Pair<BT.PlacedBuilding, BT.Spec>? {
         val st = _state.value
-        st.placed.forEach { b ->
-            val spec = BT.specByKey(b.key) ?: return@forEach
-            if (BT.occupies(b, spec, cellX, cellY)) return b to spec
-        }
-        return null
+        // 后放的、占地更大的优先，避免点食堂点到旁边的路或更早的楼
+        return st.placed.asReversed().mapNotNull { b ->
+            val spec = BT.specByKey(b.key) ?: return@mapNotNull null
+            if (BT.occupies(b, spec, cellX, cellY)) b to spec else null
+        }.maxByOrNull { it.second.w * it.second.h }
     }
 
     // ===== 面板选择 =====

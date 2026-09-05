@@ -673,8 +673,16 @@ fun CampusView(
                     }
                 }
 
-                // 楼名标签：世界坐标系内绘制，与地图绝对同步（拖动/缩放零漂移）
+                // 楼名只在选中或施工时显示，避免和点击热区抢视觉
                 state.placed.forEach { placed ->
+                    val selected = state.selectedPlaced?.let { sel ->
+                        val sameId = sel.facilityId.isNotBlank() &&
+                            sel.facilityId == placed.facilityId
+                        val sameSpot = sel.key == placed.key &&
+                            sel.x == placed.x && sel.y == placed.y
+                        sameId || sameSpot
+                    } == true
+                    if (!selected && !placed.isConstructing) return@forEach
                     val spec = BT.specByKey(placed.key) ?: return@forEach
                     val text = if (placed.isConstructing) {
                         "${spec.displayName} · 施工${placed.constructionDaysLeft}天"
