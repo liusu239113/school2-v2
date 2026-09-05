@@ -340,7 +340,8 @@ fun CampusView(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(zoom, camera.x, camera.y, inPlacementMode) {
+                // 不能把 zoom/camera 当 key：拖动会改镜头，手势块会被重启，地图就拖不动、捏合也失效
+                .pointerInput(inPlacementMode) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var totalDrag = Offset.Zero
@@ -655,7 +656,6 @@ fun CampusView(
                     val fh = sheet.height / 2
                     val cycle = if (w.moving) w.phase else WALKER_IDLE_CYCLE
                     val key = ((cycle / WALKER_SUB) % 4 + 4) % 4
-                    val frac = if (w.moving) (cycle % WALKER_SUB) / WALKER_SUB.toFloat() else 0f
                     val far = zoom < 0.7f
                     val hPx = cell * if (far) 0.42f else 0.60f
                     val wPx = hPx * fw / fh
@@ -663,27 +663,19 @@ fun CampusView(
                     val bottom = wy
                     val dstRect = android.graphics.RectF(cx - wPx / 2f, bottom - hPx, cx + wPx / 2f, bottom)
                     val nc = drawContext.canvas.nativeCanvas
+                    walkerPaint.alpha = 255
+                    walkerPaint.color = android.graphics.Color.WHITE
                     if (far) {
                         walkerPaint.color = android.graphics.Color.argb(180, 18, 38, 56)
                         nc.drawRect(dstRect, walkerPaint)
                         walkerPaint.color = android.graphics.Color.WHITE
-                        walkerPaint.alpha = 255
                         return@forEach
                     }
                     if (!w.facingRight) {
                         nc.save()
                         nc.scale(-1f, 1f, cx, bottom - hPx / 2f)
                     }
-                    if (frac <= 0.04f) {
-                        walkerPaint.alpha = 255
-                        nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key), dstRect, walkerPaint)
-                    } else {
-                        walkerPaint.alpha = ((1f - frac) * 255f).toInt().coerceIn(0, 255)
-                        nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key), dstRect, walkerPaint)
-                        walkerPaint.alpha = (frac * 255f).toInt().coerceIn(0, 255)
-                        nc.drawBitmap(sheet, walkerSrcRect(fw, fh, (key + 1) % 4), dstRect, walkerPaint)
-                        walkerPaint.alpha = 255
-                    }
+                    nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key), dstRect, walkerPaint)
                     if (!w.facingRight) nc.restore()
                 }
 
@@ -1275,10 +1267,10 @@ private data class Walker(
     val waitTicks: Int = 0
 )
 
-private const val WALKER_TICK_MS = 70L
-private const val WALKER_STEP = 0.045f
+private const val WALKER_TICK_MS = 120L
+private const val WALKER_STEP = 0.028f
 private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
-private const val WALKER_SUB = 4        // 每张原帧拆 4 个过渡，四帧素材走出 16 拍
+private const val WALKER_SUB = 5        // 每张原帧停几拍再切，禁止两帧叠画
 private const val WALKER_IDLE_CYCLE = 1 * WALKER_SUB
 
 private fun walkerSrcRect(fw: Int, fh: Int, frame: Int): android.graphics.Rect {
@@ -1417,313 +1409,178 @@ private fun BuildingPanelContent(
 
         when (building.kind) {
             CampusViewModel.CampusBuilding.Kind.ADMIN -> {
-                AdminStatRow("校园等级", "Lv.${state.campusLevel}")
-                AdminStatRow("在校 / 教师", "${state.studentCount} 人 / ${state.teacherCount} 人")
-                AdminStatRow("办学", "${state.schoolTierName} · ${state.schoolOwnershipName}")
-                AdminStatRow("上月收入", "${state.monthlyRevenue.toInt()}万")
-                AdminStatRow("上月支出", "${state.monthlyExpenses.toInt()}万")
-                AdminStatRow(
-                    "学费来源",
-                    if (state.monthlyGrantPerStudent > 0) {
-                        "月底入账，公办另有生均拨款 ${"%.2f".format(state.monthlyGrantPerStudent)}万/人"
-                    } else {
-                        "月底入账，民办无拨款，靠学费和外联"
-                    }
+                StatGrid(
+                    listOf(
+                        "校园" to "Lv.${state.campusLevel}",
+                        "在校" to "${state.studentCount}人",
+                        "教师" to "${state.teacherCount}人",
+                        "本月" to "${state.monthlyRevenue.toInt() - state.monthlyExpenses.toInt()}万"
+                    )
                 )
-                AdminStatRow(
-                    "满意度",
-                    "整体 ${state.avgSatisfaction.toInt()} · 住宿 ${state.avgDormSatisfaction.toInt()} · 餐标 ${state.avgMealQuality.toInt()}"
-                )
-                AdminStatRow("用地", "${state.unlockedCells}/${state.totalCells} 格")
-                AdminStatRow("装扮", "${state.decorCount} 件（每 8 件约 +0.2 满意度）")
-                if (state.loopHint.isNotBlank()) {
-                    Text(state.loopHint, fontSize = 12.sp, color = Color(0xFF14648C))
-                }
-                val seasonHint = when (state.currentMonth) {
-                    8 -> "8月：教室、宿舍、食堂都要落在地图上。没有宿舍，9月招不到人。"
-                    9 -> "9月迎新：床位满了就招不进来。"
-                    6, 7 -> "毕业季：就业中心和竞赛会写进口碑。"
-                    1, 2 -> "寒假：适合维修、扩建。"
-                    else -> "日常：点建筑进对应系统。每月 1 号弹出学费账单。"
-                }
-                Text(seasonHint, fontSize = 12.sp, color = Color(0xFF617386))
+                OccupancyBar("用地", state.unlockedCells, state.totalCells)
+                OccupancyBar("满意度", state.avgSatisfaction.toInt(), 100)
                 if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
-                    Text(viewModel.campusUpgradeHint(), fontSize = 13.sp, color = Color(0xFF617386))
                     PanelButton("升级校园") { onUpgradeCampus() }
-                } else {
-                    Text("校园已满级。", fontSize = 13.sp, color = Color(0xFF2E9B78))
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
-                PanelButton("教学强度与作息") { onOpenTeaching() }
+                PanelButton("教学强度") { onOpenTeaching() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college
                 if (college != null) {
-                    Text(college.description, fontSize = 13.sp, color = Color(0xFF182635))
                     val enrollPct = ((college.enrollmentBonus) * 100).toInt()
                     val employPct = ((college.employmentBonus) * 100).toInt()
-                    Text(
-                        "招生 +$enrollPct% · 就业 +$employPct% · 月运营 ${college.monthlyCostWan}万",
-                        fontSize = 13.sp,
-                        color = Color(0xFF617386)
+                    StatGrid(
+                        listOf(
+                            "招生" to "+$enrollPct%",
+                            "就业" to "+$employPct%",
+                            "月费" to "${college.monthlyCostWan}万",
+                            "状态" to if (placed?.isConstructing == true) "施工" else "运转"
+                        )
                     )
-                    when (college) {
-                        CollegeType.SCIENCE -> Text(
-                            "理学院专属：实验室课题加速、论文抽检、理科竞赛。没有理学院，科研链会慢一截。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
-                        CollegeType.LIBERAL_ARTS -> Text(
-                            "人文学院专属：稳住基础招生和校园氛围，月费低，适合开局。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
-                        CollegeType.ENGINEERING -> Text(
-                            "工学院专属：扩大就业出口和企业委托，建设费最高。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
-                        CollegeType.BUSINESS -> Text(
-                            "商学院专属：产业合作和社会声誉，对食堂/宿舍满意度帮助有限。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
-                        CollegeType.ARTS -> Text(
-                            "艺术学院专属：汇演、氛围和满意度。点这里会触发公演邀请。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
-                        CollegeType.MEDICINE -> Text(
-                            "医学院专属：就业质量最高，可解锁附属医院。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF14648C)
-                        )
-                    }
                     if (placed?.isConstructing != true) {
                         val ops = viewModel.buildingOps()
                         when (college) {
                             CollegeType.SCIENCE -> {
-                                PanelButton(if (ops.scienceLabOpen) "关闭夜间实验室" else "开放夜间实验室") {
+                                PanelButton(if (ops.scienceLabOpen) "关夜间实验室" else "开夜间实验室") {
                                     viewModel.toggleBuildingOp("夜间实验室", 1.2, 3.0, 40L) { it.copy(scienceLabOpen = !it.scienceLabOpen) }
                                 }
-                                PanelButton("进入实验室课题") { onOpenResearch() }
+                                PanelButton("课题") { onOpenResearch() }
                             }
                             CollegeType.LIBERAL_ARTS -> {
-                                PanelButton(if (ops.liberalOpenDay) "停办公众开放日" else "举办公众开放日") {
+                                PanelButton(if (ops.liberalOpenDay) "停开放日" else "开放日") {
                                     viewModel.toggleBuildingOp("人文学院开放日", 0.8, 2.0, 60L) { it.copy(liberalOpenDay = !it.liberalOpenDay) }
                                 }
                                 PanelButton("学科建设") { onOpenDiscipline() }
                             }
                             CollegeType.ENGINEERING -> {
-                                PanelButton(if (ops.engineeringWorkshop) "停工训工坊" else "开办企业工坊") {
+                                PanelButton(if (ops.engineeringWorkshop) "停工坊" else "开工坊") {
                                     viewModel.toggleBuildingOp("工学院工坊", 1.6, 4.0, 50L) { it.copy(engineeringWorkshop = !it.engineeringWorkshop) }
                                 }
-                                PanelButton("进入机房课题") { onOpenResearch() }
+                                PanelButton("课题") { onOpenResearch() }
                             }
                             CollegeType.BUSINESS -> {
-                                PanelButton(if (ops.businessFair) "收摊产业对接" else "举办产业对接会") {
+                                PanelButton(if (ops.businessFair) "收对接会" else "对接会") {
                                     viewModel.toggleBuildingOp("商学院对接会", 1.4, 5.0, 80L) { it.copy(businessFair = !it.businessFair) }
                                 }
-                                PanelButton("外联合作") { onOpenDistrict() }
+                                PanelButton("外联") { onOpenDistrict() }
                             }
                             CollegeType.ARTS -> {
-                                PanelButton(if (ops.artsShow) "停办学期汇演" else "举办学期汇演") {
+                                PanelButton(if (ops.artsShow) "停汇演" else "汇演") {
                                     viewModel.toggleBuildingOp("艺术汇演", 1.5, 4.0, 70L) { it.copy(artsShow = !it.artsShow) }
                                 }
                                 PanelButton("学生生活") { onOpenStudentLife() }
                             }
                             CollegeType.MEDICINE -> {
-                                PanelButton(if (ops.medicineRounds) "停临床见习" else "安排临床见习") {
+                                PanelButton(if (ops.medicineRounds) "停见习" else "临床见习") {
                                     viewModel.toggleBuildingOp("医学院见习", 1.8, 6.0, 50L) { it.copy(medicineRounds = !it.medicineRounds) }
                                 }
                                 PanelButton("研究生院") { onOpenGraduate() }
                             }
                         }
-                    } else if (placed.constructionDaysLeft > 0) {
-                        val activity = LocalContext.current as? android.app.Activity
-                        PanelButtonSmall("看广告 立即竣工") {
-                            if (activity != null) {
-                                com.arktools.adsdk.AdHelper.showRewardAd(
-                                    activity = activity,
-                                    onRewarded = { viewModel.finishConstructionByAd(placed) },
-                                    onFailed = { },
-                                    onLoadStart = { },
-                                    onComplete = { }
-                                )
-                            }
-                        }
-                    }
-                    if (college == CollegeType.MEDICINE) {
-                        Text(
-                            "附属医院可在下方「建造」菜单扩建成后出现",
-                            fontSize = 11.sp,
-                            color = Color(0xFF617386)
-                        )
                     }
                 }
             }
             CampusViewModel.CampusBuilding.Kind.HOSPITAL -> {
                 val ops = viewModel.buildingOps()
-                Text("附属医院投入后每月提供诊疗收入与声誉加成。", fontSize = 13.sp, color = Color(0xFF182635))
-                PanelButton(if (ops.hospitalClinic) "关闭对外门诊" else "开放对外门诊") {
+                OccupancyBar("声誉加成", if (ops.hospitalClinic) 90 else 40, 100)
+                PanelButton(if (ops.hospitalClinic) "关门诊" else "开门诊") {
                     viewModel.toggleBuildingOp("医院门诊", 2.0, 8.0, 90L) { it.copy(hospitalClinic = !it.hospitalClinic) }
                 }
             }
             CampusViewModel.CampusBuilding.Kind.FACILITY -> {
                 val facility = building.facility
                 if (facility != null) {
-                    Text(
-                        "等级 Lv.${facility.level}/${facility.type.maxLevel}",
-                        fontSize = 14.sp,
-                        color = Color(0xFF182635)
-                    )
-                    Text(facility.type.description, fontSize = 13.sp, color = Color(0xFF617386))
+                    OccupancyBar("等级", facility.level, facility.type.maxLevel)
                     when (facility.type) {
                         FacilityType.DORMITORY -> {
                             val roster = remember(building.id, state.studentCount, state.placed) {
                                 viewModel.dormRoster(building.id)
                             }
-                            Text(
-                                "本楼床位 ${roster.beds} · 入住 ${roster.occupied} 人 · 全校床位 ${state.dormBeds}/${state.studentCount}",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text("床位不够会卡招生。点开本楼可看每层住了谁。", fontSize = 12.sp, color = Color(0xFF617386))
+                            OccupancyBar("本楼入住", roster.occupied, roster.beds)
+                            OccupancyBar("全校床位", state.studentCount, state.dormBeds)
+                            Text("床位满了，9月招不进来。", fontSize = 12.sp, color = Color(0xFF617386))
                             roster.floors.forEach { floor ->
-                                Text(
-                                    "${floor.floor}层 · ${floor.residents.size} 人",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF182635)
-                                )
-                                if (floor.residents.isEmpty()) {
-                                    Text("空置", fontSize = 11.sp, color = Color(0xFF617386))
-                                } else {
-                                    floor.residents.take(12).forEach { resident ->
-                                        Text(
-                                            "${resident.name} · ${resident.grade} · ${resident.className}",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF617386)
-                                        )
-                                    }
-                                    if (floor.residents.size > 12) {
-                                        Text(
-                                            "……还有 ${floor.residents.size - 12} 人",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF8AA0B4)
-                                        )
-                                    }
+                                val preview = floor.residents.take(2).joinToString("、") { it.name }
+                                val extra = (floor.residents.size - 2).coerceAtLeast(0)
+                                val line = when {
+                                    floor.residents.isEmpty() -> "${floor.floor}层 空置"
+                                    extra > 0 -> "${floor.floor}层 ${floor.residents.size}人 · $preview 等$extra 人"
+                                    else -> "${floor.floor}层 ${floor.residents.size}人 · $preview"
                                 }
+                                Text(line, fontSize = 12.sp, color = Color(0xFF182635))
                             }
-                            PanelButton("学生生活（食堂/作息）") { onOpenStudentLife() }
+                            PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         FacilityType.CANTEEN -> {
                             val extraSeats = viewModel.buildingOps().extraWindows * 40
                             val seats = state.canteenSeats
                             val shortage = (state.studentCount - seats).coerceAtLeast(0)
+                            OccupancyBar("餐位", state.studentCount, seats)
                             Text(
-                                "餐位 $seats（含加开窗口 +$extraSeats） · 在校 ${state.studentCount} 人 · 餐标 ${state.avgMealQuality.toInt()}",
+                                if (shortage > 0) "缺 $shortage 人的饭，月底会投诉。"
+                                else "够吃。窗口+$extraSeats 餐位 · 餐标 ${state.avgMealQuality.toInt()}",
                                 fontSize = 12.sp,
-                                color = Color(0xFF14648C)
+                                color = if (shortage > 0) Color(0xFFB0413E) else Color(0xFF617386)
                             )
-                            if (shortage > 0) {
-                                Text(
-                                    "有 $shortage 人吃不上热饭，月底会弹食堂投诉，满意度和声誉都会掉。",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFB0413E)
-                                )
-                            } else {
-                                Text("餐位够用。学生每天在这里吃饭，窗口太少会排队投诉。", fontSize = 12.sp, color = Color(0xFF617386))
-                            }
-                            PanelButton("加开窗口（4万，+40餐位）") { viewModel.addCanteenWindow() }
-                            PanelButton("食堂窗口与菜品") { onOpenStudentLife() }
+                            PanelButton("加开窗口（4万）") { viewModel.addCanteenWindow() }
+                            PanelButton("窗口与菜品") { onOpenStudentLife() }
                         }
                         FacilityType.SPORTS_FIELD -> {
                             val ops = viewModel.buildingOps()
-                            Text(
-                                "容纳 ${state.sportsCapacity} 人 · 体育课与运动会场地",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text("体育馆提高学生体力和满意度。场地不够就再建一座。", fontSize = 12.sp, color = Color(0xFF617386))
+                            OccupancyBar("场地容量", state.studentCount, state.sportsCapacity.coerceAtLeast(1))
                             PanelButton(if (ops.sportsMeet) "停办校运会" else "举办校运会") {
                                 viewModel.toggleBuildingOp("校运会", 1.0, 3.0, 50L) { it.copy(sportsMeet = !it.sportsMeet) }
                             }
                         }
                         FacilityType.EMPLOYMENT_CENTER -> {
                             val ops = viewModel.buildingOps()
-                            Text(
-                                "就业率 ${(state.employmentRate * 100).toInt()}% · 毕业去向会回写声誉",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text("就业中心只管毕业出口。打开双选会后就业支持升一档。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton(if (ops.jobFair) "收摊双选会" else "举办双选会") {
+                            OccupancyBar("就业率", (state.employmentRate * 100).toInt(), 100)
+                            PanelButton(if (ops.jobFair) "收双选会" else "双选会") {
                                 viewModel.toggleBuildingOp("就业双选会", 1.2, 4.0, 60L) { it.copy(jobFair = !it.jobFair) }
                             }
-                            PanelButton("就业与校友") { onOpenEmployment() }
+                            PanelButton("就业") { onOpenEmployment() }
                         }
                         FacilityType.CONFERENCE_CENTER -> {
                             val ops = viewModel.buildingOps()
-                            Text(
-                                "学术会议场地 · 建成后每月提供声誉加成",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text("承办会议会提高声誉，并打开会议系统。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton(if (ops.conferenceHost) "停办承办会议" else "承办学术会议") {
+                            OccupancyBar("会议档", if (ops.conferenceHost) 80 else 30, 100)
+                            PanelButton(if (ops.conferenceHost) "停承办" else "承办会议") {
                                 viewModel.toggleBuildingOp("承办会议", 1.8, 6.0, 100L) { it.copy(conferenceHost = !it.conferenceHost) }
                             }
-                            PanelButton("会议系统") { onOpenConference() }
+                            PanelButton("会议") { onOpenConference() }
                         }
                         FacilityType.LIBRARY -> {
                             val ops = viewModel.buildingOps()
-                            Text(
-                                "阅览席 ${state.librarySeats} · 科研加速 +${(state.researchBonus * 100).toInt()}% · 可建分馆",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            if (chainSummary.isNotEmpty()) {
-                                Text(chainSummary, fontSize = 12.sp, color = Color(0xFF14648C))
-                            } else {
-                                Text("建好图书馆后课题链会在这里显示，科研日会加快。", fontSize = 12.sp, color = Color(0xFF617386))
-                            }
-                            PanelButton(if (ops.libraryNight) "关闭夜间阅览" else "开放夜间阅览") {
+                            OccupancyBar("阅览席", state.studentCount, state.librarySeats.coerceAtLeast(1))
+                            OccupancyBar("科研加速", (state.researchBonus * 100).toInt(), 100)
+                            PanelButton(if (ops.libraryNight) "关夜阅" else "开夜阅") {
                                 viewModel.toggleBuildingOp("夜间阅览", 0.6, 1.5, 20L) { it.copy(libraryNight = !it.libraryNight) }
                             }
-                            PanelButton("进入科研") { onOpenResearch() }
+                            PanelButton("科研") { onOpenResearch() }
                         }
                         FacilityType.CLASSROOM -> {
                             val myClasses = viewModel.classesInBuilding(building.id)
                             val roomLevel = facility.level
-                            val roomCapacity = com.arktools.xiao.domain.model.FacilityCapacity.classSlots(roomLevel)
-                            val seats = roomCapacity * 30
-                            Text(
-                                "本楼 Lv.$roomLevel · 学位 $seats 人 · 已上课 ${myClasses.sumOf { it.studentCount }} 人",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text(
-                                "教室直接决定招生人数。Lv1=90人，Lv2=120人，Lv3=180人。两间教室就按两间加总，不用再去开班。",
-                                fontSize = 11.sp,
-                                color = Color(0xFF617386)
-                            )
+                            val seats = com.arktools.xiao.domain.model.FacilityCapacity.classSlots(roomLevel) * 30
+                            val seated = myClasses.sumOf { it.studentCount }
+                            OccupancyBar("本楼学位", seated, seats)
+                            Text("Lv.$roomLevel · 学位 $seats 人。教室满了就招不进来。", fontSize = 12.sp, color = Color(0xFF617386))
                             if (myClasses.isEmpty()) {
-                                Text("这栋楼还没排上课。9月招生后，学生会按教室学位自动分进去。", fontSize = 11.sp, color = Color(0xFF617386))
+                                Text("9月招生后自动分班。", fontSize = 12.sp, color = Color(0xFF8AA0B4))
                             }
-                            PanelButton("教学强度与作息") { onOpenTeaching() }
                             myClasses.forEach { row ->
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .background(Color(0xFFF0F4F8))
-                                        .padding(8.dp)
+                                        .padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text(row.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
                                     Text(
-                                        "${row.classTierName} · 成绩×${"%.1f".format(row.scoreMultiplier)} · 月费随班型走",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF14648C)
+                                        "${row.name} · ${row.studentCount}人",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF182635)
                                     )
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1733,65 +1590,35 @@ private fun BuildingPanelContent(
                                             Image(
                                                 painter = painterResource(id = row.advisorAvatarRes),
                                                 contentDescription = row.advisorName,
-                                                modifier = Modifier.size(40.dp),
+                                                modifier = Modifier.size(36.dp),
                                                 contentScale = ContentScale.Crop
                                             )
                                         }
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                (row.advisorName?.let { "班主任：$it" } ?: "班主任：未安排") +
-                                                    " · ${row.studentCount} 人",
-                                                fontSize = 11.sp,
-                                                color = Color(0xFF617386)
-                                            )
-                                            val officerSummary = ClassOfficerRole.entries.mapNotNull { role ->
-                                                row.officers[role]?.let { "${role.displayName}：$it" }
-                                            }
-                                            Text(
-                                                if (officerSummary.isEmpty()) "班干部：尚未任命" else officerSummary.joinToString(" · "),
-                                                fontSize = 11.sp,
-                                                color = Color(0xFF617386)
-                                            )
-                                        }
-                                    }
-                                    if (row.students.isEmpty()) {
-                                        Text("本班暂无学生名册（迎新后会出现）", fontSize = 11.sp, color = Color(0xFF8AA0B4))
-                                    } else {
-                                        Text("本班学生", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
-                                        row.students.take(8).forEach { student ->
-                                            Text(
-                                                "${student.name} · ${student.grade} · 智${student.intelligence} 体${student.physical} 社${student.social} 创${student.creativity} 德${student.morality} · 满意度${student.satisfaction}",
-                                                fontSize = 10.sp,
-                                                color = Color(0xFF617386)
-                                            )
-                                        }
-                                        if (row.students.size > 8) {
-                                            Text("……还有 ${row.students.size - 8} 人", fontSize = 10.sp, color = Color(0xFF8AA0B4))
-                                        }
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            row.advisorName ?: "未安排班主任",
+                                            modifier = Modifier.weight(1f),
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF182635)
+                                        )
                                         PanelButtonSmall("换班主任") { viewModel.openAdvisorPicker(row.classId) }
                                     }
-                                    ClassOfficerRole.entries.forEach { role ->
-                                        val currentOfficer = row.officers[role]
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                "${role.displayName}：${currentOfficer ?: "未任命"}",
-                                                modifier = Modifier.weight(1f),
-                                                fontSize = 11.sp,
-                                                color = Color(0xFF617386)
-                                            )
-                                            PanelButtonSmall(if (currentOfficer == null) "任命" else "更换") {
-                                                viewModel.openOfficerPicker(row.classId, role)
+                                    val appointed = ClassOfficerRole.entries.count { row.officers[it] != null }
+                                    Text(
+                                        "班干部 $appointed/${ClassOfficerRole.entries.size}",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF617386)
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        val vacant = ClassOfficerRole.entries.firstOrNull { row.officers[it] == null }
+                                        if (vacant != null) {
+                                            PanelButtonSmall("任命${vacant.displayName}") {
+                                                viewModel.openOfficerPicker(row.classId, vacant)
                                             }
-                                            if (currentOfficer != null) {
-                                                PanelButtonSmall("撤销") {
-                                                    viewModel.removeOfficer(row.classId, role)
-                                                }
+                                        }
+                                        val filled = ClassOfficerRole.entries.firstOrNull { row.officers[it] != null }
+                                        if (filled != null) {
+                                            PanelButtonSmall("撤销${filled.displayName}") {
+                                                viewModel.removeOfficer(row.classId, filled)
                                             }
                                         }
                                     }
@@ -1801,79 +1628,67 @@ private fun BuildingPanelContent(
                         }
                         FacilityType.MULTIMEDIA_ROOM, FacilityType.LABORATORY, FacilityType.COMPUTER_LAB -> {
                             val ops = viewModel.buildingOps()
-                            Text(
-                                "实验台 ${state.labBenches} · 机位 ${state.computerSeats} · 教学质量 +${(state.teachingQualityBonus * 100).toInt()}%",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text("实验室/机房加快课题。多媒体教室可开公开课演练。", fontSize = 12.sp, color = Color(0xFF617386))
+                            OccupancyBar("实验台", state.labBenches, 40.coerceAtLeast(state.labBenches))
+                            OccupancyBar("机位", state.computerSeats, 40.coerceAtLeast(state.computerSeats))
                             if (facility.type == FacilityType.MULTIMEDIA_ROOM) {
-                                PanelButton(if (ops.multimediaDrill) "停公开课演练" else "开放公开课演练") {
+                                PanelButton(if (ops.multimediaDrill) "停演练" else "公开课") {
                                     viewModel.toggleBuildingOp("公开课演练", 0.7, 2.0, 30L) { it.copy(multimediaDrill = !it.multimediaDrill) }
                                 }
                             }
-                            PanelButton("进入实验室课题") { onOpenResearch() }
+                            PanelButton("课题") { onOpenResearch() }
                         }
                         FacilityType.ART_STUDIO -> {
                             val ops = viewModel.buildingOps()
-                            Text(
-                                "工位 ${state.studioCapacity} · 平均创造力 ${state.avgCreativity.toInt()}",
-                                fontSize = 12.sp,
-                                color = Color(0xFF14648C)
-                            )
-                            Text("画室专属：提高艺术方向班的创造力和汇演质量。", fontSize = 12.sp, color = Color(0xFF617386))
-                            PanelButton(if (ops.artsShow) "停办学期汇演" else "举办学期汇演") {
+                            OccupancyBar("工位", state.studentCount, state.studioCapacity.coerceAtLeast(1))
+                            OccupancyBar("创造力", state.avgCreativity.toInt(), 100)
+                            PanelButton(if (ops.artsShow) "停汇演" else "汇演") {
                                 viewModel.toggleBuildingOp("艺术汇演", 1.5, 4.0, 70L) { it.copy(artsShow = !it.artsShow) }
                             }
                         }
                         FacilityType.GARDEN -> {
                             val ops = viewModel.buildingOps()
-                            Text("校园花园稳住教师忠诚和学生品德。", fontSize = 12.sp, color = Color(0xFF14648C))
-                            PanelButton(if (ops.gardenFestival) "停办花季开放" else "举办花季开放") {
+                            OccupancyBar("氛围", if (ops.gardenFestival) 80 else 40, 100)
+                            PanelButton(if (ops.gardenFestival) "停花季" else "花季开放") {
                                 viewModel.toggleBuildingOp("花季开放", 0.4, 1.0, 20L) { it.copy(gardenFestival = !it.gardenFestival) }
                             }
                         }
                         FacilityType.AUDITORIUM -> {
                             val ops = viewModel.buildingOps()
-                            Text("大礼堂提高声誉和活动奖励。", fontSize = 12.sp, color = Color(0xFF14648C))
-                            PanelButton(if (ops.auditoriumNight) "停办晚会" else "举办全校晚会") {
+                            OccupancyBar("活动档", if (ops.auditoriumNight) 80 else 30, 100)
+                            PanelButton(if (ops.auditoriumNight) "停晚会" else "晚会") {
                                 viewModel.toggleBuildingOp("全校晚会", 1.1, 3.5, 50L) { it.copy(auditoriumNight = !it.auditoriumNight) }
                             }
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         FacilityType.GATE -> {
                             val ops = viewModel.buildingOps()
-                            Text("校门决定第一印象，打开接待日后招生和声誉上升。", fontSize = 12.sp, color = Color(0xFF14648C))
-                            PanelButton(if (ops.gateReception) "停办接待日" else "开放校园接待日") {
+                            OccupancyBar("接待", if (ops.gateReception) 80 else 30, 100)
+                            PanelButton(if (ops.gateReception) "停接待" else "接待日") {
                                 viewModel.toggleBuildingOp("校门接待日", 0.5, 1.5, 40L) { it.copy(gateReception = !it.gateReception) }
                             }
                         }
                         FacilityType.INCUBATOR -> {
                             val ops = viewModel.buildingOps()
-                            Text("校企合作中心提高就业支持和实习出口。", fontSize = 12.sp, color = Color(0xFF14648C))
-                            PanelButton(if (ops.incubatorIntern) "停实习输送" else "开启实习输送") {
+                            OccupancyBar("实习", if (ops.incubatorIntern) 80 else 30, 100)
+                            PanelButton(if (ops.incubatorIntern) "停实习" else "实习输送") {
                                 viewModel.toggleBuildingOp("实习输送", 1.5, 5.0, 40L) { it.copy(incubatorIntern = !it.incubatorIntern) }
                             }
-                            PanelButton("外联合作") { onOpenDistrict() }
+                            PanelButton("外联") { onOpenDistrict() }
                         }
                         FacilityType.INTERNATIONAL_CENTER -> {
                             val ops = viewModel.buildingOps()
-                            Text("国际交流中心打开后，海外合作声誉上升。", fontSize = 12.sp, color = Color(0xFF14648C))
-                            PanelButton(if (ops.intlExchange) "暂停交换生" else "开展交换生项目") {
+                            OccupancyBar("交换", if (ops.intlExchange) 80 else 30, 100)
+                            PanelButton(if (ops.intlExchange) "暂停交换" else "交换生") {
                                 viewModel.toggleBuildingOp("交换生项目", 2.2, 8.0, 90L) { it.copy(intlExchange = !it.intlExchange) }
                             }
                             PanelButton("国际交流") { onOpenInternational() }
                         }
                         FacilityType.LOGISTICS_CENTER -> {
-                            Text("后勤保障中心降低全校维护费。升级后月维护折扣更高。", fontSize = 12.sp, color = Color(0xFF14648C))
+                            OccupancyBar("维护折扣", facility.level * 20, 100)
                         }
                         else -> {}
                     }
-                    Text(
-                        "月维护 ${facility.type.baseMaintenance}万",
-                        fontSize = 13.sp,
-                        color = Color(0xFF617386)
-                    )
+                    OccupancyBar("月维护", facility.type.baseMaintenance.toInt(), 20.coerceAtLeast(facility.type.baseMaintenance.toInt()))
                     if (facility.level < facility.type.maxLevel) {
                         val panelButtonText = if (placed?.isConstructing == true) {
                             "施工中：还需 ${placed.constructionDaysLeft} 天"
@@ -2129,18 +1944,57 @@ private fun BuildRow(
 }
 
 @Composable
-private fun AdminStatRow(label: String, value: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Text(label, fontSize = 12.sp, color = Color(0xFF617386))
-        Text(
-            value,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF182635)
-        )
+private fun StatGrid(items: List<Pair<String, String>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row.forEach { (label, value) ->
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(Color(0xFFF0F4F8))
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        Text(label, fontSize = 11.sp, color = Color(0xFF617386))
+                        Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                    }
+                }
+                if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun OccupancyBar(label: String, used: Int, total: Int) {
+    val cap = total.coerceAtLeast(1)
+    val ratio = (used.toFloat() / cap).coerceIn(0f, 1f)
+    val barColor = when {
+        ratio >= 1f -> Color(0xFFB0413E)
+        ratio >= 0.8f -> Color(0xFFD89B1A)
+        else -> Color(0xFF2E9B78)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, fontSize = 12.sp, color = Color(0xFF617386))
+            Text("$used / $total", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .background(Color(0xFFE6EEF4))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(ratio)
+                    .height(8.dp)
+                    .background(barColor)
+            )
+        }
     }
 }
 
