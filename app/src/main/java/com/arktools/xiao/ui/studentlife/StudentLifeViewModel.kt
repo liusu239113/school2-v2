@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.repository.SchoolRepository
+import com.arktools.xiao.domain.studentlife.ComplaintAction
 import com.arktools.xiao.domain.studentlife.LifeAspect
+import com.arktools.xiao.domain.studentlife.LifeIssue
 import com.arktools.xiao.domain.studentlife.StudentLifeManager
 import com.arktools.xiao.domain.studentlife.StudentLifeState
 import com.arktools.xiao.util.safeLaunch
@@ -100,6 +102,34 @@ class StudentLifeViewModel @Inject constructor(
     fun resolveIssue(issueId: String) {
         viewModelScope.safeLaunch {
             _message.value = gameEngine.resolveStudentLifeIssue(issueId).message
+        }
+    }
+
+    /** 投诉卡片上的「立刻去做」：扩容/维修/开专项，做完再点检查结案。 */
+    fun actOnComplaint(issue: LifeIssue) {
+        viewModelScope.safeLaunch {
+            _message.value = when (issue.requiredAction) {
+                ComplaintAction.EXPAND_DORM ->
+                    gameEngine.expandStudentLifeCapacity(LifeAspect.DORMITORY, 20).message
+                ComplaintAction.REPAIR_DORM ->
+                    gameEngine.repairStudentLifeFacility(LifeAspect.DORMITORY).message
+                ComplaintAction.EXPAND_CANTEEN ->
+                    gameEngine.expandStudentLifeCapacity(LifeAspect.CAFETERIA, 20).message
+                ComplaintAction.CHANGE_MENU -> {
+                    val prog = studentLifeManager.getAvailablePrograms()
+                        .firstOrNull { it.aspect == LifeAspect.CAFETERIA }
+                    if (prog != null) gameEngine.setStudentLifeProgramActive(prog.id, true).message
+                    else "食堂专项已经开着，点检查结案"
+                }
+                ComplaintAction.OPEN_COUNSELING -> {
+                    val prog = studentLifeManager.getAvailablePrograms()
+                        .firstOrNull { it.aspect == LifeAspect.PSYCHOLOGY }
+                    if (prog != null) gameEngine.setStudentLifeProgramActive(prog.id, true).message
+                    else "心理专项已经开着，点检查结案"
+                }
+                ComplaintAction.REPAIR_GYM, ComplaintAction.OPEN_CLINIC ->
+                    gameEngine.repairStudentLifeFacility(LifeAspect.HEALTH).message
+            }
         }
     }
 }

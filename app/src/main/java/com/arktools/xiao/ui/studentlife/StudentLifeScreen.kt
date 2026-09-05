@@ -1,25 +1,47 @@
 package com.arktools.xiao.ui.studentlife
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.arktools.xiao.domain.studentlife.*
+import com.arktools.xiao.domain.studentlife.ComplaintAction
+import com.arktools.xiao.domain.studentlife.FacilityQuality
+import com.arktools.xiao.domain.studentlife.IssueSeverity
+import com.arktools.xiao.domain.studentlife.LifeAspect
+import com.arktools.xiao.domain.studentlife.LifeFacility
+import com.arktools.xiao.domain.studentlife.LifeIssue
+import com.arktools.xiao.domain.studentlife.LifeSatisfactionScore
+import com.arktools.xiao.domain.studentlife.SpecialProgram
+import com.arktools.xiao.domain.studentlife.StudentLifeState
+import com.arktools.xiao.ui.components.LegacyPageHeader
+import com.arktools.xiao.ui.components.PixelAlertDialog
+import com.arktools.xiao.ui.components.PixelButton
+import com.arktools.xiao.ui.components.PixelButtonStyle
+import com.arktools.xiao.ui.components.PixelGameBackground
+import com.arktools.xiao.ui.components.PixelHardPanel
+import com.arktools.xiao.ui.theme.AccentGreen
+import com.arktools.xiao.ui.theme.AccentOrange
+import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 
 @Composable
 fun StudentLifeScreen(
@@ -27,9 +49,10 @@ fun StudentLifeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val actionMessage by viewModel.message.collectAsState()
+    val openIssues = state.issues.filter { !it.resolved }
 
     actionMessage?.let { message ->
-        com.arktools.xiao.ui.components.PixelAlertDialog(
+        PixelAlertDialog(
             onDismissRequest = { viewModel.consumeMessage() },
             title = if (message.contains("不足") || message.contains("不够") || message.contains("失败")) "无法执行" else "学生生活",
             text = message,
@@ -38,641 +61,319 @@ fun StudentLifeScreen(
         )
     }
 
-    com.arktools.xiao.ui.components.PixelGameBackground {
-    Column(modifier = Modifier.fillMaxSize()) {
-    com.arktools.xiao.ui.components.LegacyPageHeader("学生生活")
-    Box(modifier = Modifier.fillMaxSize()) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // 总览卡片
-        item {
-            OverallSatisfactionCard(state)
-        }
-
-        // 影响指标
-        item {
-            ImpactIndicatorCard(state)
-        }
-
-        // 四大设施卡片
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    PixelGameBackground {
+        Column(modifier = Modifier.fillMaxSize()) {
+            LegacyPageHeader("学生生活")
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    "生活设施",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                val hasNeedRepair = state.facilities.values.any { it.maintenanceLevel < 100f }
-                FilledTonalButton(
-                    onClick = { viewModel.repairAllFacilities() },
-                    enabled = hasNeedRepair,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("一键维修", fontSize = 12.sp)
-                }
-            }
-        }
-
-        items(LifeAspect.entries) { aspect ->
-            val facility = state.facilities[aspect]
-            val score = state.satisfactionScores[aspect]
-            if (facility != null) {
-                FacilityCard(
-                    facility = facility,
-                    score = score,
-                    canUpgrade = viewModel.canUpgradeFacility(aspect),
-                    upgradeCost = viewModel.getUpgradeCost(aspect),
-                    expandCost = viewModel.getExpandCost(aspect, 20),
-                    onUpgrade = { viewModel.upgradeFacility(aspect) },
-                    onRepair = { viewModel.repairFacility(aspect) },
-                    onExpand = { viewModel.expandCapacity(aspect, 20) }
-                )
-            }
-        }
-
-        // 特色项目
-        item {
-            Text(
-                "特色项目",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        item {
-            ProgramsCard(state, viewModel)
-        }
-
-        // 当前问题
-        if (state.issues.any { !it.resolved }) {
-            item {
-                Text(
-                    "当前问题",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
-            item {
-                IssuesCard(
-                    issues = state.issues.filter { !it.resolved },
-                    onResolve = { viewModel.resolveIssue(it) }
-                )
-            }
-        }
-
-        // 底部间距
-        item { Spacer(modifier = Modifier.height(32.dp)) }
-    }
-    }
-    }
-    }
-}
-
-@Composable
-private fun OverallSatisfactionCard(state: StudentLifeState) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(Color(0xFF00897B), Color(0xFF26A69A))
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .padding(20.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            "学生生活质量",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "月度开支: ¥${state.monthlyExpenses}万/月",
-                            color = Color.White.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "${state.overallSatisfaction.toInt()}",
-                            color = Color.White,
-                            fontSize = 42.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "总满意度",
-                            color = Color.White.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 四维度进度条
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    LifeAspect.entries.forEach { aspect ->
-                        val score = state.satisfactionScores[aspect]
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                item {
+                    PixelHardPanel {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                aspect.icon,
-                                fontSize = 18.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                progress = { (score?.score ?: 50f) / 100f },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = Color.White,
-                                trackColor = Color.White.copy(alpha = 0.3f)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                "${score?.score?.toInt() ?: 50}",
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 11.sp
-                            )
+                            Column {
+                                Text("校园生活台账", color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(
+                                    "宿舍床位、食堂窗口、医务和心理。投诉必须先做对应建设，再点检查结案。",
+                                    color = TextSecondaryDark,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    "月开支 ¥${state.monthlyExpenses}万 · 学业 ${signed(state.academicImpact)} · 留存 ${signed(state.retentionImpact)}",
+                                    color = TextPrimaryDark,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    "${state.overallSatisfaction.toInt()}",
+                                    color = satisfactionColor(state.overallSatisfaction),
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("总满意度", color = TextSecondaryDark, fontSize = 11.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LifeAspect.entries.forEach { aspect ->
+                                val score = state.satisfactionScores[aspect]?.score ?: 50f
+                                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(aspect.displayName, color = TextPrimaryDark, fontSize = 11.sp)
+                                    LinearProgressIndicator(
+                                        progress = { (score / 100f).coerceIn(0f, 1f) },
+                                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                                        color = satisfactionColor(score),
+                                        trackColor = Color(0x33182635)
+                                    )
+                                    Text("${score.toInt()}", color = TextSecondaryDark, fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
+
+                if (openIssues.isNotEmpty()) {
+                    item {
+                        Text("未结案投诉（先做建设）", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold)
+                    }
+                    items(openIssues, key = { it.id }) { issue ->
+                        ComplaintPanel(
+                            issue = issue,
+                            onAct = { viewModel.actOnComplaint(issue) },
+                            onCheck = { viewModel.resolveIssue(issue.id) }
+                        )
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("宿舍食堂医务心理", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                        val needRepair = state.facilities.values.any { it.maintenanceLevel < 100f }
+                        PixelButton(
+                            text = "一键维修",
+                            onClick = { viewModel.repairAllFacilities() },
+                            enabled = needRepair,
+                            style = PixelButtonStyle.SECONDARY,
+                            height = 40.dp,
+                            modifier = Modifier.fillMaxWidth(0.42f)
+                        )
+                    }
+                }
+
+                items(LifeAspect.entries, key = { it.name }) { aspect ->
+                    val facility = state.facilities[aspect] ?: return@items
+                    FacilityPanel(
+                        facility = facility,
+                        score = state.satisfactionScores[aspect],
+                        canUpgrade = viewModel.canUpgradeFacility(aspect),
+                        upgradeCost = viewModel.getUpgradeCost(aspect),
+                        expandCost = viewModel.getExpandCost(aspect, 20),
+                        onUpgrade = { viewModel.upgradeFacility(aspect) },
+                        onRepair = { viewModel.repairFacility(aspect) },
+                        onExpand = { viewModel.expandCapacity(aspect, 20) }
+                    )
+                }
+
+                item {
+                    Text("换菜 / 开辅导从这里开专项", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                }
+                item {
+                    ProgramsPanel(state, viewModel)
+                }
+                item { Spacer(Modifier.height(28.dp)) }
             }
         }
     }
 }
 
 @Composable
-private fun ImpactIndicatorCard(state: StudentLifeState) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            ImpactChip(
-                label = "学业影响",
-                value = state.academicImpact,
-                icon = Icons.Default.School
-            )
-            ImpactChip(
-                label = "留存影响",
-                value = state.retentionImpact,
-                icon = Icons.Default.Groups
-            )
-            ImpactChip(
-                label = "未解决问题",
-                value = state.issues.count { !it.resolved }.toFloat(),
-                icon = Icons.Default.Warning,
-                isCount = true
-            )
-        }
-    }
-}
-
-@Composable
-private fun ImpactChip(
-    label: String,
-    value: Float,
-    icon: ImageVector,
-    isCount: Boolean = false
+private fun ComplaintPanel(
+    issue: LifeIssue,
+    onAct: () -> Unit,
+    onCheck: () -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = if (isCount) {
-                if (value > 0) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
-            } else {
-                if (value >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
-            },
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            if (isCount) "${value.toInt()}" else "${if (value >= 0) "+" else ""}${value.toInt()}%",
-            fontWeight = FontWeight.Bold,
-            color = if (isCount) {
-                if (value > 0) MaterialTheme.colorScheme.error else Color(0xFF4CAF50)
-            } else {
-                if (value >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
-            }
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    PixelHardPanel {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(issue.title, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(issue.severity.displayName, color = severityColor(issue.severity), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+        Text(issue.description, color = TextSecondaryDark, fontSize = 12.sp)
+        Text("结案条件：${issue.requiredHint}", color = Color(0xFF14648C), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("满意度 ${issue.satisfactionPenalty.toInt()}，没做建设点检查会失败", color = AccentRed, fontSize = 11.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelButton(
+                text = actionLabel(issue.requiredAction),
+                onClick = onAct,
+                style = PixelButtonStyle.PRIMARY,
+                height = 40.dp,
+                modifier = Modifier.weight(1f)
+            )
+            PixelButton(
+                text = "检查结案",
+                onClick = onCheck,
+                style = PixelButtonStyle.CONFIRM,
+                height = 40.dp,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
 @Composable
-private fun FacilityCard(
+private fun FacilityPanel(
     facility: LifeFacility,
     score: LifeSatisfactionScore?,
-    canUpgrade: Boolean = true,
-    upgradeCost: Long = 0L,
-    expandCost: Long = 0L,
+    canUpgrade: Boolean,
+    upgradeCost: Long,
+    expandCost: Long,
     onUpgrade: () -> Unit,
     onRepair: () -> Unit,
     onExpand: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // 头部：名称 + 等级
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(facility.aspect.icon, fontSize = 24.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            facility.aspect.displayName,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            facility.quality.displayName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = qualityColor(facility.quality)
-                        )
-                    }
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        "${score?.score?.toInt() ?: 0}分",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = satisfactionColor(score?.score ?: 0f)
-                    )
-                }
+    val loadPercent = if (facility.capacity > 0) (facility.currentLoad * 100) / facility.capacity else 100
+    val maxed = facility.quality == FacilityQuality.PREMIUM
+    PixelHardPanel {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(facility.aspect.displayName, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(facility.quality.displayName, color = qualityColor(facility.quality), fontSize = 12.sp)
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 维护度进度条
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("维护度", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(48.dp))
-                LinearProgressIndicator(
-                    progress = { facility.maintenanceLevel / 100f },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = maintenanceColor(facility.maintenanceLevel),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "${facility.maintenanceLevel.toInt()}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 容量信息
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("容量", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(48.dp))
-                val loadPercent = if (facility.capacity > 0) {
-                    (facility.currentLoad * 100) / facility.capacity
-                } else 100
-                LinearProgressIndicator(
-                    progress = { (facility.currentLoad.toFloat() / facility.capacity.coerceAtLeast(1)).coerceAtMost(1.5f) / 1.5f },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = if (loadPercent > 100) MaterialTheme.colorScheme.error else Color(0xFF42A5F5),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "${facility.currentLoad}/${facility.capacity}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = if (loadPercent > 100) MaterialTheme.colorScheme.error else Color.Unspecified
-                )
-            }
-
-            // 问题标签
-            if (score != null && score.issues.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    score.issues.forEach { issue ->
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.errorContainer
-                        ) {
-                            Text(
-                                issue,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 操作按钮
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val isMaxQuality = facility.quality == FacilityQuality.PREMIUM
-                OutlinedButton(
-                    onClick = { onUpgrade() },
-                    modifier = Modifier.weight(1f),
-                    enabled = canUpgrade && !isMaxQuality,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.ArrowUpward, null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        if (isMaxQuality) "已满级"
-                        else if (!canUpgrade) "等级不足"
-                        else "升级 ¥${upgradeCost}万",
-                        fontSize = 11.sp
-                    )
-                }
-                OutlinedButton(
-                    onClick = { onRepair() },
-                    modifier = Modifier.weight(1f),
-                    enabled = facility.maintenanceLevel < 80f,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Build, null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("维修", fontSize = 12.sp)
-                }
-                OutlinedButton(
-                    onClick = { onExpand() },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("+20人 ¥${expandCost}万", fontSize = 11.sp)
-                }
-            }
-
-            // 月度维护费
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "月维护费: ¥${facility.monthlyMaintenanceCost}万/月 · 员工: ${facility.staffCount}人",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "${score?.score?.toInt() ?: 0}分",
+                color = satisfactionColor(score?.score ?: 0f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        }
+        BarRow("维护", facility.maintenanceLevel / 100f, "${facility.maintenanceLevel.toInt()}%", maintenanceColor(facility.maintenanceLevel))
+        BarRow(
+            "容量",
+            (facility.currentLoad.toFloat() / facility.capacity.coerceAtLeast(1)).coerceAtMost(1.2f) / 1.2f,
+            "${facility.currentLoad}/${facility.capacity}",
+            if (loadPercent > 100) AccentRed else Color(0xFF42A5F5)
+        )
+        if (!score?.issues.isNullOrEmpty()) {
+            Text(score!!.issues.joinToString(" · "), color = AccentRed, fontSize = 11.sp)
+        }
+        Text("月维护 ¥${facility.monthlyMaintenanceCost}万 · 员工 ${facility.staffCount}人", color = TextSecondaryDark, fontSize = 11.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PixelButton(
+                text = if (maxed) "已满级" else if (!canUpgrade) "等级不足" else "升级 ¥${upgradeCost}万",
+                onClick = onUpgrade,
+                enabled = canUpgrade && !maxed,
+                style = PixelButtonStyle.PRIMARY,
+                height = 40.dp,
+                modifier = Modifier.weight(1f)
+            )
+            PixelButton(
+                text = "维修",
+                onClick = onRepair,
+                enabled = facility.maintenanceLevel < 80f,
+                style = PixelButtonStyle.SECONDARY,
+                height = 40.dp,
+                modifier = Modifier.weight(1f)
+            )
+            PixelButton(
+                text = "+20人 ¥${expandCost}万",
+                onClick = onExpand,
+                style = PixelButtonStyle.CONFIRM,
+                height = 40.dp,
+                modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
 @Composable
-private fun ProgramsCard(state: StudentLifeState, viewModel: StudentLifeViewModel) {
-    val activePrograms = state.programs.filter { it.active }
-    val availablePrograms = viewModel.getAvailablePrograms()
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // 已激活项目
-            if (activePrograms.isNotEmpty()) {
-                Text(
-                    "已开设 (${activePrograms.size})",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF4CAF50)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                activePrograms.forEach { program ->
-                    ProgramRow(
-                        program = program,
-                        isActive = true,
-                        onToggle = { viewModel.deactivateProgram(program.id) }
-                    )
-                }
-            }
-
-            if (activePrograms.isNotEmpty() && availablePrograms.isNotEmpty()) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-            }
-
-            // 可开设项目
-            if (availablePrograms.isNotEmpty()) {
-                Text(
-                    "可开设 (${availablePrograms.size})",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                availablePrograms.forEach { program ->
-                    ProgramRow(
-                        program = program,
-                        isActive = false,
-                        onToggle = { viewModel.activateProgram(program.id) }
-                    )
-                }
-            }
+private fun ProgramsPanel(state: StudentLifeState, viewModel: StudentLifeViewModel) {
+    val active = state.programs.filter { it.active }
+    val available = viewModel.getAvailablePrograms()
+    PixelHardPanel {
+        if (active.isEmpty() && available.isEmpty()) {
+            Text("没有可开专项", color = TextSecondaryDark, fontSize = 12.sp)
+            return@PixelHardPanel
+        }
+        if (active.isNotEmpty()) {
+            Text("已开设", color = AccentGreen, fontWeight = FontWeight.Bold)
+            active.forEach { ProgramRow(it, true) { viewModel.deactivateProgram(it.id) } }
+        }
+        if (available.isNotEmpty()) {
+            Text("可开设（换菜开营养餐，辅导开减压工作坊）", color = TextSecondaryDark, fontSize = 12.sp)
+            available.forEach { ProgramRow(it, false) { viewModel.activateProgram(it.id) } }
         }
     }
 }
 
 @Composable
-private fun ProgramRow(
-    program: SpecialProgram,
-    isActive: Boolean,
-    onToggle: () -> Unit
-) {
+private fun ProgramRow(program: SpecialProgram, isActive: Boolean, onToggle: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                program.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
+            Text(program.name, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Text(
                 "${program.aspect.displayName} · ¥${program.monthlyCost}万/月 · +${program.satisfactionBoost.toInt()}满意度",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = TextSecondaryDark,
+                fontSize = 11.sp
             )
         }
-        if (isActive) {
-            FilledTonalButton(
-                onClick = onToggle,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Text("关闭", fontSize = 12.sp)
-            }
-        } else {
-            Button(
-                onClick = onToggle,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-            ) {
-                Text("开设", fontSize = 12.sp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun IssuesCard(issues: List<LifeIssue>, onResolve: (String) -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+        PixelButton(
+            text = if (isActive) "关闭" else "开设",
+            onClick = onToggle,
+            style = if (isActive) PixelButtonStyle.DANGER else PixelButtonStyle.PRIMARY,
+            height = 36.dp,
+            modifier = Modifier.fillMaxWidth(0.28f)
         )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            issues.forEach { issue ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = severityColor(issue.severity)
-                    ) {
-                        Text(
-                            issue.severity.displayName,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            issue.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            issue.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "结案条件：${issue.requiredHint}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF14648C)
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            "-${issue.satisfactionPenalty.toInt()}",
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        TextButton(onClick = { onResolve(issue.id) }) {
-                            Text("检查结案", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-                if (issue != issues.last()) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                    )
-                }
-            }
-        }
     }
 }
 
-// 辅助颜色函数
 @Composable
+private fun BarRow(label: String, progress: Float, value: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = TextSecondaryDark, fontSize = 11.sp, modifier = Modifier.fillMaxWidth(0.16f))
+        LinearProgressIndicator(
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = Modifier.weight(1f).height(8.dp),
+            color = color,
+            trackColor = Color(0x33182635)
+        )
+        Text(value, color = TextPrimaryDark, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+private fun actionLabel(action: ComplaintAction): String = when (action) {
+    ComplaintAction.EXPAND_DORM -> "立刻扩宿舍"
+    ComplaintAction.REPAIR_DORM -> "立刻修宿舍"
+    ComplaintAction.EXPAND_CANTEEN -> "立刻加窗口"
+    ComplaintAction.CHANGE_MENU -> "立刻换菜谱"
+    ComplaintAction.OPEN_COUNSELING -> "立刻开辅导"
+    ComplaintAction.REPAIR_GYM -> "立刻修运动"
+    ComplaintAction.OPEN_CLINIC -> "立刻开医务"
+}
+
+private fun signed(value: Float): String {
+    val n = value.toInt()
+    return if (n >= 0) "+$n%" else "$n%"
+}
+
 private fun qualityColor(quality: FacilityQuality): Color = when (quality) {
-    FacilityQuality.POOR -> MaterialTheme.colorScheme.error
+    FacilityQuality.POOR -> AccentRed
     FacilityQuality.BASIC -> Color(0xFF9E9E9E)
     FacilityQuality.STANDARD -> Color(0xFF42A5F5)
-    FacilityQuality.GOOD -> Color(0xFF66BB6A)
+    FacilityQuality.GOOD -> AccentGreen
     FacilityQuality.EXCELLENT -> Color(0xFFAB47BC)
     FacilityQuality.PREMIUM -> Color(0xFFFFD700)
 }
 
 private fun satisfactionColor(score: Float): Color = when {
-    score >= 80f -> Color(0xFF4CAF50)
+    score >= 80f -> AccentGreen
     score >= 60f -> Color(0xFF8BC34A)
-    score >= 40f -> Color(0xFFFF9800)
-    else -> Color(0xFFF44336)
+    score >= 40f -> AccentOrange
+    else -> AccentRed
 }
 
 private fun maintenanceColor(level: Float): Color = when {
-    level >= 70f -> Color(0xFF4CAF50)
-    level >= 40f -> Color(0xFFFF9800)
-    else -> Color(0xFFF44336)
+    level >= 70f -> AccentGreen
+    level >= 40f -> AccentOrange
+    else -> AccentRed
 }
 
 private fun severityColor(severity: IssueSeverity): Color = when (severity) {
     IssueSeverity.LOW -> Color(0xFFFFC107)
-    IssueSeverity.MEDIUM -> Color(0xFFFF9800)
-    IssueSeverity.HIGH -> Color(0xFFF44336)
+    IssueSeverity.MEDIUM -> AccentOrange
+    IssueSeverity.HIGH -> AccentRed
     IssueSeverity.CRITICAL -> Color(0xFF9C27B0)
 }

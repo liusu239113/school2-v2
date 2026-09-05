@@ -1064,9 +1064,12 @@ class GameEngine @Inject constructor(
                 studentLifeManager.deactivateProgram(programId)
             }
             if (changed) {
+                val name = studentLifeManager.state.value.programs
+                    .firstOrNull { it.id == programId }?.name ?: "专项"
                 ManagedOperationResult(
                     true,
-                    if (active) "专项计划已开设" else "专项计划已关闭"
+                    if (active) "已开设「$name」。投诉检查结案时会认这条建设。"
+                    else "已关闭「$name」"
                 )
             } else {
                 ManagedOperationResult(false, "专项计划状态已变化")
@@ -2002,23 +2005,22 @@ class GameEngine @Inject constructor(
                         event.title.contains("里程碑") -> com.arktools.xiao.domain.model.NotificationType.MILESTONE
                         else -> com.arktools.xiao.domain.model.NotificationType.FINANCIAL
                     }
+                    val jump = notificationJumpFor(event.title, posType)
                     notificationManager.addNotification(
                         title = event.title,
                         message = event.message,
                         type = posType,
                         priority = com.arktools.xiao.domain.model.NotificationPriority.NORMAL,
                         gameYear = year, gameMonth = month, gameDay = day,
-                        actionTabIndex = when (posType) {
-                            com.arktools.xiao.domain.model.NotificationType.TEACHER -> 2
-                            com.arktools.xiao.domain.model.NotificationType.STUDENT -> 8
-                            com.arktools.xiao.domain.model.NotificationType.MILESTONE -> 10
-                            else -> 11
-                        }
+                        actionLabel = jump.first,
+                        actionTabIndex = jump.second
                     )
                 }
             }
             is GameEvent.NegativeEvent -> {
                 val type = when {
+                    event.title.contains("投诉") || event.title.contains("宿舍") || event.title.contains("食堂") -> com.arktools.xiao.domain.model.NotificationType.CRISIS
+                    event.title.contains("奖学金") -> com.arktools.xiao.domain.model.NotificationType.STUDENT
                     event.title.contains("离职") || event.title.contains("疲劳") || event.title.contains("辞职") || event.title.contains("被挖角") || event.title.contains("合同到期") -> com.arktools.xiao.domain.model.NotificationType.TEACHER
                     event.title.contains("退学") -> com.arktools.xiao.domain.model.NotificationType.STUDENT
                     event.title.contains("危机") || event.title.contains("警告") -> com.arktools.xiao.domain.model.NotificationType.CRISIS
@@ -2030,19 +2032,15 @@ class GameEngine @Inject constructor(
                     event.title.contains("离职") || event.title.contains("辞职") || event.title.contains("警告") -> com.arktools.xiao.domain.model.NotificationPriority.HIGH
                     else -> com.arktools.xiao.domain.model.NotificationPriority.NORMAL
                 }
+                val jump = notificationJumpFor(event.title, type)
                 notificationManager.addNotification(
                     title = event.title,
                     message = event.message,
                     type = type,
                     priority = priority,
                     gameYear = year, gameMonth = month, gameDay = day,
-                    actionTabIndex = when (type) {
-                        com.arktools.xiao.domain.model.NotificationType.TEACHER -> 2
-                        com.arktools.xiao.domain.model.NotificationType.STUDENT -> 8
-                        com.arktools.xiao.domain.model.NotificationType.CRISIS -> 1
-                        com.arktools.xiao.domain.model.NotificationType.MARKET -> 3
-                        else -> 11
-                    }
+                    actionLabel = jump.first,
+                    actionTabIndex = jump.second
                 )
             }
             is GameEvent.MilestoneEvent -> {
@@ -2056,6 +2054,38 @@ class GameEngine @Inject constructor(
                 )
             }
             is GameEvent.ChoiceEvent -> { /* 选择事件通过对话框处理，不进通知 */ }
+        }
+    }
+
+    /** 校长待办点开后跳到真正要处理的系统，而不是总览。 */
+    private fun notificationJumpFor(
+        title: String,
+        type: com.arktools.xiao.domain.model.NotificationType
+    ): Pair<String, Int> {
+        return when {
+            title.contains("投诉") || title.contains("宿舍") || title.contains("食堂") ||
+                title.contains("医务") || title.contains("心理") ->
+                "去学生生活结案" to 21
+            title.contains("奖学金") ->
+                "去设奖助学金" to 29
+            title.contains("就业") || title.contains("校友") || title.contains("毕业") ->
+                "去校友与就业" to 15
+            title.contains("考试") || title.contains("辅导") ->
+                "去考试管理" to 32
+            title.contains("科研") ->
+                "去科研课题" to 41
+            title.contains("政策") || title.contains("学费") ->
+                "去大学政策" to 16
+            type == com.arktools.xiao.domain.model.NotificationType.TEACHER ->
+                "去教师" to 2
+            type == com.arktools.xiao.domain.model.NotificationType.STUDENT ->
+                "去学生名册" to 8
+            type == com.arktools.xiao.domain.model.NotificationType.MILESTONE ->
+                "去成就墙" to 10
+            type == com.arktools.xiao.domain.model.NotificationType.CRISIS ->
+                "去治院" to 1
+            else ->
+                "去办学账本" to 11
         }
     }
 
@@ -4056,37 +4086,11 @@ class GameEngine @Inject constructor(
                     }
                     lifeResult.newIssues.forEach { issue ->
                         emitEvent(
-                            GameEvent.ChoiceEvent(
-                                title = issue.title,
-                                message = issue.description + "\n你打算怎么处理？",
-                                choices = listOf(
-                                    EventChoice(
-                                        "立刻派人处理",
-                                        EventConsequence(
-                                            cashChange = -kotlin.math.max(4.0, issue.satisfactionPenalty * 0.8),
-                                            reputationChange = 120
-                                        )
-                                    ),
-                                    EventChoice(
-                                        "先压一压，观察几天",
-                                        EventConsequence(
-                                            cashChange = 0.0,
-                                            reputationChange = -(
-                                                maxOf(
-                                                    80L,
-                                                    issue.satisfactionPenalty.toLong() * 12L
-                                                )
-                                            )
-                                        )
-                                    ),
-                                    EventChoice(
-                                        "公开说明并道歉",
-                                        EventConsequence(
-                                            cashChange = -2.0,
-                                            reputationChange = 40
-                                        )
-                                    )
-                                )
+                            GameEvent.NegativeEvent(
+                                title = "学生投诉：${issue.title}",
+                                message = issue.description +
+                                    " 结案条件：${issue.requiredHint}。花钱不能结案，去学生生活页把对应建设做完再点检查结案。",
+                                penaltyReputation = issue.satisfactionPenalty.toLong().coerceAtLeast(2L)
                             ),
                             school
                         )
@@ -4790,9 +4794,17 @@ class GameEngine @Inject constructor(
                 if (scholarshipResult.newRecipients > 0) {
                     emitEvent(GameEvent.PositiveEvent(
                         title = "奖学金颁发",
-                        message = "本期共${scholarshipResult.newRecipients}名学生获得奖学金，总额 ¥${String.format("%,.0f", scholarshipResult.expenses)}",
+                        message = "本期共${scholarshipResult.newRecipients}名学生获得奖学金，总额 ¥${String.format("%,.0f", scholarshipResult.expenses)}。名额立刻加招生、压退学。",
                         bonusCash = 0.0,
                         bonusReputation = scholarshipResult.newRecipients.toLong()
+                    ), school)
+                } else if (scholarshipManager.state.value.scholarships.isEmpty() &&
+                    (school.currentMonth == 3 || school.currentMonth == 9)
+                ) {
+                    emitEvent(GameEvent.NegativeEvent(
+                        title = "没有奖学金",
+                        message = "开学季没设奖助学金，生源会流向有奖的学校，退学也会多。去奖助学金页立刻设立。",
+                        penaltyReputation = 4
                     ), school)
                 }
             }

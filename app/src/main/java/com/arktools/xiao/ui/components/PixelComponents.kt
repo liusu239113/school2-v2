@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -190,6 +191,28 @@ fun PixelButton(
  * Pixel art style card container.
  * Use for module grid cards, info panels, etc.
  */
+@Composable
+fun PixelHardPanel(
+    modifier: Modifier = Modifier,
+    padding: Dp = 14.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        PixelNineSlice(
+            res = R.drawable.card_bg,
+            slice = 48,
+            modifier = Modifier.matchParentSize()
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(padding),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            content = content
+        )
+    }
+}
+
 @Composable
 fun PixelCard(
     modifier: Modifier = Modifier,

@@ -24,8 +24,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiao.domain.policy.*
 import com.arktools.xiao.ui.components.LegacyPageHeader
+import com.arktools.xiao.ui.components.PixelButton
+import com.arktools.xiao.ui.components.PixelButtonStyle
 import com.arktools.xiao.ui.components.PixelGameBackground
+import com.arktools.xiao.ui.components.PixelHardPanel
 import com.arktools.xiao.ui.components.PixelIcon
+import com.arktools.xiao.ui.theme.AccentGreen
+import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +44,8 @@ fun PolicyScreen(
     val effects = viewModel.getPolicyEffects()
 
     PixelGameBackground {
-        LegacyPageHeader("学校政策")
+        Column(modifier = Modifier.fillMaxSize()) {
+        LegacyPageHeader("大学政策")
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),
@@ -410,33 +418,25 @@ fun PolicyScreen(
 
         // 重置按钮
         item {
-            OutlinedButton(
+            PixelButton(
+                text = "重置为默认政策",
                 onClick = { viewModel.resetToDefaults() },
+                style = PixelButtonStyle.CANCEL,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("重置为默认政策")
-            }
+            )
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-    } // PixelGameBackground
+        }
+    }
 }
 
 @Composable
 private fun PolicyEffectsSummary(effects: PolicyEffects) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Text(
-                "政策效果总览",
-                style = MaterialTheme.typography.titleMedium,
+                "政策立刻改招生、学费、退学",
+                color = TextPrimaryDark,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -458,7 +458,6 @@ private fun PolicyEffectsSummary(effects: PolicyEffects) {
                 EffectChip("声誉", "${if (effects.reputationModifier >= 0) "+" else ""}${effects.reputationModifier}/月", effects.reputationModifier >= 0)
                 EffectChip("退学率", formatModifier(effects.dropoutRateModifier * 100f), effects.dropoutRateModifier <= 0f)
             }
-        }
     }
 }
 
@@ -467,14 +466,12 @@ private fun EffectChip(label: String, value: String, isPositive: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             value,
-            style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = if (isPositive) Color(0xFF4CAF50) else Color(0xFFF44336)
+            color = if (isPositive) AccentGreen else AccentRed
         )
         Text(
             label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = TextSecondaryDark
         )
     }
 }
@@ -485,21 +482,10 @@ private fun PolicySection(
     description: String,
     content: @Composable () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .animateContentSize()
-        ) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.height(8.dp))
+    PixelHardPanel {
+            Text(title, color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+            Text(description, color = TextSecondaryDark)
             content()
-        }
     }
 }
 
@@ -511,24 +497,11 @@ private fun PolicyOption(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val backgroundColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val borderColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outlineVariant
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .background(backgroundColor)
+            .background(if (isSelected) Color(0xFFDCF1FB) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -538,22 +511,16 @@ private fun PolicyOption(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 name,
-                style = MaterialTheme.typography.bodyMedium,
+                color = TextPrimaryDark,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
             )
             Text(
                 description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = TextSecondaryDark
             )
         }
         if (isSelected) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
+            Text("✓", color = Color(0xFF1E96C8), fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -1417,6 +1417,8 @@ private fun BuildingPanelContent(
                 }
                 PanelButton("人事招聘") { onOpenHiring() }
                 PanelButton("教学强度") { onOpenTeaching() }
+                PanelButton("校友与就业") { onOpenEmployment() }
+                PanelButton("学生生活与投诉") { onOpenStudentLife() }
             }
             CampusViewModel.CampusBuilding.Kind.COLLEGE -> {
                 val college = building.college

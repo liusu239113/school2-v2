@@ -1,46 +1,48 @@
 package com.arktools.xiao.ui.scholarship
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.arktools.xiao.R
-import com.arktools.xiao.domain.scholarship.*
+import com.arktools.xiao.domain.scholarship.Scholarship
+import com.arktools.xiao.ui.components.LegacyPageHeader
+import com.arktools.xiao.ui.components.PixelAlertDialog
 import com.arktools.xiao.ui.components.PixelButton
 import com.arktools.xiao.ui.components.PixelButtonStyle
+import com.arktools.xiao.ui.components.PixelGameBackground
+import com.arktools.xiao.ui.components.PixelHardPanel
+import com.arktools.xiao.ui.theme.AccentGreen
+import com.arktools.xiao.ui.theme.AccentOrange
+import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 
-/**
- * 格式化奖学金金额显示（单位：万元）
- * amountPerStudent 存储的是万元单位的金额（如 0.5 = 5000元，1.0 = 1万元）
- */
 private fun formatScholarshipAmount(amount: Double): String {
     return when {
         amount >= 1.0 -> "¥${amount.toInt()}万"
-        amount > 0 -> "¥${(amount * 10000).toInt().let { 
-            if (it >= 10000) "${it / 10000}万" 
-            else "${it}元" 
-        }}"
+        amount > 0 -> "¥${(amount * 10000).toInt()}元"
         else -> "¥0"
     }
 }
@@ -49,321 +51,175 @@ private fun formatScholarshipAmount(amount: Double): String {
 fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var showTemplateDialog by remember { mutableStateOf(false) }
+    val empty = state.scholarships.isEmpty()
 
-    com.arktools.xiao.ui.components.PixelGameBackground {
-    Column(modifier = Modifier.fillMaxSize()) {
-    com.arktools.xiao.ui.components.LegacyPageHeader("奖助学金")
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // 总览卡片
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(0.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xE611263D)),
-                elevation = CardDefaults.cardElevation(0.dp)
+    PixelGameBackground {
+        Column(modifier = Modifier.fillMaxSize()) {
+            LegacyPageHeader("奖助学金")
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
-                ) {
-                    Column {
-                        Text("设立立刻加招生和留存，3月/9月按名额发钱换声誉", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("已设立", fontSize = 12.sp, color = Color.White.copy(0.8f))
+                item {
+                    PixelHardPanel {
+                        Text("开学季必设", color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            if (empty) "3月/9月没奖，生源会走、退学升高。设立立刻加招生和留存。"
+                            else "已设立立刻加招生和留存，3月/9月按名额发钱换声誉。加名额立刻加招生，减名额立刻少开支。",
+                            color = if (empty) AccentRed else TextSecondaryDark,
+                            fontSize = 12.sp
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            StatCol("已设立", "${state.scholarships.size}项")
+                            StatCol("累计发放", formatScholarshipAmount(state.totalAwarded))
+                            StatCol("招生加成", "+${(state.studentAttractionBonus * 100).toInt()}%")
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            StatCol("留存加成", "+${(state.retentionBonus * 100).toInt()}%")
+                            StatCol("声誉加成", "+${state.reputationBonus}")
+                            StatCol("预算总额", formatScholarshipAmount(state.totalBudgetAllocated))
+                        }
+                    }
+                }
+
+                item {
+                    PixelButton(
+                        onClick = { showTemplateDialog = true },
+                        text = if (empty) "立刻设立奖学金" else "再设一项奖学金",
+                        style = PixelButtonStyle.PRIMARY,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (state.yearlyStats.totalRecipients > 0) {
+                    item {
+                        PixelHardPanel {
+                            Text("本期发放", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                            Text(
+                                "获奖 ${state.yearlyStats.totalRecipients} 人 · ${formatScholarshipAmount(state.yearlyStats.totalAmount)}",
+                                color = TextSecondaryDark,
+                                fontSize = 12.sp
+                            )
+                            if (state.yearlyStats.topStudentName.isNotEmpty()) {
                                 Text(
-                                    "${state.scholarships.size}项",
-                                    fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White
+                                    "最佳 ${state.yearlyStats.topStudentName}  GPA ${String.format("%.2f", state.yearlyStats.avgGpa)}",
+                                    color = AccentGreen,
+                                    fontSize = 12.sp
                                 )
                             }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("累计发放", fontSize = 12.sp, color = Color.White.copy(0.8f))
-                                Text(
-                                    formatScholarshipAmount(state.totalAwarded),
-                                    fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White
+                        }
+                    }
+                }
+
+                if (state.scholarships.isNotEmpty()) {
+                    item { Text("在设奖项", color = TextPrimaryDark, fontWeight = FontWeight.Bold) }
+                    items(state.scholarships, key = { it.id }) { scholarship ->
+                        PixelHardPanel {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(scholarship.name, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text(scholarship.tier.displayName, color = Color(scholarship.tier.color), fontSize = 11.sp)
+                                }
+                                PixelButton(
+                                    text = "取消",
+                                    onClick = { viewModel.cancelScholarship(scholarship.id) },
+                                    style = PixelButtonStyle.DANGER,
+                                    height = 36.dp
                                 )
                             }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("招生加成", fontSize = 12.sp, color = Color.White.copy(0.8f))
-                                Text(
-                                    "+${(state.studentAttractionBonus * 100).toInt()}%",
-                                    fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White
-                                )
+                            Text(scholarship.description, color = TextSecondaryDark, fontSize = 12.sp)
+                            Text(
+                                "${scholarship.criteria.displayName} · ${formatScholarshipAmount(scholarship.amountPerStudent)}/人 × ${scholarship.maxRecipients}名",
+                                color = Color(0xFF14648C),
+                                fontSize = 12.sp
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                PixelButton(text = "名额-", onClick = { viewModel.adjustRecipients(scholarship.id, -1) }, style = PixelButtonStyle.SECONDARY, height = 36.dp)
+                                Text("${scholarship.maxRecipients}", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                                PixelButton(text = "名额+", onClick = { viewModel.adjustRecipients(scholarship.id, 1) }, style = PixelButtonStyle.PRIMARY, height = 36.dp)
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            BonusChip("留存加成", "+${(state.retentionBonus * 100).toInt()}%")
-                            BonusChip("声誉加成", "+${state.reputationBonus}")
-                            BonusChip("预算总额", formatScholarshipAmount(state.totalBudgetAllocated))
+                    }
+                }
+
+                val recent = state.recipients.takeLast(8).reversed()
+                if (recent.isNotEmpty()) {
+                    item { Text("最近获奖", color = TextPrimaryDark, fontWeight = FontWeight.Bold) }
+                    items(recent) { recipient ->
+                        PixelHardPanel {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text(recipient.studentName, color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                                    Text(recipient.scholarshipName, color = TextSecondaryDark, fontSize = 11.sp)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(formatScholarshipAmount(recipient.amount), color = AccentOrange, fontWeight = FontWeight.Bold)
+                                    Text("GPA ${String.format("%.1f", recipient.gpa)}", color = TextSecondaryDark, fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        // 快速设立按钮
-        item {
-            PixelButton(
-                onClick = { showTemplateDialog = true },
-                text = "设立奖学金",
-                style = PixelButtonStyle.PRIMARY,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // 本期获奖统计
-        if (state.yearlyStats.totalRecipients > 0) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xE611263D))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("本期发放统计", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("获奖人数: ${state.yearlyStats.totalRecipients}")
-                            Text("总金额: ${formatScholarshipAmount(state.yearlyStats.totalAmount)}")
-                        }
-                        if (state.yearlyStats.topStudentName.isNotEmpty()) {
-                            Text("最佳学生: ${state.yearlyStats.topStudentName} (GPA ${String.format("%.2f", state.yearlyStats.avgGpa)})",
-                                fontSize = 13.sp, color = Color(0xFF7B1FA2))
-                        }
+                if (state.recentEvents.isNotEmpty()) {
+                    item { Text("动态", color = TextPrimaryDark, fontWeight = FontWeight.Bold) }
+                    items(state.recentEvents) { event ->
+                        PixelHardPanel { Text(event, color = TextPrimaryDark, fontSize = 13.sp) }
                     }
                 }
+                item { Spacer(Modifier.height(72.dp)) }
             }
         }
-
-        // 已设立奖学金列表
-        if (state.scholarships.isNotEmpty()) {
-            item {
-                Text("已设立奖学金 (${state.scholarships.size})",
-                    fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            items(state.scholarships) { scholarship ->
-                ScholarshipCard(
-                    scholarship = scholarship,
-                    onCancel = { viewModel.cancelScholarship(scholarship.id) },
-                    onAdjust = { delta -> viewModel.adjustRecipients(scholarship.id, delta) }
-                )
-            }
-        }
-
-        // 最近获奖记录
-        val recentRecipients = state.recipients.takeLast(10).reversed()
-        if (recentRecipients.isNotEmpty()) {
-            item {
-                Text("最近获奖记录", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            items(recentRecipients) { recipient ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(recipient.studentName, fontWeight = FontWeight.Medium)
-                            Text(recipient.scholarshipName, fontSize = 12.sp, color = Color.Gray)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(formatScholarshipAmount(recipient.amount), fontWeight = FontWeight.Bold,
-                                color = Color(0xFF7B1FA2))
-                            Text("GPA ${String.format("%.1f", recipient.gpa)}", fontSize = 11.sp, color = Color.Gray)
-                        }
-                    }
-                }
-            }
-        }
-
-        // 事件
-        if (state.recentEvents.isNotEmpty()) {
-            item {
-                Text("动态", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            items(state.recentEvents) { event ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFF7B1FA2), modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(event, fontSize = 14.sp)
-                    }
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(80.dp)) }
     }
 
     if (showTemplateDialog) {
-        TemplateDialog(
-            templates = viewModel.getTemplates(2024),
-            existingNames = state.scholarships.map { it.name },
-            onSelect = { index ->
-                viewModel.createFromTemplate(index, 2024)
-                showTemplateDialog = false
-            },
-            onDismiss = { showTemplateDialog = false }
-        )
-    }
-    }
-    }
-}
-
-@Composable
-private fun BonusChip(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Text(label, fontSize = 10.sp, color = Color.White.copy(0.8f))
-    }
-}
-
-@Composable
-private fun ScholarshipCard(
-    scholarship: Scholarship,
-    onCancel: () -> Unit,
-    onAdjust: (Int) -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(scholarship.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Spacer(Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(scholarship.tier.color).copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                scholarship.tier.displayName,
-                                fontSize = 10.sp,
-                                color = Color(scholarship.tier.color),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Text(scholarship.description, fontSize = 12.sp, color = Color.Gray)
-                    Text(
-                        "${scholarship.criteria.displayName} | ${formatScholarshipAmount(scholarship.amountPerStudent)}/人 × ${scholarship.maxRecipients}名额。加名额立刻加招生，减名额立刻少开支。",
-                        fontSize = 11.sp, color = Color(0xFF7B1FA2)
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { onAdjust(-1) }) { Text("名额-") }
-                        Text("${scholarship.maxRecipients}", fontWeight = FontWeight.Bold)
-                        TextButton(onClick = { onAdjust(1) }) { Text("名额+") }
-                    }
-                }
-                IconButton(onClick = onCancel, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "取消", tint = Color.Gray, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TemplateDialog(
-    templates: List<Scholarship>,
-    existingNames: List<String>,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .wrapContentHeight(),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(R.drawable.dialog_bg),
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier.matchParentSize()
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "设立奖学金",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(16.dp))
+        val templates = viewModel.getTemplates(2024)
+        val existing = state.scholarships.map { it.name }
+        PixelAlertDialog(
+            onDismissRequest = { showTemplateDialog = false },
+            title = "设立奖学金",
+            text = "选一项立刻生效：招生加成和留存马上变。",
+            confirmText = "关闭",
+            onConfirm = { showTemplateDialog = false },
+            content = {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.heightIn(max = 320.dp)
+                    modifier = Modifier.heightIn(max = 280.dp)
                 ) {
                     itemsIndexed(templates) { index, template ->
-                        val alreadyExists = template.name in existingNames
-                        Card(
-                            onClick = { if (!alreadyExists) onSelect(index) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (alreadyExists) Color(0xFFEEEEEE) else MaterialTheme.colorScheme.surface
+                        val already = template.name in existing
+                        PixelHardPanel {
+                            Text(template.name + if (already) "（已设）" else "", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                            Text(template.description, color = TextSecondaryDark, fontSize = 11.sp)
+                            Text(
+                                "${formatScholarshipAmount(template.amountPerStudent)}/人 × ${template.maxRecipients}名",
+                                color = Color(0xFF14648C),
+                                fontSize = 11.sp
                             )
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(template.name, fontWeight = FontWeight.Bold,
-                                        color = if (alreadyExists) Color.Gray else Color.Unspecified)
-                                    if (alreadyExists) {
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("已设立", fontSize = 10.sp, color = Color.Gray)
-                                    }
-                                }
-                                Text(template.description, fontSize = 12.sp, color = Color.Gray)
-                                Text(
-                                    "${formatScholarshipAmount(template.amountPerStudent)}/人 × ${template.maxRecipients}名额 = ${formatScholarshipAmount(template.amountPerStudent * template.maxRecipients)}",
-                                    fontSize = 11.sp, color = Color(0xFF7B1FA2)
+                            if (!already) {
+                                PixelButton(
+                                    text = "设立这项",
+                                    onClick = {
+                                        viewModel.createFromTemplate(index, 2024)
+                                        showTemplateDialog = false
+                                    },
+                                    style = PixelButtonStyle.PRIMARY,
+                                    height = 36.dp,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    PixelButton(
-                        onClick = onDismiss,
-                        text = "关闭",
-                        style = PixelButtonStyle.CANCEL
-                    )
-                }
             }
-        }
+        )
+    }
+}
+
+@Composable
+private fun StatCol(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(label, color = TextSecondaryDark, fontSize = 11.sp)
     }
 }

@@ -27,9 +27,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiao.domain.alumni.*
 import com.arktools.xiao.domain.model.UniversityTier
 import com.arktools.xiao.domain.employment.*
+import com.arktools.xiao.ui.components.LegacyPageHeader
 import com.arktools.xiao.ui.components.PixelAlertDialog
 import com.arktools.xiao.ui.components.PixelButton
 import com.arktools.xiao.ui.components.PixelButtonStyle
+import com.arktools.xiao.ui.components.PixelGameBackground
 import com.arktools.xiao.ui.components.PixelIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,21 +42,28 @@ fun AlumniScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("校友发展", "毕业去向", "届次档案")
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTabIndex) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTabIndex == index,
-                    onClick = { selectedTabIndex = index },
-                    text = { Text(title) }
-                )
+    PixelGameBackground {
+        Column(modifier = Modifier.fillMaxSize()) {
+            LegacyPageHeader("校友与就业")
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color(0xFF0B1724),
+                contentColor = Color.White
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = { Text(title, color = Color.White) }
+                    )
+                }
             }
-        }
 
-        when (selectedTabIndex) {
-            0 -> AlumniNetworkContent(viewModel = viewModel)
-            1 -> EmploymentContent(viewModel = viewModel)
-            2 -> GraduationSummaryContent(viewModel = viewModel)
+            when (selectedTabIndex) {
+                0 -> AlumniNetworkContent(viewModel = viewModel)
+                1 -> EmploymentContent(viewModel = viewModel)
+                2 -> GraduationSummaryContent(viewModel = viewModel)
+            }
         }
     }
 }
@@ -73,32 +82,18 @@ private fun AlumniNetworkContent(viewModel: AlumniViewModel) {
 
     // 活动结果弹窗
     lastActivityResult?.let { result ->
-        AlertDialog(
+        val extra = buildString {
+            append(result.description)
+            if (result.donationGained > 0) append("\n捐款 +¥${String.format("%.1f", result.donationGained / 10000)}万")
+            if (result.reputationGained > 0) append("\n声誉 +${result.reputationGained}")
+            if (result.extraEffect.isNotEmpty()) append("\n${result.extraEffect}")
+        }
+        PixelAlertDialog(
             onDismissRequest = { viewModel.dismissActivityResult() },
-            title = { Text(result.type.displayName) },
-            text = {
-                Column {
-                    Text(result.description)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (result.donationGained > 0) {
-                        Text("💰 获得捐款: ¥${String.format("%.1f", result.donationGained / 10000)}万",
-                            color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
-                    }
-                    if (result.reputationGained > 0) {
-                        Text("⭐ 声誉+${result.reputationGained}",
-                            color = Color(0xFF2196F3), fontWeight = FontWeight.Bold)
-                    }
-                    if (result.extraEffect.isNotEmpty()) {
-                        Text("✨ ${result.extraEffect}",
-                            color = Color(0xFFFF9800))
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.dismissActivityResult() }) {
-                    Text("确定")
-                }
-            }
+            title = result.type.displayName,
+            text = extra,
+            confirmText = "知道了",
+            onConfirm = { viewModel.dismissActivityResult() }
         )
     }
 

@@ -93,9 +93,14 @@ import com.arktools.xiao.domain.model.Student
 import com.arktools.xiao.domain.model.StudentAttributes
 import com.arktools.xiao.domain.model.StudentStatus
 import com.arktools.xiao.domain.model.StudentTrait
+import com.arktools.xiao.ui.components.LegacyPageHeader
+import com.arktools.xiao.ui.components.PixelGameBackground
+import com.arktools.xiao.ui.components.PixelHardPanel
 import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -106,22 +111,29 @@ fun StudentScreen(
     viewModel: StudentViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("学生管理", "班级管理")
+    val tabs = listOf("在校名册", "教学班")
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTabIndex) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTabIndex == index,
-                    onClick = { selectedTabIndex = index },
-                    text = { Text(title) }
-                )
+    PixelGameBackground {
+        Column(modifier = Modifier.fillMaxSize()) {
+            LegacyPageHeader("学生名册")
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color(0xFF0B1724),
+                contentColor = Color.White
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = { Text(title, color = Color.White) }
+                    )
+                }
             }
-        }
 
-        when (selectedTabIndex) {
-            0 -> StudentManageContent(viewModel = viewModel)
-            1 -> ClassManageContent(viewModel = viewModel)
+            when (selectedTabIndex) {
+                0 -> StudentManageContent(viewModel = viewModel)
+                1 -> ClassManageContent(viewModel = viewModel)
+            }
         }
     }
 }
@@ -549,18 +561,7 @@ private fun StudentCard(
     showCourseName: Boolean,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .animateContentSize(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
+    PixelHardPanel(modifier = Modifier.clickable(onClick = onClick)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -631,7 +632,6 @@ private fun StudentCard(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "${student.satisfaction.toInt()}", style = MaterialTheme.typography.labelSmall, color = satColor)
             }
-        }
     }
 }
 

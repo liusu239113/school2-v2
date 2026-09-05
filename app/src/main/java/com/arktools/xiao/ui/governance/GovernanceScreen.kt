@@ -208,6 +208,7 @@ fun GovernanceScreen(
                 Entry("学期课表", com.arktools.xiao.R.drawable.ic_core_course, 31),
                 Entry("考试管理", com.arktools.xiao.R.drawable.ic_memo, 32),
                 Entry("办学报表", com.arktools.xiao.R.drawable.ic_chart, 11),
+                Entry("校长待办（投诉/缺奖跳转）", com.arktools.xiao.R.drawable.ic_memo, 14),
                 Entry("成就墙（解锁给经费和声誉）", com.arktools.xiao.R.drawable.ic_trophy, 10)
             )
             entries.forEach { entry ->

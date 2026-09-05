@@ -39,10 +39,13 @@ import com.arktools.xiao.domain.finance.MonthlyReport as FinanceMonthlyReport
 import com.arktools.xiao.domain.model.MonthlyReport
 import com.arktools.xiao.ui.components.PixelButton
 import com.arktools.xiao.ui.components.PixelButtonStyle
+import com.arktools.xiao.ui.components.PixelHardPanel
 import com.arktools.xiao.ui.components.PixelIcon
 import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 import com.arktools.xiao.ui.utils.FormatUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -59,23 +62,24 @@ fun ReportScreen(
     val finState by viewModel.financialState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
+    com.arktools.xiao.ui.components.PixelGameBackground {
     Column(modifier = Modifier.fillMaxSize()) {
+        com.arktools.xiao.ui.components.LegacyPageHeader("办学账本")
         // 顶部 Tab 切换
         TabRow(
             selectedTabIndex = selectedTabIndex,
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color(0xFF0B1724),
+            contentColor = Color.White
         ) {
             Tab(
                 selected = selectedTabIndex == 0,
                 onClick = { selectedTabIndex = 0 },
-                text = { Text("办学数据") },
-                icon = { Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                text = { Text("办学数据", color = Color.White) }
             )
             Tab(
                 selected = selectedTabIndex == 1,
                 onClick = { selectedTabIndex = 1 },
-                text = { Text("大学账本") },
-                icon = { Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                text = { Text("大学账本", color = Color.White) }
             )
         }
 
@@ -83,6 +87,7 @@ fun ReportScreen(
             0 -> DataTrendContent(state = state, viewModel = viewModel)
             1 -> FinanceContent(finState = finState, viewModel = viewModel)
         }
+    }
     }
 }
 
@@ -247,12 +252,9 @@ private fun GrowthChip(label: String, growth: Float?) {
     val isPositive = displayGrowth >= 0
     val color = if (isPositive) AccentGreen else AccentRed
 
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f))
-    ) {
+    PixelHardPanel(padding = 8.dp) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -317,12 +319,7 @@ private fun ChartTypeSelector(
 
 @Composable
 private fun ChartCard(months: List<MonthlyReport>, chartType: ChartType) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             val title = when (chartType) {
                 ChartType.REVENUE -> "收入/支出趋势"
                 ChartType.ENROLLMENT -> "学生人数趋势"
@@ -369,7 +366,6 @@ private fun ChartCard(months: List<MonthlyReport>, chartType: ChartType) {
                 ChartType.TEACHER_SATISFACTION -> LegendItem(color = Color(0xFFFF9800), label = "教师满意度")
                 ChartType.CASH_BALANCE -> LegendItem(color = Color(0xFF607D8B), label = "现金余额")
             }
-        }
     }
 }
 
@@ -556,12 +552,7 @@ private fun SummaryCard(months: List<MonthlyReport>) {
     val avgEnrollment = if (months.isNotEmpty()) months.map { it.enrollment }.average().toLong() else 0L
     val avgQuality = if (months.isNotEmpty()) months.map { it.averageCourseQuality }.average() else 0.0
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Text(text = "统计摘要", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -590,7 +581,6 @@ private fun SummaryCard(months: List<MonthlyReport>) {
                     color = if (totalProfit >= 0) AccentGreen else AccentRed
                 )
             }
-        }
     }
 }
 
@@ -606,12 +596,7 @@ private fun StatSummaryItem(label: String, value: String, color: Color) {
 
 @Composable
 private fun MonthlyBreakdownCard(months: List<MonthlyReport>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Text(text = "月度明细", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
             Row(
@@ -645,7 +630,6 @@ private fun MonthlyBreakdownCard(months: List<MonthlyReport>) {
                     Text("${report.enrollment}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(0.7f))
                 }
             }
-        }
     }
 }
 
@@ -654,47 +638,28 @@ private fun MonthlyBreakdownCard(months: List<MonthlyReport>) {
 @Composable
 private fun FinancialHealthCard(state: FinancialState) {
     val health = state.financialHealth
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(Color(0xFF2E7D32), Color(0xFF1B5E20))))
-                .padding(20.dp)
-        ) {
-            Column {
+    PixelHardPanel {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("财务健康", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(health.level.displayName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp) },
-                        colors = AssistChipDefaults.assistChipColors(containerColor = Color(health.level.color).copy(alpha = 0.8f)),
-                        border = null
-                    )
+                    Text("财务健康", color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text(health.level.displayName, color = Color(health.level.color), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    HealthStat("健康评分", "${health.score.toInt()}/100", Color.White)
+                    HealthStat("健康评分", "${health.score.toInt()}/100", TextPrimaryDark)
                     HealthStat("利润率", "${health.profitMargin.toInt()}%",
-                        if (health.profitMargin >= 0) Color(0xFFA5D6A7) else Color(0xFFEF9A9A))
-                    HealthStat("现金储备", "${health.cashReserveMonths.toInt()}月", Color(0xFFFFD54F))
+                        if (health.profitMargin >= 0) AccentGreen else AccentRed)
+                    HealthStat("现金储备", "${health.cashReserveMonths.toInt()}月", AccentOrange)
                 }
-                Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
                     progress = { health.score / 100f },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
                     color = Color(health.level.color),
-                    trackColor = Color.White.copy(alpha = 0.3f)
+                    trackColor = Color(0x33182635)
                 )
-            }
-        }
     }
 }
 
@@ -702,7 +667,7 @@ private fun FinancialHealthCard(state: FinancialState) {
 private fun HealthStat(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text(label, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+        Text(label, color = TextSecondaryDark, fontSize = 11.sp)
     }
 }
 
@@ -715,8 +680,7 @@ private fun MonthFinanceSummaryCard(
     expenseTrend: TrendDirection,
     profitTrend: TrendDirection
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Text("本月收支", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -729,7 +693,6 @@ private fun MonthFinanceSummaryCard(
                     profitTrend
                 )
             }
-        }
     }
 }
 
@@ -748,8 +711,7 @@ private fun FinSummaryItem(label: String, value: String, color: Color, trend: Tr
 
 @Composable
 private fun IncomeBreakdownCard(breakdown: List<CategoryBreakdown>) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    PixelHardPanel {
             if (breakdown.isEmpty()) {
                 Text("本月暂无收入记录", fontSize = 12.sp, color = Color.Gray)
             } else {
@@ -774,14 +736,12 @@ private fun IncomeBreakdownCard(breakdown: List<CategoryBreakdown>) {
                     )
                 }
             }
-        }
     }
 }
 
 @Composable
 private fun ExpenseBreakdownCard(breakdown: List<CategoryBreakdown>) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    PixelHardPanel {
             if (breakdown.isEmpty()) {
                 Text("本月暂无支出记录", fontSize = 12.sp, color = Color.Gray)
             } else {
@@ -806,7 +766,6 @@ private fun ExpenseBreakdownCard(breakdown: List<CategoryBreakdown>) {
                     )
                 }
             }
-        }
     }
 }
 
@@ -814,8 +773,7 @@ private fun ExpenseBreakdownCard(breakdown: List<CategoryBreakdown>) {
 
 @Composable
 private fun BudgetExecutionCard(exec: BudgetExecution) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    PixelHardPanel {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(exec.category.displayName, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text(
@@ -845,7 +803,6 @@ private fun BudgetExecutionCard(exec: BudgetExecution) {
                 "预算${formatFinanceNumber(exec.budgeted)} · 已用${formatFinanceNumber(exec.spent)} · 余${formatFinanceNumber(exec.remaining)}",
                 fontSize = 10.sp, color = Color.Gray
             )
-        }
     }
 }
 
@@ -853,12 +810,7 @@ private fun BudgetExecutionCard(exec: BudgetExecution) {
 
 @Composable
 private fun YearlyReportCard(report: YearlyReport) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    PixelHardPanel {
             Text("${report.year}年度报表", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -875,7 +827,6 @@ private fun YearlyReportCard(report: YearlyReport) {
                     Text("月均收入: ${formatFinanceNumber(report.averageMonthlyIncome)}", fontSize = 11.sp, color = Color.Gray)
                 }
             }
-        }
     }
 }
 
@@ -962,12 +913,7 @@ private fun BudgetDialog(
 
 @Composable
 private fun RadarChartCard(data: RadarChartData) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1069,7 +1015,6 @@ private fun RadarChartCard(data: RadarChartData) {
                     drawContext.canvas.nativeCanvas.drawText(label, x, y, labelPaint)
                 }
             }
-        }
     }
 }
 
@@ -1078,12 +1023,7 @@ private fun RadarChartCard(data: RadarChartData) {
 @Composable
 private fun BarChartCard(data: List<BarChartItem>) {
     if (data.isEmpty()) return
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Text("收支对比", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -1168,7 +1108,6 @@ private fun BarChartCard(data: List<BarChartItem>) {
                 Spacer(modifier = Modifier.width(16.dp))
                 LegendItem(color = Color(0xFFF44336), label = "支出")
             }
-        }
     }
 }
 
@@ -1177,12 +1116,7 @@ private fun BarChartCard(data: List<BarChartItem>) {
 @Composable
 private fun DonutChartCard(data: List<DonutSegment>) {
     if (data.isEmpty()) return
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    PixelHardPanel {
             Text("支出构成", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1235,7 +1169,6 @@ private fun DonutChartCard(data: List<DonutSegment>) {
                     }
                 }
             }
-        }
     }
 }
 
