@@ -72,6 +72,16 @@ data class StudentLifeState(
     val lastProcessedMonth: Int = 0
 )
 
+enum class ComplaintAction(val displayName: String) {
+    EXPAND_DORM("扩建宿舍"),
+    REPAIR_DORM("维修宿舍"),
+    EXPAND_CANTEEN("加开食堂窗口"),
+    CHANGE_MENU("更换菜谱"),
+    OPEN_COUNSELING("开心理辅导"),
+    REPAIR_GYM("维修运动设施"),
+    OPEN_CLINIC("开医务室值班")
+}
+
 data class LifeIssue(
     val id: String,
     val aspect: LifeAspect,
@@ -79,7 +89,9 @@ data class LifeIssue(
     val description: String,
     val severity: IssueSeverity,
     val satisfactionPenalty: Float,
-    var resolved: Boolean = false
+    var resolved: Boolean = false,
+    val requiredAction: ComplaintAction = ComplaintAction.REPAIR_DORM,
+    val requiredHint: String = "完成对应建设或维修后才能结案"
 )
 
 enum class IssueSeverity(val displayName: String, val color: String) {
@@ -322,12 +334,7 @@ class StudentLifeManager @Inject constructor() {
     /**
      * 获取扩容费用预估（不执行扩容）
      */
-    fun getResolveCost(issue: LifeIssue): Long = when (issue.severity) {
-        IssueSeverity.LOW -> 1L
-        IssueSeverity.MEDIUM -> 3L
-        IssueSeverity.HIGH -> 6L
-        IssueSeverity.CRITICAL -> 10L
-    }
+    fun describeRequiredAction(issue: LifeIssue): String = issue.requiredHint
 
     fun applyResolveIssue(issueId: String): Boolean {
         var changed = false
@@ -752,62 +759,64 @@ class StudentLifeManager @Inject constructor() {
             val aspect: LifeAspect,
             val title: String,
             val reason: String,
-            val severity: IssueSeverity
+            val severity: IssueSeverity,
+            val action: ComplaintAction,
+            val hint: String
         )
         val pool = mutableListOf<Candidate>()
         if (dormLoad >= 1.0f) {
             pool += Candidate(
                 LifeAspect.DORMITORY, "宿舍挤到加床",
                 "床位已经住满（负载 ${(dormLoad * 100).toInt()}%），走廊加床引发投诉。",
-                IssueSeverity.HIGH
+                IssueSeverity.HIGH, ComplaintAction.EXPAND_DORM, "去宿舍点「扩容」加床位后才能结案"
             )
         }
         if (dormLoad >= 0.85f || avgMaintenance < 55f) {
             pool += Candidate(
                 LifeAspect.DORMITORY, "宿舍漏水",
                 "住宿偏满或设施老化，卫生间渗水。",
-                IssueSeverity.MEDIUM
+                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_DORM, "去宿舍点「维修」后才能结案"
             )
         }
         if (cafeLoad >= 1.0f) {
             pool += Candidate(
                 LifeAspect.CAFETERIA, "食堂排队过长",
                 "餐位不够（负载 ${(cafeLoad * 100).toInt()}%），学生吃不上热饭。",
-                IssueSeverity.HIGH
+                IssueSeverity.HIGH, ComplaintAction.EXPAND_CANTEEN, "去食堂加开窗口或扩容后才能结案"
             )
         }
         if (cafeLoad >= 0.8f) {
             pool += Candidate(
                 LifeAspect.CAFETERIA, "学生投诉菜品单一",
                 "食堂超负荷，窗口只能反复出同样的菜。",
-                IssueSeverity.LOW
+                IssueSeverity.LOW, ComplaintAction.CHANGE_MENU, "去食堂点「更换菜谱」后才能结案"
             )
         }
         if (overall < 45f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "校园霸凌事件",
                 "整体满意度只有 ${overall.toInt()}，矛盾没人管，出现欺凌投诉。",
-                IssueSeverity.CRITICAL
+                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "开设「减压工作坊」后才能结案"
             )
         } else if (overall < 60f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "考试压力过大投诉",
                 "满意度 ${overall.toInt()}，学生觉得没人听他们说话。",
-                IssueSeverity.MEDIUM
+                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "开设「减压工作坊」后才能结案"
             )
         }
         if (avgMaintenance < 40f) {
             pool += Candidate(
                 LifeAspect.HEALTH, "运动设施损坏",
                 "维护度掉到 ${avgMaintenance.toInt()}，器材带伤运行。",
-                IssueSeverity.MEDIUM
+                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_GYM, "去健康设施点「维修」后才能结案"
             )
         }
         if (month in listOf(1, 2, 12) && overall < 70f) {
             pool += Candidate(
                 LifeAspect.HEALTH, "流感季节爆发",
                 "冬春季叠加满意度不高，医务室挤满人。",
-                IssueSeverity.HIGH
+                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "去健康设施点「维修」并保持值班后才能结案"
             )
         }
         if (pool.isEmpty()) return null
@@ -824,7 +833,9 @@ class StudentLifeManager @Inject constructor() {
             title = template.title,
             description = template.reason,
             severity = template.severity,
-            satisfactionPenalty = penalty
+            satisfactionPenalty = penalty,
+            requiredAction = template.action,
+            requiredHint = template.hint
         )
     }
 
@@ -877,7 +888,9 @@ class StudentLifeManager @Inject constructor() {
                     description = issue.description,
                     severity = issue.severity.name,
                     satisfactionPenalty = issue.satisfactionPenalty,
-                    resolved = issue.resolved
+                    resolved = issue.resolved,
+                    requiredAction = issue.requiredAction.name,
+                    requiredHint = issue.requiredHint
                 )
             },
             monthlyExpenses = state.monthlyExpenses,
@@ -955,7 +968,11 @@ class StudentLifeManager @Inject constructor() {
                     description = issue.description,
                     severity = IssueSeverity.valueOf(issue.severity),
                     satisfactionPenalty = issue.satisfactionPenalty,
-                    resolved = issue.resolved
+                    resolved = issue.resolved,
+                    requiredAction = runCatching {
+                        ComplaintAction.valueOf(issue.requiredAction)
+                    }.getOrDefault(ComplaintAction.REPAIR_DORM),
+                    requiredHint = issue.requiredHint.ifBlank { "完成对应建设或维修后才能结案" }
                 )
             }
             _state.update { state ->
@@ -993,7 +1010,9 @@ data class LifeIssuePersist(
     val description: String,
     val severity: String,
     val satisfactionPenalty: Float,
-    val resolved: Boolean = false
+    val resolved: Boolean = false,
+    val requiredAction: String = ComplaintAction.REPAIR_DORM.name,
+    val requiredHint: String = ""
 )
 
 @Serializable

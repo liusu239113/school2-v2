@@ -608,7 +608,7 @@ private fun IssuesCard(issues: List<LifeIssue>, onResolve: (String) -> Unit) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "${issue.aspect.icon} ${issue.title}",
+                            issue.title,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
@@ -616,6 +616,11 @@ private fun IssuesCard(issues: List<LifeIssue>, onResolve: (String) -> Unit) {
                             issue.description,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "结案条件：${issue.requiredHint}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF14648C)
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
@@ -626,7 +631,7 @@ private fun IssuesCard(issues: List<LifeIssue>, onResolve: (String) -> Unit) {
                             fontSize = 14.sp
                         )
                         TextButton(onClick = { onResolve(issue.id) }) {
-                            Text("处理", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("检查结案", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

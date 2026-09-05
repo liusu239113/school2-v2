@@ -1196,23 +1196,42 @@ class GameEngine @Inject constructor(
                 val issue = studentLifeManager.state.value.issues.firstOrNull {
                     it.id == issueId && !it.resolved
                 } ?: return@commitStudentLifeOperationLocked ManagedOperationResult(false, "这条投诉已经处理过了")
-                val cost = studentLifeManager.getResolveCost(issue).toDouble()
-                when {
-                    school.cash < cost -> ManagedOperationResult(
-                        false,
-                        "经费不够，处理「${issue.title}」要 ${cost.toLong()} 万",
-                        cost
-                    )
-                    !studentLifeManager.applyResolveIssue(issueId) ->
-                        ManagedOperationResult(false, "投诉状态已变化")
-                    else -> {
-                        school.cash -= cost
-                        ManagedOperationResult(
-                            true,
-                            "已处理「${issue.title}」，花费 ${cost.toLong()} 万。满意度回升。",
-                            cost
-                        )
+                val ok = when (issue.requiredAction) {
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.EXPAND_DORM -> {
+                        val dorm = studentLifeManager.state.value.facilities[
+                            com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY
+                        ]
+                        dorm != null && dorm.capacity > dorm.currentLoad
                     }
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_DORM,
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_GYM,
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_CLINIC -> {
+                        val target = studentLifeManager.state.value.facilities[issue.aspect]
+                        target != null && target.maintenanceLevel >= 90f
+                    }
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.EXPAND_CANTEEN -> {
+                        val cafe = studentLifeManager.state.value.facilities[
+                            com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA
+                        ]
+                        cafe != null && cafe.capacity > cafe.currentLoad
+                    }
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.CHANGE_MENU -> {
+                        studentLifeManager.state.value.programs.any {
+                            it.active && it.aspect == com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA
+                        }
+                    }
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_COUNSELING -> {
+                        studentLifeManager.state.value.programs.any {
+                            it.active && it.aspect == com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY
+                        }
+                    }
+                }
+                if (!ok) {
+                    ManagedOperationResult(false, issue.requiredHint)
+                } else if (!studentLifeManager.applyResolveIssue(issueId)) {
+                    ManagedOperationResult(false, "投诉状态已变化")
+                } else {
+                    ManagedOperationResult(true, "「${issue.title}」已结案，满意度回升。")
                 }
             }
         }

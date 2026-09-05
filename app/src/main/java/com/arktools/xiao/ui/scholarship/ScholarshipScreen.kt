@@ -128,10 +128,11 @@ fun ScholarshipScreen(viewModel: ScholarshipViewModel = hiltViewModel()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))
+                    shape = RoundedCornerShape(0.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xE611263D))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("本期发放统计", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("本期发放统计", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
