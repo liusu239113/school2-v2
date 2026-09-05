@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -104,7 +103,6 @@ private fun PositiveEventDialog(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val hasBonus = event.bonusCash > 0.0 || event.bonusReputation > 0L
-    var isAdLoading by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -170,12 +168,7 @@ private fun PositiveEventDialog(
                             if (activity != null) {
                                 com.arktools.adsdk.AdHelper.showRewardAd(
                                     activity = activity,
-                                    onRewarded = { onAdRewarded() },
-                                    onFailed = {
-                                        isAdLoading = false
-                                    },
-                                    onLoadStart = { isAdLoading = true },
-                                    onComplete = { isAdLoading = false }
+                                    onRewarded = { onAdRewarded() }
                                 )
                             }
                         },
@@ -192,29 +185,6 @@ private fun PositiveEventDialog(
                     height = 44.dp
                 )
             }
-
-            if (isAdLoading) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(40.dp),
-                            color = Color.White,
-                            strokeWidth = 3.dp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "广告加载中...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -227,7 +197,6 @@ private fun NegativeEventDialog(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val hasPenalty = event.penaltyCash > 0.0 || event.penaltyReputation > 0L
-    var isAdLoading by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -295,12 +264,7 @@ private fun NegativeEventDialog(
                             if (activity != null) {
                                 com.arktools.adsdk.AdHelper.showRewardAd(
                                     activity = activity,
-                                    onRewarded = { onAdRewarded() },
-                                    onFailed = {
-                                        isAdLoading = false
-                                    },
-                                    onLoadStart = { isAdLoading = true },
-                                    onComplete = { isAdLoading = false }
+                                    onRewarded = { onAdRewarded() }
                                 )
                             }
                         },
@@ -316,29 +280,6 @@ private fun NegativeEventDialog(
                     modifier = Modifier.fillMaxWidth(),
                     height = 44.dp
                 )
-            }
-
-            if (isAdLoading) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.height(40.dp),
-                            color = Color.White,
-                            strokeWidth = 3.dp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "广告加载中...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White
-                        )
-                    }
-                }
             }
         }
     }

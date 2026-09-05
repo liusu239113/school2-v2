@@ -210,7 +210,7 @@ fun MainScreen(
     val showDoubleIncomeAd by viewModel.showDoubleIncomeAd.collectAsState()
     val pendingBonusAmount by viewModel.pendingBonusAmount.collectAsState()
     val rewardNotification by viewModel.rewardNotification.collectAsState()
-    var isAdLoading by remember { mutableStateOf(false) }
+    val isAdLoading by AdHelper.isLoadingAd.collectAsState()
 
     // 加速到期检测：每秒检查一次，到期后回落1x
     LaunchedEffect(boostExpireTime) {
@@ -595,15 +595,8 @@ fun MainScreen(
                     AdHelper.showRewardAd(
                         activity = activity,
                         onRewarded = { viewModel.onSpeedAdRewarded() },
-                        onFailed = {
-                            isAdLoading = false
-                            viewModel.dismissSpeedAdDialog()
-                        },
-                        onLoadStart = { isAdLoading = true },
-                        onComplete = {
-                            isAdLoading = false
-                            viewModel.resumeAfterAd()
-                        }
+                        onFailed = { viewModel.dismissSpeedAdDialog() },
+                        onComplete = { viewModel.resumeAfterAd() }
                     )
                 }
             },
@@ -627,15 +620,8 @@ fun MainScreen(
                     AdHelper.showRewardAd(
                         activity = activity,
                         onRewarded = { viewModel.onDoubleIncomeRewarded() },
-                        onFailed = {
-                            isAdLoading = false
-                            viewModel.dismissDoubleIncomeAd()
-                        },
-                        onLoadStart = { isAdLoading = true },
-                        onComplete = {
-                            isAdLoading = false
-                            viewModel.resumeAfterAd()
-                        }
+                        onFailed = { viewModel.dismissDoubleIncomeAd() },
+                        onComplete = { viewModel.resumeAfterAd() }
                     )
                 }
             },
@@ -919,10 +905,7 @@ fun MainScreen(
                             viewModel.pauseForAd()
                             AdHelper.showRewardAd(
                                 activity = activity,
-                                onRewarded = { viewModel.recoverFromDisciplinaryPause() },
-                                onFailed = { isAdLoading = false },
-                                onLoadStart = { isAdLoading = true },
-                                onComplete = { isAdLoading = false }
+                                onRewarded = { viewModel.recoverFromDisciplinaryPause() }
                             )
                         }
                     },
@@ -947,15 +930,7 @@ fun MainScreen(
                     AdHelper.showRewardAd(
                         activity = activity,
                         onRewarded = { gameOverViewModel.acceptBailout() },
-                        onFailed = {
-                            isAdLoading = false
-                            /* 广告失败不执行救助 */
-                        },
-                        onLoadStart = { isAdLoading = true },
-                        onComplete = {
-                            isAdLoading = false
-                            viewModel.resumeAfterAd()
-                        }
+                        onComplete = { viewModel.resumeAfterAd() }
                     )
                 }
             },

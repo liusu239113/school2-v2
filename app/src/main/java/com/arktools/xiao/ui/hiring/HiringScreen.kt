@@ -163,10 +163,7 @@ fun HiringScreen(
                                 if (activity != null) {
                                     com.arktools.adsdk.AdHelper.showRewardAd(
                                         activity = activity,
-                                        onRewarded = { viewModel.refreshTalentPoolByAd() },
-                                        onFailed = { },
-                                        onLoadStart = { },
-                                        onComplete = { }
+                                        onRewarded = { viewModel.refreshTalentPoolByAd() }
                                     )
                                 }
                             }

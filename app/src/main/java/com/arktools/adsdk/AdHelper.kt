@@ -6,6 +6,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,9 +33,9 @@ object AdHelper {
     @Volatile
     private var lastAdShownAt = 0L
 
-    /** 广告加载中 */
-    @Volatile
-    private var isLoadingAd = false
+    /** 广告加载中（供全屏转圈遮罩订阅） */
+    private val _isLoadingAd = MutableStateFlow(false)
+    val isLoadingAd: StateFlow<Boolean> = _isLoadingAd.asStateFlow()
 
     // ========== 每日广告计数（持久化到 SharedPreferences） ==========
 
@@ -149,7 +152,7 @@ object AdHelper {
         val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         initDailyCount(prefs)
 
-        if (isLoadingAd){
+        if (_isLoadingAd.value) {
             return
         }
 
@@ -190,17 +193,18 @@ object AdHelper {
             return
         }
 
+        setLoading(true)
         onLoadStart?.invoke()
 
         // 检查 Activity 是否仍然有效
         if (activity.isFinishing || activity.isDestroyed) {
             Log.w(TAG, "Activity is finishing/destroyed, skip ad load")
+            setLoading(false)
             onFailed?.invoke()
             onComplete?.invoke()
             return
         }
 
-        isLoadingAd=true
         AdManager.getInstance().loadRewardVideo(activity, object : AdManager.RewardCallback {
             override fun onRewardVerify() {
                 safeCallback {
@@ -214,13 +218,13 @@ object AdHelper {
             override fun onVideoComplete() {}
 
             override fun onAdClose() {
-                isLoadingAd=false
+                setLoading(false)
                 safeCallback { onComplete?.invoke() }
             }
 
             override fun onLoadFail(error: String?) {
-                isLoadingAd=false
                 Log.w(TAG, "Ad load failed: $error")
+                setLoading(false)
                 safeCallback {
                     onFailed?.invoke()
                     onComplete?.invoke()
@@ -228,7 +232,7 @@ object AdHelper {
             }
 
             override fun onLoadSuccess() {
-                isLoadingAd=false
+                setLoading(false)
                 safeCallback {
                     if (!activity.isFinishing && !activity.isDestroyed) {
                         // 成功展示广告时记录时间戳，启动 2 分钟冷却
@@ -242,5 +246,13 @@ object AdHelper {
                 }
             }
         })
+    }
+
+    private fun setLoading(loading: Boolean) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            _isLoadingAd.value = loading
+        } else {
+            mainHandler.post { _isLoadingAd.value = loading }
+        }
     }
 }

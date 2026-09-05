@@ -1697,10 +1697,7 @@ private fun BuildingPanelContent(
                                 if (activity != null) {
                                     com.arktools.adsdk.AdHelper.showRewardAd(
                                         activity = activity,
-                                        onRewarded = { viewModel.finishConstructionByAd(placed) },
-                                        onFailed = { },
-                                        onLoadStart = { },
-                                        onComplete = { }
+                                        onRewarded = { viewModel.finishConstructionByAd(placed) }
                                     )
                                 }
                             }
