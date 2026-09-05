@@ -125,7 +125,10 @@ fun StudentLifeScreen(
             }
 
             item {
-                IssuesCard(state.issues.filter { !it.resolved })
+                IssuesCard(
+                    issues = state.issues.filter { !it.resolved },
+                    onResolve = { viewModel.resolveIssue(it) }
+                )
             }
         }
 
@@ -574,7 +577,7 @@ private fun ProgramRow(
 }
 
 @Composable
-private fun IssuesCard(issues: List<LifeIssue>) {
+private fun IssuesCard(issues: List<LifeIssue>, onResolve: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -615,12 +618,17 @@ private fun IssuesCard(issues: List<LifeIssue>) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text(
-                        "-${issue.satisfactionPenalty.toInt()}",
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            "-${issue.satisfactionPenalty.toInt()}",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        TextButton(onClick = { onResolve(issue.id) }) {
+                            Text("处理", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
                 if (issue != issues.last()) {
                     HorizontalDivider(

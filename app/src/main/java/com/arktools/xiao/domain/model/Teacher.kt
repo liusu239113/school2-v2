@@ -42,18 +42,18 @@ enum class TeacherLevel {
 }
 
 enum class TeacherRole(val displayName: String, val category: SubjectCategory) {
-    CHINESE("语文教师", SubjectCategory.LITERATURE),
-    MATH("数学教师", SubjectCategory.SCIENCE),
-    ENGLISH("英语教师", SubjectCategory.LANGUAGE),
-    PHYSICS("物理教师", SubjectCategory.SCIENCE),
-    CHEMISTRY("化学教师", SubjectCategory.SCIENCE),
-    BIOLOGY("生物教师", SubjectCategory.SCIENCE),
-    HISTORY("历史教师", SubjectCategory.LITERATURE),
-    GEOGRAPHY("地理教师", SubjectCategory.LITERATURE),
-    POLITICS("政治教师", SubjectCategory.LITERATURE),
-    ART("美术教师", SubjectCategory.ART),
-    PE("体育教师", SubjectCategory.SPORTS),
-    MUSIC("音乐教师", SubjectCategory.ART)
+    CHINESE("写作讲师", SubjectCategory.LITERATURE),
+    MATH("数学讲师", SubjectCategory.SCIENCE),
+    ENGLISH("外语讲师", SubjectCategory.LANGUAGE),
+    PHYSICS("物理讲师", SubjectCategory.SCIENCE),
+    CHEMISTRY("化学讲师", SubjectCategory.SCIENCE),
+    BIOLOGY("生科讲师", SubjectCategory.SCIENCE),
+    HISTORY("史学讲师", SubjectCategory.LITERATURE),
+    GEOGRAPHY("地理讲师", SubjectCategory.SCIENCE),
+    POLITICS("思政讲师", SubjectCategory.LITERATURE),
+    ART("艺术讲师", SubjectCategory.ART),
+    PE("体育讲师", SubjectCategory.SPORTS),
+    MUSIC("音乐讲师", SubjectCategory.ART)
 }
 
 enum class SubjectCategory {

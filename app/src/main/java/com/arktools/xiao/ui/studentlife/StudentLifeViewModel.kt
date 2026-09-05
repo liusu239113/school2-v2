@@ -96,4 +96,10 @@ class StudentLifeViewModel @Inject constructor(
     fun consumeMessage() {
         _message.value = null
     }
+
+    fun resolveIssue(issueId: String) {
+        viewModelScope.safeLaunch {
+            _message.value = gameEngine.resolveStudentLifeIssue(issueId).message
+        }
+    }
 }

@@ -322,6 +322,28 @@ class StudentLifeManager @Inject constructor() {
     /**
      * 获取扩容费用预估（不执行扩容）
      */
+    fun getResolveCost(issue: LifeIssue): Long = when (issue.severity) {
+        IssueSeverity.LOW -> 1L
+        IssueSeverity.MEDIUM -> 3L
+        IssueSeverity.HIGH -> 6L
+        IssueSeverity.CRITICAL -> 10L
+    }
+
+    fun applyResolveIssue(issueId: String): Boolean {
+        var changed = false
+        _state.update { state ->
+            val next = state.issues.map { issue ->
+                if (issue.id == issueId && !issue.resolved) {
+                    changed = true
+                    issue.copy(resolved = true)
+                } else issue
+            }
+            if (!changed) state else state.copy(issues = next)
+        }
+        if (changed) recalculateSatisfaction()
+        return changed
+    }
+
     fun getExpandCost(aspect: LifeAspect, additionalCapacity: Int): Long {
         val facility = _state.value.facilities[aspect] ?: return 0L
         val unitCostPer10 = when (facility.quality) {

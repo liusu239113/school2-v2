@@ -1190,6 +1190,33 @@ class GameEngine @Inject constructor(
         }
     }
 
+    suspend fun resolveStudentLifeIssue(issueId: String): ManagedOperationResult =
+        engineOperationMutex.withLock {
+            commitStudentLifeOperationLocked { school ->
+                val issue = studentLifeManager.state.value.issues.firstOrNull {
+                    it.id == issueId && !it.resolved
+                } ?: return@commitStudentLifeOperationLocked ManagedOperationResult(false, "这条投诉已经处理过了")
+                val cost = studentLifeManager.getResolveCost(issue).toDouble()
+                when {
+                    school.cash < cost -> ManagedOperationResult(
+                        false,
+                        "经费不够，处理「${issue.title}」要 ${cost.toLong()} 万",
+                        cost
+                    )
+                    !studentLifeManager.applyResolveIssue(issueId) ->
+                        ManagedOperationResult(false, "投诉状态已变化")
+                    else -> {
+                        school.cash -= cost
+                        ManagedOperationResult(
+                            true,
+                            "已处理「${issue.title}」，花费 ${cost.toLong()} 万。满意度回升。",
+                            cost
+                        )
+                    }
+                }
+            }
+        }
+
     private suspend fun commitExpansionOperationLocked(
         operation: (School) -> ManagedOperationResult
     ): ManagedOperationResult {

@@ -201,6 +201,8 @@ fun GovernanceScreen(
             val entries = listOf(
                 Entry("教学强度与作息（招生人数看教室）", com.arktools.xiao.R.drawable.ic_core_course, 40),
                 Entry("科研课题", com.arktools.xiao.R.drawable.ic_research, 41),
+                Entry("校友与就业", com.arktools.xiao.R.drawable.ic_trophy, 15),
+                Entry("学生生活与投诉", com.arktools.xiao.R.drawable.ic_gift, 21),
                 Entry("大学政策（学费/考试）", com.arktools.xiao.R.drawable.ic_balance, 16),
                 Entry("奖助学金", com.arktools.xiao.R.drawable.ic_gift, 29),
                 Entry("学期课表", com.arktools.xiao.R.drawable.ic_core_course, 31),

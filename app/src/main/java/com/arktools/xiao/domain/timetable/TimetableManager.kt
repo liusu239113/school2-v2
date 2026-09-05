@@ -260,26 +260,24 @@ class TimetableManager @Inject constructor() {
         }
         val base = when (gradeLevel) {
             GradeLevel.GRADE_1 -> mutableMapOf(
-                Subject.CHINESE to 6, Subject.MATH to 6, Subject.ENGLISH to 5,
-                Subject.PHYSICS to 4, Subject.CHEMISTRY to 3, Subject.BIOLOGY to 3,
-                Subject.HISTORY to 3, Subject.GEOGRAPHY to 2, Subject.POLITICS to 2,
-                Subject.PE to peHours, Subject.ART to 2, Subject.MUSIC to 1
-            )
-            GradeLevel.GRADE_4 -> mutableMapOf(
-                Subject.CHINESE to 2, Subject.MATH to 2, Subject.ENGLISH to 3,
-                Subject.PE to 1
+                Subject.CHINESE to 2, Subject.MATH to 6, Subject.ENGLISH to 4,
+                Subject.PHYSICS to 4, Subject.CHEMISTRY to 2, Subject.BIOLOGY to 2,
+                Subject.HISTORY to 2, Subject.POLITICS to 2,
+                Subject.PE to peHours, Subject.ART to 1
             )
             GradeLevel.GRADE_2 -> mutableMapOf(
-                Subject.CHINESE to 6, Subject.MATH to 7, Subject.ENGLISH to 5,
-                Subject.PHYSICS to 4, Subject.CHEMISTRY to 4, Subject.BIOLOGY to 3,
-                Subject.HISTORY to 3, Subject.GEOGRAPHY to 2, Subject.POLITICS to 2,
-                Subject.PE to peHours, Subject.ART to 1, Subject.MUSIC to 1
+                Subject.MATH to 4, Subject.ENGLISH to 3, Subject.PHYSICS to 4,
+                Subject.CHEMISTRY to 3, Subject.BIOLOGY to 2, Subject.HISTORY to 2,
+                Subject.POLITICS to 2, Subject.PE to peHours
             )
             GradeLevel.GRADE_3 -> mutableMapOf(
-                Subject.CHINESE to 7, Subject.MATH to 7, Subject.ENGLISH to 6,
-                Subject.PHYSICS to 5, Subject.CHEMISTRY to 4, Subject.BIOLOGY to 3,
-                Subject.HISTORY to 3, Subject.GEOGRAPHY to 2, Subject.POLITICS to 2,
+                Subject.MATH to 3, Subject.ENGLISH to 2, Subject.PHYSICS to 5,
+                Subject.CHEMISTRY to 4, Subject.BIOLOGY to 3, Subject.POLITICS to 1,
                 Subject.PE to peHours
+            )
+            GradeLevel.GRADE_4 -> mutableMapOf(
+                Subject.ENGLISH to 2, Subject.MATH to 2, Subject.PE to 1,
+                Subject.POLITICS to 1
             )
         }
 

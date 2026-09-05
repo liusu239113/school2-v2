@@ -7,6 +7,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
 
 /** 像素风全局形状：所有 Material 组件零圆角（PixelForge 规则 #1） */
 private val PixelShapes = Shapes(
@@ -47,7 +49,12 @@ fun SchoolTycoonTheme(
     MaterialTheme(
         colorScheme = FixedColorScheme,
         typography = Typography,
-        shapes = PixelShapes,
-        content = content
-    )
+        shapes = PixelShapes
+    ) {
+        CompositionLocalProvider(
+            LocalTextStyle provides androidx.compose.ui.text.TextStyle(fontFamily = GameFontFamily)
+        ) {
+            content()
+        }
+    }
 }

@@ -176,18 +176,18 @@ data class TeachingConfig(
 // SubjectCategory 已定义在 Teacher.kt 中，此处不再重复
 
 enum class Subject(val displayName: String, val category: SubjectCategory) {
-    CHINESE("语文", SubjectCategory.LITERATURE),
-    MATH("数学", SubjectCategory.SCIENCE),
-    ENGLISH("英语", SubjectCategory.LANGUAGE),
-    PHYSICS("物理", SubjectCategory.SCIENCE),
-    CHEMISTRY("化学", SubjectCategory.SCIENCE),
-    BIOLOGY("生物", SubjectCategory.SCIENCE),
-    HISTORY("历史", SubjectCategory.LITERATURE),
-    GEOGRAPHY("地理", SubjectCategory.LITERATURE),
-    POLITICS("政治", SubjectCategory.LITERATURE),
-    ART("美术", SubjectCategory.ART),
-    PE("体育", SubjectCategory.SPORTS),
-    MUSIC("音乐", SubjectCategory.ART);
+    CHINESE("大学语文", SubjectCategory.LITERATURE),
+    MATH("高等数学", SubjectCategory.SCIENCE),
+    ENGLISH("大学英语", SubjectCategory.LANGUAGE),
+    PHYSICS("大学物理", SubjectCategory.SCIENCE),
+    CHEMISTRY("基础化学", SubjectCategory.SCIENCE),
+    BIOLOGY("生命科学", SubjectCategory.SCIENCE),
+    HISTORY("近现代史", SubjectCategory.LITERATURE),
+    GEOGRAPHY("经济地理", SubjectCategory.SCIENCE),
+    POLITICS("思政课", SubjectCategory.LITERATURE),
+    ART("艺术鉴赏", SubjectCategory.ART),
+    PE("大学体育", SubjectCategory.SPORTS),
+    MUSIC("音乐鉴赏", SubjectCategory.ART);
 
     /** 原始卷面分满分：语文、数学、英语为 150，其余科目为 100。 */
     val maxScore: Float
