@@ -17,21 +17,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Upgrade
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -42,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -54,10 +47,18 @@ import com.arktools.xiao.domain.model.Facility
 import com.arktools.xiao.domain.model.FacilityBonusCalculator
 import com.arktools.xiao.domain.model.FacilityCategory
 import com.arktools.xiao.domain.model.FacilityType
+import com.arktools.xiao.ui.components.LegacyPageHeader
+import com.arktools.xiao.ui.components.PixelButton
+import com.arktools.xiao.ui.components.PixelButtonStyle
+import com.arktools.xiao.ui.components.PixelNineSlice
 import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.BackgroundDark
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 import com.arktools.xiao.ui.utils.FacilityImageHelper
+import com.arktools.xiao.R
 
 @Composable
 fun FacilityScreen(
@@ -73,7 +74,8 @@ fun FacilityScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        LegacyPageHeader("设施容量")
         SnackbarHost(hostState = snackbarHostState)
 
         LazyColumn(
@@ -91,21 +93,19 @@ fun FacilityScreen(
                 )
             }
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    PixelNineSlice(res = R.drawable.card_bg, slice = 48, modifier = Modifier.matchParentSize())
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("全校容量总览", fontWeight = FontWeight.Bold)
-                        Text("教室学位 ${state.classroomSeats} · 在校 ${state.studentCount} 人")
-                        Text("宿舍床位 ${state.dormBeds} · 食堂餐位 ${state.canteenSeats}")
+                        Text("全校容量总览", fontWeight = FontWeight.Bold, color = TextPrimaryDark)
+                        Text("教室学位 ${state.classroomSeats} · 在校 ${state.studentCount} 人", color = TextSecondaryDark)
+                        Text("宿舍床位 ${state.dormBeds} · 食堂餐位 ${state.canteenSeats}", color = TextSecondaryDark)
                         Text(
                             "建造和搬楼只在校园地图里做。这里只看容量和维修。",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = TextSecondaryDark
                         )
                     }
                 }
@@ -118,18 +118,14 @@ fun FacilityScreen(
                     val totalRepairCost = state.facilities
                         .filter { it.condition < 95f }
                         .sumOf { it.type.baseMaintenance * 2 }
-                    Button(
+                    PixelButton(
+                        text = "一键维修 ${needRepairCount} 项（${String.format("%.1f", totalRepairCost)}万）",
                         onClick = { viewModel.repairAllFacilities() },
                         enabled = state.cash >= totalRepairCost,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("一键维修 ${needRepairCount} 项设施（${String.format("%.1f", totalRepairCost)}万）")
-                    }
+                        style = PixelButtonStyle.PRIMARY,
+                        icon = Icons.Default.Build
+                    )
                 }
             }
 
@@ -150,6 +146,7 @@ fun FacilityScreen(
                             text = category.displayName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            color = TextPrimaryDark,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
@@ -172,12 +169,8 @@ fun FacilityScreen(
             if (state.isAtCapacity) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-                        )
-                    ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        PixelNineSlice(res = R.drawable.card_bg, slice = 48, modifier = Modifier.matchParentSize())
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -218,12 +211,8 @@ private fun FacilityHeader(
     totalMaintenance: Double,
     cash: Double
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        PixelNineSlice(res = R.drawable.card_bg, slice = 48, modifier = Modifier.matchParentSize())
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,16 +287,8 @@ private fun OwnedFacilityCard(
         else -> AccentRed
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (facility.isOperational)
-                MaterialTheme.colorScheme.surface
-            else
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        PixelNineSlice(res = R.drawable.card_bg, slice = 48, modifier = Modifier.matchParentSize())
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,9 +298,7 @@ private fun OwnedFacilityCard(
             Image(
                 painter = painterResource(id = FacilityImageHelper.getImageResId(facility.type)),
                 contentDescription = facility.type.displayName,
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier.size(64.dp),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -404,28 +383,28 @@ private fun OwnedFacilityCard(
                 val canUpgrade = facility.level < facility.type.maxLevel && cash >= upgradeCost
 
                 if (facility.level < facility.type.maxLevel) {
-                    OutlinedButton(
+                    PixelButton(
+                        text = "升级 ${String.format("%.1f", upgradeCost)}万",
                         onClick = onUpgrade,
                         enabled = canUpgrade,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.Upgrade, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("升级 ${String.format("%.1f", upgradeCost)}万", style = MaterialTheme.typography.labelSmall)
-                    }
+                        modifier = Modifier.weight(1f),
+                        style = PixelButtonStyle.PRIMARY,
+                        icon = Icons.Default.Upgrade,
+                        height = 40.dp
+                    )
                 }
 
                 if (facility.condition < 95f) {
                     val repairCost = facility.type.baseMaintenance * 2
-                    OutlinedButton(
+                    PixelButton(
+                        text = "维修 ${String.format("%.1f", repairCost)}万",
                         onClick = onRepair,
                         enabled = cash >= repairCost,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("维修 ${String.format("%.1f", repairCost)}万", style = MaterialTheme.typography.labelSmall)
-                    }
+                        modifier = Modifier.weight(1f),
+                        style = PixelButtonStyle.SECONDARY,
+                        icon = Icons.Default.Build,
+                        height = 40.dp
+                    )
                 }
             }
 
@@ -451,8 +430,7 @@ private fun OwnedFacilityCard(
                             color = color,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(color.copy(alpha = 0.1f))
+                                .background(color.copy(alpha = 0.16f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -555,13 +533,8 @@ private fun FacilityBonusSummaryCard(bonuses: FacilityBonusCalculator.FacilityBo
 
     if (activeBonus.isEmpty()) return
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        PixelNineSlice(res = R.drawable.card_bg, slice = 48, modifier = Modifier.matchParentSize())
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -608,8 +581,7 @@ private fun FacilityBonusSummaryCard(bonuses: FacilityBonusCalculator.FacilityBo
 private fun BonusChip(label: String, value: String, color: Color) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = 0.12f))
+            .background(color.copy(alpha = 0.18f))
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

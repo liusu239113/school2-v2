@@ -2019,25 +2019,7 @@ class GameEngine @Inject constructor(
     private fun mapActivityToDimension(
         activityType: com.arktools.xiao.domain.seasonal.ActivityType
     ): com.arktools.xiao.domain.reputation.ReputationDimension {
-        return when (activityType) {
-            com.arktools.xiao.domain.seasonal.ActivityType.SCIENCE_FAIR,
-            com.arktools.xiao.domain.seasonal.ActivityType.DEBATE_TOURNAMENT ->
-                com.arktools.xiao.domain.reputation.ReputationDimension.ACADEMIC
-            com.arktools.xiao.domain.seasonal.ActivityType.SPORTS_DAY,
-            com.arktools.xiao.domain.seasonal.ActivityType.SUMMER_CAMP ->
-                com.arktools.xiao.domain.reputation.ReputationDimension.SPORTS
-            com.arktools.xiao.domain.seasonal.ActivityType.ART_EXHIBITION,
-            com.arktools.xiao.domain.seasonal.ActivityType.CULTURAL_FESTIVAL,
-            com.arktools.xiao.domain.seasonal.ActivityType.NEW_YEAR_GALA ->
-                com.arktools.xiao.domain.reputation.ReputationDimension.ARTS
-            com.arktools.xiao.domain.seasonal.ActivityType.CHARITY_EVENT,
-            com.arktools.xiao.domain.seasonal.ActivityType.PARENT_DAY ->
-                com.arktools.xiao.domain.reputation.ReputationDimension.SOCIAL_SERVICE
-            com.arktools.xiao.domain.seasonal.ActivityType.OPENING_CEREMONY,
-            com.arktools.xiao.domain.seasonal.ActivityType.GRADUATION_CEREMONY,
-            com.arktools.xiao.domain.seasonal.ActivityType.SPRING_OUTING ->
-                com.arktools.xiao.domain.reputation.ReputationDimension.MANAGEMENT
-        }
+        return SeasonalDaily.mapDimension(activityType)
     }
 
 
@@ -3131,62 +3113,12 @@ class GameEngine @Inject constructor(
 
     /** 事件选项落地：立刻加减食堂窗口（餐位 = 窗口 × 40，上限 6）。 */
     suspend fun applyExtraWindows(delta: Int) {
-        if (delta == 0) return
-        schoolRepository.mutateSchool { latest ->
-            val current = policyManager.policies.value.collegeDevelopment
-            val ops = current.buildingOps
-            val next = (ops.extraWindows + delta).coerceIn(0, 6)
-            if (next == ops.extraWindows) return@mutateSchool true
-            policyManager.replaceCollegeDevelopment(current.copy(buildingOps = ops.copy(extraWindows = next)))
-            latest.policyJson = policyManager.toJson()
-            true
-        }
+        CampusEmergencyOps.applyExtraWindows(schoolRepository, policyManager, delta)
     }
 
     /** 应急建食堂：当天可用，落到校园空地。已有食堂则跳过。 */
     suspend fun applyBuildCanteenNow() {
-        schoolRepository.mutateSchool { latest ->
-            if (latest.facilities.any { it.type == FacilityType.CANTEEN }) return@mutateSchool true
-            val bt = com.arktools.xiao.ui.campus.CampusBuildTypes
-            val spec = bt.facilitySpec(FacilityType.CANTEEN) ?: return@mutateSchool true
-            val current = policyManager.policies.value.collegeDevelopment
-            val placed = bt.decodeBuildings(current.placedBuildings)
-            val terrain = bt.decodeTerrain(current.terrainMap).associate { (it.y * 1000L + it.x) to true }
-            val rect = bt.unlockedRect(latest.campusLevel)
-            var spot: Pair<Int, Int>? = null
-            outer@ for (y in rect.y0..(rect.y1 - spec.h)) {
-                for (x in rect.x0..(rect.x1 - spec.w)) {
-                    var ok = true
-                    cell@ for (dy in 0 until spec.h) for (dx in 0 until spec.w) {
-                        val cx = x + dx
-                        val cy = y + dy
-                        if (terrain.containsKey(cy * 1000L + cx)) {
-                            ok = false
-                            break@cell
-                        }
-                        val occupied = placed.any { b ->
-                            val sp = bt.specByKey(b.key) ?: return@any false
-                            bt.occupies(b, sp, cx, cy)
-                        }
-                        if (occupied) {
-                            ok = false
-                            break@cell
-                        }
-                    }
-                    if (ok) {
-                        spot = x to y
-                        break@outer
-                    }
-                }
-            }
-            val f = Facility(type = FacilityType.CANTEEN, level = 1, condition = 100f, constructionDaysLeft = 0)
-            if (spot != null) {
-                policyManager.addPlacedFacility(spec.key, spot, 1, f.id, 0)
-            }
-            latest.facilities.add(f)
-            latest.policyJson = policyManager.toJson()
-            true
-        }
+        CampusEmergencyOps.applyBuildCanteenNow(schoolRepository, policyManager)
     }
 
     /**
@@ -3356,42 +3288,14 @@ class GameEngine @Inject constructor(
 
         // 停职由“纪律处分暂停”统一处理。不能依赖 tick 倒计时，因为处分期间整个游戏循环必须冻结。
 
-        // 季节活动每日推进
-        val dayAdvanceResult = seasonalActivityManager.advanceDay(
-            school.currentYear, school.currentMonth, school.currentDay
+        SeasonalDaily.advance(
+            manager = seasonalActivityManager,
+            school = school,
+            schoolRepository = schoolRepository,
+            reputationManager = reputationManager,
+            emitMiniGame = { activity -> _miniGameTrigger.emit(activity) },
+            emitEvent = { event, s -> emitEvent(event, s) }
         )
-
-        // 处理当天刚进入 ACTIVE 阶段的活动 → 触发迷你游戏
-        for (activity in dayAdvanceResult.newlyActiveActivities) {
-            if (activity.type in setOf(
-                    com.arktools.xiao.domain.seasonal.ActivityType.SPORTS_DAY,
-                    com.arktools.xiao.domain.seasonal.ActivityType.CULTURAL_FESTIVAL,
-                    com.arktools.xiao.domain.seasonal.ActivityType.SCIENCE_FAIR
-                )
-            ) {
-                _miniGameTrigger.emit(activity)
-            }
-        }
-
-        // 处理当天完成的活动 → 结算奖励
-        for (result in dayAdvanceResult.completedResults) {
-            // cashSpent 单位是元，school.cash 单位是万元，需要 /10000 转换
-            schoolRepository.deductCash(result.cashSpent.toDouble() / 10000.0)
-            schoolRepository.addReputation(result.reputationGain.toLong())
-            emitEvent(GameEvent.PositiveEvent(
-                title = "${result.activity.type.displayName}圆满结束",
-                message = (result.specialMessage ?: "活动顺利完成！") +
-                    " 声誉+${result.reputationGain}",
-                bonusCash = 0.0,
-                bonusReputation = 0  // 效果已在上方直接应用，事件仅作通知
-            ), school)
-            // 为多维声誉添加对应维度分数
-            val repDim = mapActivityToDimension(result.activity.type)
-            reputationManager.addDimensionReputation(
-                repDim, result.reputationGain.toFloat(),
-                "${result.activity.type.displayName}活动加成"
-            )
-        }
 
         // 社团申请每日超时检查
         clubManager.advanceDay()

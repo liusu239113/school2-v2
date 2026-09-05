@@ -576,15 +576,50 @@ fun CampusView(
                         drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + 4f, placed.y * cell + footH * 0.55f))
                         drawCircle(Color(0xFFFFE082), 3f, Offset(placed.x * cell + footW - 4f, placed.y * cell + footH * 0.55f))
                     }
-                    if (placed.level >= 3) {
-                        val poleX = placed.x * cell + footW - 8f
-                        val poleY = placed.y * cell + footH * 0.12f
-                        drawRect(Color(0xFF9AA8B5), Offset(poleX, poleY), Size(2f, footH * 0.12f))
-                        drawRect(Color(0xFF1E96C8), Offset(poleX + 2f, poleY + 2f), Size(12f, 7f))
+                    val poleX = placed.x * cell + footW - (8f * (cell / 48f).coerceIn(0.6f, 2.2f))
+                    val poleY = placed.y * cell + footH * 0.08f
+                    val poleH = (footH * 0.18f).coerceAtLeast(8f)
+                    val flagW = (14f * (cell / 48f)).coerceIn(8f, 22f)
+                    val flagH = (8f * (cell / 48f)).coerceIn(5f, 12f)
+                    val festivalOn = state.festivalName.isNotBlank()
+                    val flagColor = when {
+                        festivalOn && state.festivalPhase == "进行中" -> Color(0xFFE53935)
+                        festivalOn -> Color(0xFFFFB300)
+                        placed.level >= 3 -> Color(0xFF1E96C8)
+                        else -> Color(0xFF64B5F6)
+                    }
+                    drawRect(Color(0xFF9AA8B5), Offset(poleX, poleY), Size(2f, poleH))
+                    drawRect(flagColor, Offset(poleX + 2f, poleY + 1f), Size(flagW, flagH))
+                    if (festivalOn) {
+                        drawRect(Color(0xFFFFF59D), Offset(poleX + 3f, poleY + 3f), Size(flagW * 0.35f, 2f))
                     }
                     if (placed.isConstructing) {
                         drawRect(Color(0x990B2038), Offset(placed.x * cell, placed.y * cell), Size(footW, footH))
                         drawRect(Color(0xFFFFD54F), Offset(placed.x * cell, placed.y * cell), Size(footW, footH), style = Stroke(3f))
+                    }
+                }
+                if (state.festivalName.isNotBlank()) {
+                    val deco = state.festivalDecoration.coerceIn(0, 3)
+                    val plaza = state.placed.firstOrNull { it.key == "F_SPORTS_FIELD" || it.key == "F_AUDITORIUM" }
+                        ?: state.placed.firstOrNull { it.key == "ADMIN" }
+                    if (plaza != null) {
+                        val spec = BT.specByKey(plaza.key)
+                        val ox = plaza.x * cell
+                        val oy = plaza.y * cell
+                        val fw = (spec?.w ?: 3) * cell
+                        val fh = (spec?.h ?: 2) * cell
+                        if (deco >= 1) {
+                            drawRect(Color(0xCCE53935), Offset(ox + fw * 0.08f, oy + fh * 0.12f), Size(fw * 0.84f, fh * 0.10f))
+                            drawRect(Color(0xCCFFD54F), Offset(ox + fw * 0.08f, oy + fh * 0.20f), Size(fw * 0.84f, fh * 0.04f))
+                        }
+                        if (deco >= 2) {
+                            drawRect(Color(0xCC8D6E63), Offset(ox + fw * 0.12f, oy + fh * 0.62f), Size(fw * 0.22f, fh * 0.22f))
+                            drawRect(Color(0xCC8D6E63), Offset(ox + fw * 0.66f, oy + fh * 0.62f), Size(fw * 0.22f, fh * 0.22f))
+                        }
+                        if (deco >= 3 || state.festivalPhase == "进行中") {
+                            drawRect(Color(0xCC5D4037), Offset(ox + fw * 0.32f, oy + fh * 0.38f), Size(fw * 0.36f, fh * 0.18f))
+                            drawRect(Color(0xAAFFFFFF), Offset(ox + fw * 0.34f, oy + fh * 0.32f), Size(fw * 0.32f, fh * 0.08f))
+                        }
                     }
                 }
 
@@ -764,6 +799,13 @@ fun CampusView(
                         color = Color(0xFFB8C7D6),
                         fontSize = 10.sp
                     )
+                    if (state.festivalName.isNotBlank()) {
+                        Text(
+                            "${state.festivalName}·${state.festivalPhase} 布置 ${state.festivalDecoration}/3",
+                            color = Color(0xFFFFD54F),
+                            fontSize = 10.sp
+                        )
+                    }
                 }
             }
         }

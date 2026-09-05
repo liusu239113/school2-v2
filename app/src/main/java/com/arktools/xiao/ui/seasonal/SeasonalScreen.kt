@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,10 +18,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.arktools.xiao.R
 import com.arktools.xiao.domain.seasonal.*
+import com.arktools.xiao.ui.components.LegacyPageHeader
+import com.arktools.xiao.ui.components.PixelButton
+import com.arktools.xiao.ui.components.PixelButtonStyle
+import com.arktools.xiao.ui.components.PixelNineSlice
 import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.BackgroundDark
+import com.arktools.xiao.ui.theme.TextPrimaryDark
+import com.arktools.xiao.ui.theme.TextSecondaryDark
 
 @Composable
 fun SeasonalScreen(
@@ -30,6 +37,8 @@ fun SeasonalScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
+    Column(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        LegacyPageHeader("节日活动")
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -46,13 +55,14 @@ fun SeasonalScreen(
         // 立即举办（专属小游戏玩法）
         item {
             val hostMessage by viewModel.hostMessage.collectAsState()
+            Box(modifier = Modifier.fillMaxWidth()) {
+                PixelNineSlice(res = R.drawable.card_bg, slice = 48, modifier = Modifier.matchParentSize())
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                     .padding(12.dp)
             ) {
-                Text("立即举办（明天开幕，可玩小游戏）", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("立即举办（明天开幕，可玩小游戏）", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TextPrimaryDark)
                 Spacer(Modifier.height(8.dp))
                 viewModel.quickHostTypes.forEach { type ->
                     val costWan = type.baseCost / 10000.0
@@ -88,6 +98,7 @@ fun SeasonalScreen(
                             .clickable { viewModel.consumeHostMessage() }
                     )
                 }
+            }
             }
         }
 
@@ -166,6 +177,7 @@ fun SeasonalScreen(
                 EmptySeasonalState()
             }
         }
+    }
     }
 }
 
@@ -506,6 +518,11 @@ private fun ActiveActivityCard(activity: SeasonalActivity) {
                 text = "预算: ${String.format("%.1f", costWan)}万 · 已签字批准",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "现场布置 ${activity.decorationProgress.coerceIn(0, 3)}/3：横幅 / 摊位 / 舞台",
+                style = MaterialTheme.typography.bodySmall,
+                color = AccentOrange
             )
         }
     }

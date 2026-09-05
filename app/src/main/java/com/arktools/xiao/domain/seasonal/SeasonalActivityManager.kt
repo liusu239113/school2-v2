@@ -131,7 +131,9 @@ data class SeasonalActivity(
     val satisfactionGained: Float = 0f,
     val specialOutcome: String? = null,
     /** 审批等待天数（超过15天自动过期） */
-    val approvalWaitDays: Int = 0
+    val approvalWaitDays: Int = 0,
+    /** 现场布置进度 0-3：横幅 / 摊位 / 舞台。筹备期每天推进，开幕当天必须铺满。 */
+    val decorationProgress: Int = 0
 )
 
 data class SeasonalActivityState(
@@ -377,16 +379,18 @@ class SeasonalActivityManager @Inject constructor() {
                     }
                     ActivityPhase.PREPARING -> {
                         val newProgress = activity.preparationProgress + 1
+                        val deco = (activity.decorationProgress + 1).coerceAtMost(3)
                         if (newProgress >= activity.type.preparationDays) {
                             val activeActivity = activity.copy(
                                 phase = ActivityPhase.ACTIVE,
                                 preparationProgress = newProgress,
-                                durationProgress = 0
+                                durationProgress = 0,
+                                decorationProgress = 3
                             )
                             newlyActive.add(activeActivity)
                             activeActivity
                         } else {
-                            activity.copy(preparationProgress = newProgress)
+                            activity.copy(preparationProgress = newProgress, decorationProgress = deco)
                         }
                     }
                     ActivityPhase.ACTIVE -> {
@@ -578,7 +582,8 @@ class SeasonalActivityManager @Inject constructor() {
                 reputationGained = a.reputationGained,
                 satisfactionGained = a.satisfactionGained,
                 specialOutcome = a.specialOutcome,
-                approvalWaitDays = a.approvalWaitDays
+                approvalWaitDays = a.approvalWaitDays,
+                decorationProgress = a.decorationProgress
             )
             val data = SeasonalPersistData(
                 currentSeason = state.currentSeason.name,
@@ -618,7 +623,8 @@ class SeasonalActivityManager @Inject constructor() {
                     reputationGained = ap.reputationGained,
                     satisfactionGained = ap.satisfactionGained,
                     specialOutcome = ap.specialOutcome,
-                    approvalWaitDays = ap.approvalWaitDays
+                    approvalWaitDays = ap.approvalWaitDays,
+                    decorationProgress = ap.decorationProgress
                 )
             }
             val activities = data.activities.mapNotNull { restoreActivity(it) }
@@ -673,5 +679,6 @@ data class SeasonalActivityPersist(
     val reputationGained: Int = 0,
     val satisfactionGained: Float = 0f,
     val specialOutcome: String? = null,
-    val approvalWaitDays: Int = 0
+    val approvalWaitDays: Int = 0,
+    val decorationProgress: Int = 0
 )

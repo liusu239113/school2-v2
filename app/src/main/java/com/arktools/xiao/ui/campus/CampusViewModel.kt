@@ -113,7 +113,10 @@ class CampusViewModel @Inject constructor(
         val allowedCollegeNames: Set<String> = emptySet(),
         val monthlyGrantPerStudent: Double = 0.0,
         val loopHint: String = "",
-        val buildingOps: com.arktools.xiao.domain.policy.BuildingOps = com.arktools.xiao.domain.policy.BuildingOps()
+        val buildingOps: com.arktools.xiao.domain.policy.BuildingOps = com.arktools.xiao.domain.policy.BuildingOps(),
+        val festivalName: String = "",
+        val festivalPhase: String = "",
+        val festivalDecoration: Int = 0
     ) {
         val upgradeCampusCost: Double
             get() = GameBalanceConfig.getCampusUpgradeCost(campusLevel)
@@ -222,6 +225,13 @@ class CampusViewModel @Inject constructor(
                     "GINKGO", "BAMBOO", "LAMP", "PAVILION", "PARCEL", "FITNESS"
                 )
                 val bonuses = FacilityBonusCalculator.calculate(school.facilities)
+                val liveFestival = gameEngine.seasonalActivityManager.getActiveActivities()
+                    .maxByOrNull { if (it.phase == com.arktools.xiao.domain.seasonal.ActivityPhase.ACTIVE) 1 else 0 }
+                val festival = Triple(
+                    liveFestival?.type?.displayName.orEmpty(),
+                    liveFestival?.phase?.displayName.orEmpty(),
+                    liveFestival?.decorationProgress ?: 0
+                )
                 _state.value = _state.value.copy(
                     cash = school.cash,
                     reputation = school.reputation,
@@ -297,7 +307,10 @@ class CampusViewModel @Inject constructor(
                     allowedCollegeNames = school.schoolTier().allowedColleges,
                     monthlyGrantPerStudent = school.schoolOwnership().monthlyGrantPerStudent,
                     loopHint = loopHint(school, students.size),
-                    buildingOps = dev.buildingOps
+                    buildingOps = dev.buildingOps,
+                    festivalName = festival.first,
+                    festivalPhase = festival.second,
+                    festivalDecoration = festival.third
                 )
             }
         }
@@ -348,6 +361,21 @@ class CampusViewModel @Inject constructor(
         }
         viewModelScope.safeLaunch {
             gameEngine.classesFlow.collect { rebuildClassRows() }
+        }
+        viewModelScope.safeLaunch {
+            gameEngine.seasonalActivityManager.state.collect { seasonal ->
+                val live = seasonal.activities
+                    .filter {
+                        it.phase == com.arktools.xiao.domain.seasonal.ActivityPhase.PREPARING ||
+                            it.phase == com.arktools.xiao.domain.seasonal.ActivityPhase.ACTIVE
+                    }
+                    .maxByOrNull { if (it.phase == com.arktools.xiao.domain.seasonal.ActivityPhase.ACTIVE) 1 else 0 }
+                _state.value = _state.value.copy(
+                    festivalName = live?.type?.displayName.orEmpty(),
+                    festivalPhase = live?.phase?.displayName.orEmpty(),
+                    festivalDecoration = live?.decorationProgress ?: 0
+                )
+            }
         }
     }
 
