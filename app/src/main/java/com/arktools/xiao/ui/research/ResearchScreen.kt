@@ -61,6 +61,7 @@ import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
 import com.arktools.xiao.ui.animation.cardTapAnimation
+import com.arktools.xiao.ui.components.PixelAlertDialog
 import com.arktools.xiao.ui.components.PixelButton
 import com.arktools.xiao.ui.components.PixelButtonStyle
 
@@ -75,6 +76,26 @@ fun ResearchScreen(
     val bonusSummary by viewModel.bonusSummary.collectAsState()
     val recentlyUnlocked by viewModel.recentlyUnlocked.collectAsState()
     val unlockError by viewModel.unlockError.collectAsState()
+    val chainUi by viewModel.chainUi.collectAsState()
+
+    chainUi.message?.let { msg ->
+        PixelAlertDialog(
+            onDismissRequest = { viewModel.consumeChainMessage() },
+            title = if (msg.contains("不足") || msg.contains("不够") || msg.contains("失败")) "无法启动" else "课题已启动",
+            text = msg,
+            confirmText = "知道了",
+            onConfirm = { viewModel.consumeChainMessage() }
+        )
+    }
+    unlockError?.let { error ->
+        PixelAlertDialog(
+            onDismissRequest = { viewModel.clearUnlockError() },
+            title = "无法投入研究",
+            text = error,
+            confirmText = "知道了",
+            onConfirm = { viewModel.clearUnlockError() }
+        )
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -526,17 +547,6 @@ private fun MethodDetailDialog(
                     )
                 }
 
-                // Error message
-                unlockError?.let { error ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AccentRed,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Buttons
@@ -789,14 +799,6 @@ private fun ResearchChainSection(viewModel: com.arktools.xiao.ui.research.Resear
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-            }
-            chainUi.message?.let { message ->
-                Text(
-                    text = message,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { viewModel.consumeChainMessage() }
-                )
             }
             chainUi.definitions.forEach { def ->
                 val program = chainUi.programs[def.id]

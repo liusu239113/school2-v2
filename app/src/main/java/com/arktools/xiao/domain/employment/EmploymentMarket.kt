@@ -38,12 +38,18 @@ enum class Industry(val displayName: String, val icon: String) {
 }
 
 enum class GraduateStatus(val displayName: String) {
-    IN_UNIVERSITY("大学在读"),       // 正在读大学
-    EMPLOYED("已就业"),              // 大学毕业后就业
-    SELF_EMPLOYED("自主创业"),       // 大学毕业后创业
-    FURTHER_STUDY("继续深造"),       // 读研/读博
-    SEEKING("待就业"),               // 大学毕业后求职中
-    NOT_ADMITTED("未升学")           // 未被大学录取（直接就业或复读）
+    IN_UNIVERSITY("读研深造中"),
+    EMPLOYED("已就业"),
+    SELF_EMPLOYED("自主创业"),
+    FURTHER_STUDY("继续深造"),
+    SEEKING("求职中"),
+    NOT_ADMITTED("待业")
+}
+
+enum class GraduateSuperviseAction(val displayName: String, val costWan: Double) {
+    RECOMMEND_JOB("推荐就业", 2.0),
+    PUSH_GRAD_SCHOOL("送去读研", 3.0),
+    STARTUP_GRANT("创业扶持", 5.0)
 }
 
 enum class SalaryTier(val displayName: String, val minSalary: Int, val maxSalary: Int) {
@@ -424,6 +430,79 @@ class EmploymentMarket @Inject constructor() {
     /**
      * 兼容旧接口（将GPA转回高考分和tier）
      */
+    /**
+     * 校长干预毕业生去向。成功返回说明，失败返回原因。
+     */
+    fun superviseGraduate(
+        studentName: String,
+        graduateYear: Int,
+        graduateMonth: Int,
+        action: GraduateSuperviseAction
+    ): String {
+        while (true) {
+            val state = _state.value
+            val index = state.graduates.indexOfFirst {
+                it.studentName == studentName &&
+                    it.graduateYear == graduateYear &&
+                    it.graduateMonth == graduateMonth
+            }
+            if (index < 0) return "找不到这个毕业生。"
+            val current = state.graduates[index]
+            val next = when (action) {
+                GraduateSuperviseAction.RECOMMEND_JOB -> {
+                    if (current.status == GraduateStatus.EMPLOYED) {
+                        return "${current.studentName} 已经就业了。"
+                    }
+                    current.copy(
+                        status = GraduateStatus.EMPLOYED,
+                        industry = current.industry ?: Industry.COMMERCE,
+                        salaryTier = current.salaryTier ?: SalaryTier.JUNIOR,
+                        feedbackScore = (current.feedbackScore + 1).coerceAtMost(5)
+                    )
+                }
+                GraduateSuperviseAction.PUSH_GRAD_SCHOOL -> {
+                    if (current.status == GraduateStatus.FURTHER_STUDY ||
+                        current.status == GraduateStatus.IN_UNIVERSITY
+                    ) {
+                        return "${current.studentName} 已经在深造。"
+                    }
+                    current.copy(
+                        status = GraduateStatus.FURTHER_STUDY,
+                        industry = Industry.RESEARCH,
+                        feedbackScore = (current.feedbackScore + 1).coerceAtMost(5)
+                    )
+                }
+                GraduateSuperviseAction.STARTUP_GRANT -> {
+                    if (current.status == GraduateStatus.SELF_EMPLOYED) {
+                        return "${current.studentName} 已经在创业。"
+                    }
+                    current.copy(
+                        status = GraduateStatus.SELF_EMPLOYED,
+                        industry = Industry.COMMERCE,
+                        salaryTier = SalaryTier.MID,
+                        feedbackScore = (current.feedbackScore + 2).coerceAtMost(5)
+                    )
+                }
+            }
+            val updated = state.graduates.toMutableList().apply { this[index] = next }
+            val updatedState = state.copy(
+                graduates = updated,
+                stats = calculateStats(updated),
+                employers = generateEmployers(updated)
+            )
+            if (_state.compareAndSet(state, updatedState)) {
+                return when (action) {
+                    GraduateSuperviseAction.RECOMMEND_JOB ->
+                        "${current.studentName} 已被推荐进${next.industry?.displayName}，开始上班。"
+                    GraduateSuperviseAction.PUSH_GRAD_SCHOOL ->
+                        "${current.studentName} 拿到本校推荐，去读研了。"
+                    GraduateSuperviseAction.STARTUP_GRANT ->
+                        "${current.studentName} 拿到创业扶持，自己开公司。"
+                }
+            }
+        }
+    }
+
     fun registerGraduate(name: String, year: Int, month: Int, gpa: Float, satisfaction: Float): Boolean {
         val estimatedScore = gpa * 187.5f  // GPA 4.0 → 750分
         val tier = UniversityTier.fromScore(estimatedScore)
@@ -954,9 +1033,9 @@ enum class EmploymentStatus(val displayName: String) {
     EMPLOYED("已就业"),
     SELF_EMPLOYED("自主创业"),
     FURTHER_STUDY("继续深造"),
-    IN_UNIVERSITY("大学在读"),
+    IN_UNIVERSITY("读研深造中"),
     SEEKING("求职中"),
-    UNEMPLOYED("未升学")
+    UNEMPLOYED("待业")
 }
 
 data class GraduateEmployment(

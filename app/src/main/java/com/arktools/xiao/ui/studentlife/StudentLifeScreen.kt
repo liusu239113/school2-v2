@@ -27,26 +27,24 @@ fun StudentLifeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val actionMessage by viewModel.message.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(actionMessage) {
-        actionMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            viewModel.consumeMessage()
-        }
+    actionMessage?.let { message ->
+        com.arktools.xiao.ui.components.PixelAlertDialog(
+            onDismissRequest = { viewModel.consumeMessage() },
+            title = if (message.contains("不足") || message.contains("不够") || message.contains("失败")) "无法执行" else "学生生活",
+            text = message,
+            confirmText = "知道了",
+            onConfirm = { viewModel.consumeMessage() }
+        )
     }
 
     com.arktools.xiao.ui.components.PixelGameBackground {
     Column(modifier = Modifier.fillMaxSize()) {
     com.arktools.xiao.ui.components.LegacyPageHeader("学生生活")
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -134,7 +132,7 @@ fun StudentLifeScreen(
         // 底部间距
         item { Spacer(modifier = Modifier.height(32.dp)) }
     }
-    } // Scaffold
+    }
     }
     }
 }

@@ -2,6 +2,7 @@ package com.arktools.xiao.ui.alumni
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +27,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.arktools.xiao.domain.alumni.*
 import com.arktools.xiao.domain.model.UniversityTier
 import com.arktools.xiao.domain.employment.*
+import com.arktools.xiao.ui.components.PixelAlertDialog
+import com.arktools.xiao.ui.components.PixelButton
+import com.arktools.xiao.ui.components.PixelButtonStyle
 import com.arktools.xiao.ui.components.PixelIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +38,7 @@ fun AlumniScreen(
     viewModel: AlumniViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("校友网络", "升学就业", "毕业总结")
+    val tabs = listOf("校友发展", "毕业去向", "届次档案")
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTabIndex) {
@@ -609,12 +613,12 @@ private fun GraduationTrendCard(summaries: List<com.arktools.xiao.domain.alumni.
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     AlumniMiniStat("总毕业生", "$totalGrads", Color(0xFFBBDEFB))
-                    AlumniMiniStat("平均本科率", "${avgBengke.toInt()}%", Color(0xFFA5D6A7))
+                    AlumniMiniStat("平均就业率", "${avgBengke.toInt()}%", Color(0xFFA5D6A7))
                     AlumniMiniStat("顶尖深造", "$total985", Color(0xFFCE93D8))
                     AlumniMiniStat("顶尖名校", "$totalQingbei", Color(0xFFFFCC80))
                 }
 
-                // 趋势：最近几届本科率
+                // 趋势：最近几届就业率
                 if (summaries.size >= 2) {
                     Spacer(modifier = Modifier.height(12.dp))
                     val recent = summaries.take(5).reversed() // 从旧到新
@@ -663,7 +667,7 @@ private fun GraduationBatchCard(summary: com.arktools.xiao.domain.alumni.Graduat
                     }
                 ) {
                     Text(
-                        "本科率 ${summary.bengkeRate.toInt()}%",
+                        "就业率 ${summary.bengkeRate.toInt()}%",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         color = when {
                             summary.bengkeRate >= 80f -> Color(0xFF2E7D32)
@@ -764,6 +768,58 @@ private fun GradStatItem(label: String, value: String) {
 @Composable
 private fun EmploymentContent(viewModel: AlumniViewModel) {
     val state by viewModel.employmentState.collectAsState()
+    val superviseMessage by viewModel.superviseMessage.collectAsState()
+    var selectedGraduate by remember { mutableStateOf<GraduateEmployment?>(null) }
+
+    superviseMessage?.let { msg ->
+        PixelAlertDialog(
+            onDismissRequest = { viewModel.consumeSuperviseMessage() },
+            title = "毕业去向",
+            text = msg,
+            confirmText = "知道了",
+            onConfirm = { viewModel.consumeSuperviseMessage() }
+        )
+    }
+    selectedGraduate?.let { grad ->
+        PixelAlertDialog(
+            onDismissRequest = { selectedGraduate = null },
+            title = "${grad.studentName} · ${grad.graduateYear}届",
+            text = "${grad.status.displayName}\n${grad.employer ?: "暂无单位"} · ${grad.salaryTier?.displayName ?: "未定薪资"}",
+            confirmText = "关闭",
+            onConfirm = { selectedGraduate = null },
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PixelButton(
+                        text = "推荐就业 2万",
+                        onClick = {
+                            viewModel.supervise(grad, GraduateSuperviseAction.RECOMMEND_JOB)
+                            selectedGraduate = null
+                        },
+                        style = PixelButtonStyle.PRIMARY,
+                        height = 40.dp
+                    )
+                    PixelButton(
+                        text = "送去读研 3万",
+                        onClick = {
+                            viewModel.supervise(grad, GraduateSuperviseAction.PUSH_GRAD_SCHOOL)
+                            selectedGraduate = null
+                        },
+                        style = PixelButtonStyle.SECONDARY,
+                        height = 40.dp
+                    )
+                    PixelButton(
+                        text = "创业扶持 5万",
+                        onClick = {
+                            viewModel.supervise(grad, GraduateSuperviseAction.STARTUP_GRANT)
+                            selectedGraduate = null
+                        },
+                        style = PixelButtonStyle.CONFIRM,
+                        height = 40.dp
+                    )
+                }
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -817,8 +873,8 @@ private fun EmploymentContent(viewModel: AlumniViewModel) {
                     fontWeight = FontWeight.Bold
                 )
             }
-            items(graduatesForDisplay.sortedByDescending { it.graduateYear * 12 + it.graduateMonth }.take(20)) { grad ->
-                GraduateCard(grad)
+            items(graduatesForDisplay.sortedByDescending { it.graduateYear * 12 + it.graduateMonth }.take(40)) { grad ->
+                GraduateCard(grad, onClick = { selectedGraduate = grad })
             }
         }
 
@@ -916,7 +972,7 @@ private fun EmploymentRateCard(stats: EmploymentStats) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "升学率",
+                    "就业/深造率",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -947,13 +1003,13 @@ private fun EmploymentRateCard(stats: EmploymentStats) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "升学率 = 被大学录取人数 / 总毕业生人数（含大学在读、已就业、深造）",
+                "就业/深造率 = 已就业、创业、读研人数 / 本届毕业生",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (stats.inUniversityCount > 0) {
                 Text(
-                    "📖 当前${stats.inUniversityCount}人在大学就读中，毕业后将进入就业市场",
+                    "当前 ${stats.inUniversityCount} 人在读研深造",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1153,7 +1209,7 @@ private fun RecentEventCard(event: EmploymentEvent) {
 }
 
 @Composable
-private fun GraduateCard(graduate: GraduateEmployment) {
+private fun GraduateCard(graduate: GraduateEmployment, onClick: () -> Unit) {
     val statusColor = when (graduate.status) {
         EmploymentStatus.EMPLOYED -> Color(0xFF4CAF50)
         EmploymentStatus.SELF_EMPLOYED -> Color(0xFFFF9800)
@@ -1164,7 +1220,9 @@ private fun GraduateCard(graduate: GraduateEmployment) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(

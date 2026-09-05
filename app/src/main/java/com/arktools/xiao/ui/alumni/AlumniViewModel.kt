@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.domain.alumni.*
 import com.arktools.xiao.domain.employment.EmploymentMarket
 import com.arktools.xiao.domain.employment.EmploymentMarketState
+import com.arktools.xiao.domain.employment.GraduateEmployment
+import com.arktools.xiao.domain.employment.GraduateSuperviseAction
 import com.arktools.xiao.domain.repository.SchoolRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -110,5 +112,33 @@ class AlumniViewModel @Inject constructor(
 
     fun getIndustryBonus(career: CareerPath): Float {
         return alumniNetwork.getIndustryBonus(career)
+    }
+
+    private val _superviseMessage = MutableStateFlow<String?>(null)
+    val superviseMessage: StateFlow<String?> = _superviseMessage
+
+    fun consumeSuperviseMessage() {
+        _superviseMessage.value = null
+    }
+
+    fun supervise(graduate: GraduateEmployment, action: GraduateSuperviseAction) {
+        viewModelScope.safeLaunch {
+            val cost = action.costWan
+            val paid = schoolRepository.mutateSchool { school ->
+                if (school.cash < cost) return@mutateSchool false
+                school.cash -= cost
+                true
+            } != null
+            if (!paid) {
+                _superviseMessage.value = "经费不够，${action.displayName}要 ${cost.toInt()} 万。"
+                return@safeLaunch
+            }
+            _superviseMessage.value = employmentMarket.superviseGraduate(
+                graduate.studentName,
+                graduate.graduateYear,
+                graduate.graduateMonth,
+                action
+            )
+        }
     }
 }
