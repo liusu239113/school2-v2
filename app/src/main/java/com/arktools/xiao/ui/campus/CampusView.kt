@@ -208,15 +208,18 @@ fun CampusView(
         val screenH = constraints.maxHeight
 
         fun clampCamera() {
-            val liveCell = baseCell * zoomNow.value
+            val liveCell = baseCell * zoom
             val liveWorldW = BT.GRID_W * liveCell
             val liveWorldH = BT.GRID_H * liveCell
-            val minX = (screenW - liveWorldW).coerceAtMost(0f)
-            val minY = (screenH - liveWorldH).coerceAtMost(0f)
-            val cam = cameraNow.value
+            // 世界比屏幕大：只能拖到边缘。世界比屏幕小：整张图可在屏幕里滑动，不能锁死在原点。
+            val loX = minOf(0f, screenW - liveWorldW)
+            val hiX = maxOf(0f, screenW - liveWorldW)
+            val loY = minOf(0f, screenH - liveWorldH)
+            val hiY = maxOf(0f, screenH - liveWorldH)
+            val cam = camera
             camera = Offset(
-                cam.x.coerceIn(minX, 0f),
-                cam.y.coerceIn(minY, 0f)
+                cam.x.coerceIn(loX, hiX),
+                cam.y.coerceIn(loY, hiY)
             )
         }
 
@@ -244,10 +247,8 @@ fun CampusView(
             val rect = BT.unlockedRect(state.campusLevel)
             val cx = (rect.x0 + rect.x1) / 2f * cell
             val cy = (rect.y0 + rect.y1) / 2f * cell
-            camera = Offset(
-                (screenW / 2f - cx).coerceIn((screenW - worldW).coerceAtMost(0f), 0f),
-                (screenH / 2f - cy).coerceIn((screenH - worldH).coerceAtMost(0f), 0f)
-            )
+            camera = Offset(screenW / 2f - cx, screenH / 2f - cy)
+            clampCamera()
             cameraReady = true
         }
 
@@ -367,13 +368,13 @@ fun CampusView(
                                 if (oldDist > 12f && dist > 12f) {
                                     val raw = dist / oldDist
                                     val boosted = 1f + (raw - 1f) * 1.8f
-                                    val oldZoom = zoomNow.value
+                                    val oldZoom = zoom
                                     val oldCell = baseCell * oldZoom
                                     val newZoom = (oldZoom * boosted).coerceIn(0.35f, 4.0f)
                                     val newCell = baseCell * newZoom
                                     zoom = newZoom
                                     if (newCell != oldCell && oldCell > 0f) {
-                                        val cam = cameraNow.value
+                                        val cam = camera
                                         camera = Offset(
                                             centroid.x - (centroid.x - cam.x) * (newCell / oldCell),
                                             centroid.y - (centroid.y - cam.y) * (newCell / oldCell)
@@ -390,10 +391,9 @@ fun CampusView(
                                     totalDrag = Offset.Zero
                                 } else {
                                     totalDrag += delta
-                                    if (totalDrag.getDistance() > 12f) {
+                                    if (totalDrag.getDistance() > 8f) {
                                         dragged = true
-                                        val cam = cameraNow.value
-                                        camera = Offset(cam.x + delta.x, cam.y + delta.y)
+                                        camera = Offset(camera.x + delta.x, camera.y + delta.y)
                                         clampCamera()
                                     }
                                 }
@@ -657,8 +657,7 @@ fun CampusView(
                     val fh = sheet.height
                     val cycle = if (w.moving) w.phase else 0
                     val key = ((cycle / WALKER_SUB) % cols + cols) % cols
-                    val far = zoom < 0.7f
-                    val hPx = cell * if (far) 0.42f else 0.60f
+                    val hPx = cell * 0.60f
                     val wPx = hPx * fw / fh
                     val cx = wx
                     val bottom = wy
@@ -666,12 +665,6 @@ fun CampusView(
                     val nc = drawContext.canvas.nativeCanvas
                     walkerPaint.alpha = 255
                     walkerPaint.color = android.graphics.Color.WHITE
-                    if (far) {
-                        walkerPaint.color = android.graphics.Color.argb(180, 18, 38, 56)
-                        nc.drawRect(dstRect, walkerPaint)
-                        walkerPaint.color = android.graphics.Color.WHITE
-                        return@forEach
-                    }
                     if (!w.facingRight) {
                         nc.save()
                         nc.scale(-1f, 1f, cx, bottom - hPx / 2f)
