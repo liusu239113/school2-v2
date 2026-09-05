@@ -59,6 +59,10 @@ data class EventConsequence(
     val followUpEvent: GameEvent? = null,
     /** 学业干预：给成绩最差的一批在读学生加学业分（补差/谈话等处置动作）。 */
     val studentAcademicBoost: Float = 0f,
+    /** 食堂加开窗口数（正数立刻增加餐位，上限 6）。 */
+    val extraWindowsDelta: Int = 0,
+    /** 立刻在校园空地落一座食堂（应急，当天可用）。 */
+    val buildCanteen: Boolean = false,
     /** 是否需要校长签字（显示打字机签名动画） */
     val requiresSignature: Boolean = false
 )

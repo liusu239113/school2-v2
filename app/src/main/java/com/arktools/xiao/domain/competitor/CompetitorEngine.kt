@@ -217,6 +217,18 @@ class CompetitorEngine @Inject constructor() {
         }
     }
 
+    fun hurtStrongestRival(
+        moraleDelta: Float = 0f,
+        reputationDelta: Long = 0L,
+        studentDelta: Int = 0
+    ) {
+        val rival = competitors.filter { it.isActive }.maxByOrNull { it.reputation } ?: return
+        rival.morale = (rival.morale + moraleDelta).coerceIn(0.2f, 1.2f)
+        rival.reputation = (rival.reputation + reputationDelta).coerceAtLeast(0L)
+        rival.studentCount = (rival.studentCount + studentDelta).coerceAtLeast(0)
+        _competitorState.value = competitors.toList()
+    }
+
     /**
      * 获取排行榜数据 (玩家+AI)
      */

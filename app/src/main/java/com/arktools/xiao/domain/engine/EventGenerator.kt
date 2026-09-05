@@ -1508,7 +1508,22 @@ class EventGenerator @Inject constructor() {
                     EventChoice("食堂一直管理规范",
                         EventConsequence(reputationChange = 200)),
                     EventChoice("紧急整改迎检",
-                        EventConsequence(cashChange = -1.0, reputationChange = 50))
+                        EventConsequence(cashChange = -1.0, reputationChange = 50)),
+                    EventChoice("加开窗口并现场煮热菜",
+                        EventConsequence(cashChange = -4.0, reputationChange = 80, extraWindowsDelta = 1))
+                )
+            ))
+        } else {
+            events.add(GameEvent.ChoiceEvent(
+                title = "学生没地方吃饭",
+                message = "学校还没有食堂。家长问孩子中午去哪吃饭，这个月必须给说法。",
+                choices = listOf(
+                    EventChoice("立刻建食堂",
+                        EventConsequence(cashChange = -8.0, reputationChange = 40, buildCanteen = true)),
+                    EventChoice("发餐补让学生外出吃",
+                        EventConsequence(cashChange = -3.0, reputationChange = -20)),
+                    EventChoice("先顶着",
+                        EventConsequence(reputationChange = -90))
                 )
             ))
         }

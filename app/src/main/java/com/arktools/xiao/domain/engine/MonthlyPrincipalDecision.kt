@@ -40,7 +40,7 @@ internal object MonthlyPrincipalDecision {
                 title = "校长月度决策：学生吃饭"
                 message = "有 $mealGap 人挤食堂。窗口不够，月底已经有投诉。这个月必须处理吃饭问题。"
                 choices = listOf(
-                    EventChoice("加开窗口并补贴热菜", EventConsequence(cashChange = -5.0, reputationChange = 50)),
+                    EventChoice("加开窗口并补贴热菜", EventConsequence(cashChange = -5.0, reputationChange = 50, extraWindowsDelta = 1)),
                     EventChoice("错峰放学，让一半学生晚去食堂", EventConsequence(cashChange = -1.0, reputationChange = 10)),
                     EventChoice("先顶着，等有钱再建食堂", EventConsequence(reputationChange = -80))
                 )

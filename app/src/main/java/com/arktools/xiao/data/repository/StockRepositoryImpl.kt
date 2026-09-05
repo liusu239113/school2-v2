@@ -310,6 +310,13 @@ class StockRepositoryImpl @Inject constructor(
             for (stock in stocks) {
                 // 真实股市模型：无上涨偏向 + 均值回归 + 动量 + 黑天鹅
                 var changePercent = (Random.nextDouble() - 0.50) * stock.volatility * 100
+                // 校友基金：学校口碑越好，教育股越稳、越容易跟涨
+                if (stock.sector == "教育") {
+                    val schoolRep = runCatching {
+                        database.schoolDao().getSchoolCore()?.reputation ?: 0L
+                    }.getOrDefault(0L)
+                    changePercent += (schoolRep / 8000.0).coerceIn(-0.4, 0.8)
+                }
 
                 // 均值回归：价格偏离基准价越远，回调力量越强
                 val deviation = (stock.currentPrice - stock.basePrice) / stock.basePrice

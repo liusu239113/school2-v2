@@ -8,7 +8,9 @@ import com.arktools.xiao.domain.model.FacilityBonusCalculator
 import com.arktools.xiao.domain.model.FacilityType
 import com.arktools.xiao.domain.model.School
 import com.arktools.xiao.domain.engine.GameBalanceConfig
+import com.arktools.xiao.domain.policy.SchoolPolicyManager
 import com.arktools.xiao.domain.repository.SchoolRepository
+import com.arktools.xiao.domain.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,12 +26,18 @@ data class FacilityUiState(
     val bonuses: FacilityBonusCalculator.FacilityBonuses = FacilityBonusCalculator.FacilityBonuses(),
     val maxFacilities: Int = 5,
     val isAtCapacity: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val classroomSeats: Int = 0,
+    val dormBeds: Int = 0,
+    val canteenSeats: Int = 0,
+    val studentCount: Int = 0
 )
 
 @HiltViewModel
 class FacilityViewModel @Inject constructor(
     private val schoolRepository: SchoolRepository,
+    private val studentRepository: StudentRepository,
+    private val policyManager: SchoolPolicyManager,
     private val audioManager: AudioManager
 ) : ViewModel() {
 
@@ -44,13 +52,14 @@ class FacilityViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             schoolRepository.getSchoolFlow().collect { school ->
                 if (school != null) {
-                    updateState(school)
+                    val students = runCatching { studentRepository.getActiveStudentCount() }.getOrDefault(0)
+                    updateState(school, students)
                 }
             }
         }
     }
 
-    private fun updateState(school: School) {
+    private fun updateState(school: School, studentCount: Int) {
         val owned = school.facilities
         val maxFacilities = GameBalanceConfig.getMaxFacilitiesForLevel(school.campusLevel)
         val atCapacity = owned.size >= maxFacilities
@@ -58,6 +67,7 @@ class FacilityViewModel @Inject constructor(
         val visibleMaintenance = owned
             .filterNot { it.isConstructing }
             .sumOf { it.maintenanceCost }
+        val extraWindows = policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
         _uiState.value = FacilityUiState(
             facilities = owned,
             cash = school.cash,
@@ -65,7 +75,12 @@ class FacilityViewModel @Inject constructor(
             bonuses = FacilityBonusCalculator.calculate(owned),
             maxFacilities = maxFacilities,
             isAtCapacity = atCapacity,
-            message = null
+            message = null,
+            classroomSeats = owned.filter { it.type == FacilityType.CLASSROOM && it.isOperational }
+                .sumOf { com.arktools.xiao.domain.model.FacilityCapacity.classSlots(it.level) * 30 },
+            dormBeds = com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(owned),
+            canteenSeats = com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(owned, extraWindows),
+            studentCount = studentCount
         )
     }
 

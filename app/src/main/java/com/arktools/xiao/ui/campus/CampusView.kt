@@ -340,7 +340,7 @@ fun CampusView(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(Unit) {
+                .pointerInput(zoom, camera.x, camera.y, inPlacementMode) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var totalDrag = Offset.Zero
@@ -621,12 +621,20 @@ fun CampusView(
                     val cycle = if (w.moving) w.phase else WALKER_IDLE_CYCLE
                     val key = ((cycle / WALKER_SUB) % 4 + 4) % 4
                     val frac = if (w.moving) (cycle % WALKER_SUB) / WALKER_SUB.toFloat() else 0f
-                    val hPx = cell * 0.60f
+                    val far = zoom < 0.7f
+                    val hPx = cell * if (far) 0.42f else 0.60f
                     val wPx = hPx * fw / fh
                     val cx = wx
                     val bottom = wy
                     val dstRect = android.graphics.RectF(cx - wPx / 2f, bottom - hPx, cx + wPx / 2f, bottom)
                     val nc = drawContext.canvas.nativeCanvas
+                    if (far) {
+                        walkerPaint.color = android.graphics.Color.argb(180, 18, 38, 56)
+                        nc.drawRect(dstRect, walkerPaint)
+                        walkerPaint.color = android.graphics.Color.WHITE
+                        walkerPaint.alpha = 255
+                        return@forEach
+                    }
                     if (!w.facingRight) {
                         nc.save()
                         nc.scale(-1f, 1f, cx, bottom - hPx / 2f)
@@ -1244,10 +1252,17 @@ private fun walkableKey(x: Int, y: Int): Long = y.toLong() * 1000L + x
 private fun buildWalkableSet(state: CampusViewModel.CampusUiState): Set<Long> {
     val rect = BT.unlockedRect(state.campusLevel)
     val blocked = HashSet<Long>()
+    val doorKeys = HashSet<Long>()
     state.placed.forEach { b ->
         val spec = BT.specByKey(b.key) ?: return@forEach
+        val isVisit = b.key == "F_CANTEEN" || b.key == "F_CLASSROOM" || b.key == "F_DORMITORY"
         for (y in b.y until b.y + spec.h) for (x in b.x until b.x + spec.w) {
-            blocked += walkableKey(x, y)
+            val k = walkableKey(x, y)
+            if (isVisit && y == b.y + spec.h - 1) {
+                doorKeys += k
+            } else {
+                blocked += k
+            }
         }
     }
     val set = HashSet<Long>(1024)
@@ -1255,7 +1270,7 @@ private fun buildWalkableSet(state: CampusViewModel.CampusUiState): Set<Long> {
         val k = walkableKey(x, y)
         if (k in blocked) continue
         val tile = state.terrain[k]
-        if (tile != null && tile != BT.TileKind.ROAD && tile != BT.TileKind.PLAZA) continue
+        if (k !in doorKeys && tile != null && tile != BT.TileKind.ROAD && tile != BT.TileKind.PLAZA) continue
         set += k
     }
     return set

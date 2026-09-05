@@ -15,6 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -141,6 +144,46 @@ class ExternalViewModel @Inject constructor(
     fun consumeMessage() {
         _state.value = _state.value.copy(message = null)
     }
+
+    fun raidRivalTeachers() {
+        viewModelScope.safeLaunch {
+            val cost = 6.0
+            val result = schoolRepository.mutateSchool { school ->
+                if (school.cash < cost) {
+                    _state.value = _state.value.copy(message = "挖人需要 6 万，经费不够")
+                    return@mutateSchool false
+                }
+                school.cash -= cost
+                school.reputation += 80
+                true
+            }
+            if (result != null) {
+                competitorEngine.hurtStrongestRival(moraleDelta = -0.08f, reputationDelta = -120L)
+                audioManager.playCashLose()
+                _state.value = _state.value.copy(message = "挖到对方一名骨干。立刻 +80 声誉，对手士气下降。")
+            }
+        }
+    }
+
+    fun raidRivalStudents() {
+        viewModelScope.safeLaunch {
+            val cost = 8.0
+            val result = schoolRepository.mutateSchool { school ->
+                if (school.cash < cost) {
+                    _state.value = _state.value.copy(message = "抢生源需要 8 万，经费不够")
+                    return@mutateSchool false
+                }
+                school.cash -= cost
+                school.reputation += 40
+                true
+            }
+            if (result != null) {
+                competitorEngine.hurtStrongestRival(moraleDelta = -0.05f, studentDelta = -20)
+                audioManager.playCashLose()
+                _state.value = _state.value.copy(message = "对方学区被你砸穿。对手少了生源，本校下季更好招。")
+            }
+        }
+    }
 }
 
 @Composable
@@ -149,6 +192,7 @@ fun ExternalScreen(
     onNavigateTo: (Int) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    var tab by remember { mutableIntStateOf(1) }
 
     LazyColumn(
         modifier = Modifier
@@ -160,12 +204,30 @@ fun ExternalScreen(
         item {
             Text("外联", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(
-                "大学排名 · 校际学科竞赛 · 校友网络",
+                "委托赚钱 · 排名看口碑 · 合作挖人和抢生源",
                 color = Color(0xFFB8C7D6),
                 fontSize = 13.sp
             )
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("排名" to 0, "委托" to 1, "合作" to 2).forEach { (label, index) ->
+                    val selected = tab == index
+                    Text(
+                        label,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(if (selected) Color(0xFF1E96C8) else Color(0xFF24384C))
+                            .clickable { tab = index }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
             Text(
-                "排名看声誉，竞赛拿奖金，企业委托是外联真正能赚钱的地方。点行政楼可升级校园、解锁更多委托。",
+                "企业委托是外联真正能赚钱的地方。排名只是结果，合作用来打对手。",
                 color = Color(0xFF8AA0B4),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp)
@@ -197,7 +259,7 @@ fun ExternalScreen(
             }
         }
 
-        item {
+        if (tab == 1) item {
             val commissionViewModel: com.arktools.xiao.ui.district.CommissionViewModel =
                 androidx.hilt.navigation.compose.hiltViewModel()
             val commissionState by commissionViewModel.state.collectAsState()
@@ -275,11 +337,10 @@ fun ExternalScreen(
             }
         }
 
-        // ===== 排名榜 =====
-        item {
+        if (tab == 0) item {
             Text("大学排名榜", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        item {
+        if (tab == 0) item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -325,11 +386,44 @@ fun ExternalScreen(
             }
         }
 
-        // ===== 校友动态 =====
-        item {
+        if (tab == 2) item {
+            Text("合作：挖人 / 抢生源", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+        if (tab == 2) item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "高风险动作。成功会伤对手、抬本校；失败会掉口碑。",
+                    fontSize = 12.sp,
+                    color = Color(0xFF617386)
+                )
+                Text(
+                    "挖对方老师（6万）",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E96C8),
+                    modifier = Modifier.clickable { viewModel.raidRivalTeachers() }
+                )
+                Text("高薪挖一名对方骨干，本校声誉立刻上升，对手士气下降。", fontSize = 11.sp, color = Color(0xFF617386))
+                Text(
+                    "抢对方生源（8万）",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E96C8),
+                    modifier = Modifier.clickable { viewModel.raidRivalStudents() }
+                )
+                Text("在对方学区砸招生广告。下季招生更容易，但可能被反噬。", fontSize = 11.sp, color = Color(0xFF617386))
+            }
+        }
+        if (tab == 2) item {
             Text("校友动态", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        item {
+        if (tab == 2) item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -361,11 +455,10 @@ fun ExternalScreen(
             }
         }
 
-        // ===== 竞赛 =====
-        item {
+        if (tab == 0) item {
             Text("校际学科竞赛", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        item {
+        if (tab == 0) item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

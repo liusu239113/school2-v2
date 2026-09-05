@@ -189,6 +189,13 @@ class EventViewModel @Inject constructor(
             gameEngine.applyAcademicIntervention(consequence.studentAcademicBoost)
         }
 
+        if (consequence.extraWindowsDelta != 0) {
+            gameEngine.applyExtraWindows(consequence.extraWindowsDelta)
+        }
+        if (consequence.buildCanteen) {
+            gameEngine.applyBuildCanteenNow()
+        }
+
         // 教师审批动作
         consequence.teacherAction?.let { action ->
             executeTeacherAction(action)

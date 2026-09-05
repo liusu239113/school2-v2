@@ -3129,6 +3129,66 @@ class GameEngine @Inject constructor(
         return targets.size
     }
 
+    /** 事件选项落地：立刻加减食堂窗口（餐位 = 窗口 × 40，上限 6）。 */
+    suspend fun applyExtraWindows(delta: Int) {
+        if (delta == 0) return
+        schoolRepository.mutateSchool { latest ->
+            val current = policyManager.policies.value.collegeDevelopment
+            val ops = current.buildingOps
+            val next = (ops.extraWindows + delta).coerceIn(0, 6)
+            if (next == ops.extraWindows) return@mutateSchool true
+            policyManager.replaceCollegeDevelopment(current.copy(buildingOps = ops.copy(extraWindows = next)))
+            latest.policyJson = policyManager.toJson()
+            true
+        }
+    }
+
+    /** 应急建食堂：当天可用，落到校园空地。已有食堂则跳过。 */
+    suspend fun applyBuildCanteenNow() {
+        schoolRepository.mutateSchool { latest ->
+            if (latest.facilities.any { it.type == FacilityType.CANTEEN }) return@mutateSchool true
+            val bt = com.arktools.xiao.ui.campus.CampusBuildTypes
+            val spec = bt.facilitySpec(FacilityType.CANTEEN) ?: return@mutateSchool true
+            val current = policyManager.policies.value.collegeDevelopment
+            val placed = bt.decodeBuildings(current.placedBuildings)
+            val terrain = bt.decodeTerrain(current.terrainMap).associate { (it.y * 1000L + it.x) to true }
+            val rect = bt.unlockedRect(latest.campusLevel)
+            var spot: Pair<Int, Int>? = null
+            outer@ for (y in rect.y0..(rect.y1 - spec.h)) {
+                for (x in rect.x0..(rect.x1 - spec.w)) {
+                    var ok = true
+                    cell@ for (dy in 0 until spec.h) for (dx in 0 until spec.w) {
+                        val cx = x + dx
+                        val cy = y + dy
+                        if (terrain.containsKey(cy * 1000L + cx)) {
+                            ok = false
+                            break@cell
+                        }
+                        val occupied = placed.any { b ->
+                            val sp = bt.specByKey(b.key) ?: return@any false
+                            bt.occupies(b, sp, cx, cy)
+                        }
+                        if (occupied) {
+                            ok = false
+                            break@cell
+                        }
+                    }
+                    if (ok) {
+                        spot = x to y
+                        break@outer
+                    }
+                }
+            }
+            val f = Facility(type = FacilityType.CANTEEN, level = 1, condition = 100f, constructionDaysLeft = 0)
+            if (spot != null) {
+                policyManager.addPlacedFacility(spec.key, spot, 1, f.id, 0)
+            }
+            latest.facilities.add(f)
+            latest.policyJson = policyManager.toJson()
+            true
+        }
+    }
+
     /**
      * 确认 GameOver 并停止引擎
      */
@@ -3303,7 +3363,14 @@ class GameEngine @Inject constructor(
 
         // 处理当天刚进入 ACTIVE 阶段的活动 → 触发迷你游戏
         for (activity in dayAdvanceResult.newlyActiveActivities) {
-            _miniGameTrigger.emit(activity)
+            if (activity.type in setOf(
+                    com.arktools.xiao.domain.seasonal.ActivityType.SPORTS_DAY,
+                    com.arktools.xiao.domain.seasonal.ActivityType.CULTURAL_FESTIVAL,
+                    com.arktools.xiao.domain.seasonal.ActivityType.SCIENCE_FAIR
+                )
+            ) {
+                _miniGameTrigger.emit(activity)
+            }
         }
 
         // 处理当天完成的活动 → 结算奖励
@@ -4022,7 +4089,7 @@ class GameEngine @Inject constructor(
                                 choices = listOf(
                                     EventChoice(
                                         "加开窗口、延长供餐",
-                                        EventConsequence(cashChange = -6.0, reputationChange = 80)
+                                        EventConsequence(cashChange = -6.0, reputationChange = 80, extraWindowsDelta = 1)
                                     ),
                                     EventChoice(
                                         "先顶着，让学生错峰",
@@ -5587,6 +5654,32 @@ class GameEngine @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("GameEngine", "P3-1 monthlyBrief failed", e)
                 throw e
+            }
+
+            if ((st.totalMonthlyIncome - st.monthlyExpenses) < 0 && school.cash < 0) {
+                val ops = policyManager.policies.value.collegeDevelopment.buildingOps
+                if (ops.activationScore() > 0) {
+                    policyManager.replaceCollegeDevelopment(
+                        policyManager.policies.value.collegeDevelopment.copy(
+                            buildingOps = com.arktools.xiao.domain.policy.BuildingOps(
+                                extraWindows = ops.extraWindows
+                            )
+                        )
+                    )
+                    schoolRepository.mutateSchool { latest ->
+                        latest.policyJson = policyManager.toJson()
+                        true
+                    }
+                    emitEvent(
+                        GameEvent.NegativeEvent(
+                            title = "连续亏损，专项停办",
+                            message = "账上已经见红。实验室、汇演、双选会等专项全部停掉，只保留食堂窗口。下个月再开要重新付启动费。",
+                            penaltyCash = 0.0,
+                            penaltyReputation = 30
+                        ),
+                        school
+                    )
+                }
             }
 
             recordMonthlyStats(school, st.totalMonthlyIncome, st.monthlyExpenses)

@@ -90,6 +90,26 @@ fun FacilityScreen(
                     cash = state.cash
                 )
             }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("全校容量总览", fontWeight = FontWeight.Bold)
+                        Text("教室学位 ${state.classroomSeats} · 在校 ${state.studentCount} 人")
+                        Text("宿舍床位 ${state.dormBeds} · 食堂餐位 ${state.canteenSeats}")
+                        Text(
+                            "建造和搬楼只在校园地图里做。这里只看容量和维修。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             // 一键维修按钮
             val needRepairCount = state.facilities.count { it.condition < 95f }
