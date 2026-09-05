@@ -652,10 +652,11 @@ fun CampusView(
                     val wy = w.fy * cell
                     if (wx < viewL || wx > viewR || wy < viewT || wy > viewB) return@forEach
                     val sheet = walkerBitmaps[w.role % walkerBitmaps.size]
-                    val fw = sheet.width / 2
-                    val fh = sheet.height / 2
-                    val cycle = if (w.moving) w.phase else WALKER_IDLE_CYCLE
-                    val key = ((cycle / WALKER_SUB) % 4 + 4) % 4
+                    val cols = WALKER_FRAME_COLS
+                    val fw = sheet.width / cols
+                    val fh = sheet.height
+                    val cycle = if (w.moving) w.phase else 0
+                    val key = ((cycle / WALKER_SUB) % cols + cols) % cols
                     val far = zoom < 0.7f
                     val hPx = cell * if (far) 0.42f else 0.60f
                     val wPx = hPx * fw / fh
@@ -675,7 +676,7 @@ fun CampusView(
                         nc.save()
                         nc.scale(-1f, 1f, cx, bottom - hPx / 2f)
                     }
-                    nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key), dstRect, walkerPaint)
+                    nc.drawBitmap(sheet, walkerSrcRect(fw, fh, key, cols), dstRect, walkerPaint)
                     if (!w.facingRight) nc.restore()
                 }
 
@@ -1267,17 +1268,16 @@ private data class Walker(
     val waitTicks: Int = 0
 )
 
-private const val WALKER_TICK_MS = 120L
+private const val WALKER_TICK_MS = 100L
 private const val WALKER_STEP = 0.028f
 private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
-private const val WALKER_SUB = 5        // 每张原帧停几拍再切，禁止两帧叠画
-private const val WALKER_IDLE_CYCLE = 1 * WALKER_SUB
+private const val WALKER_SUB = 1        // 横向多帧精灵图，一拍一切
+private const val WALKER_FRAME_COLS = 20
 
-private fun walkerSrcRect(fw: Int, fh: Int, frame: Int): android.graphics.Rect {
-    val f = ((frame % 4) + 4) % 4
-    val sx = if (f % 2 == 1) fw else 0
-    val sy = if (f >= 2) fh else 0
-    return android.graphics.Rect(sx, sy, sx + fw, sy + fh)
+private fun walkerSrcRect(fw: Int, fh: Int, frame: Int, cols: Int): android.graphics.Rect {
+    val f = ((frame % cols) + cols) % cols
+    val sx = f * fw
+    return android.graphics.Rect(sx, 0, sx + fw, fh)
 }
 
 private fun walkableKey(x: Int, y: Int): Long = y.toLong() * 1000L + x
