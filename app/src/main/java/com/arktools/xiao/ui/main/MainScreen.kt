@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.Color
@@ -669,12 +671,12 @@ fun MainScreen(
         containerColor = Color(0xCC0B2038),
         topBar = {
             TopAppBar(
-                windowInsets = androidx.compose.foundation.layout.WindowInsets(
+                windowInsets = WindowInsets(
                     left = 48,
                     top = 0,
                     right = 0,
                     bottom = 0
-                ).union(androidx.compose.foundation.layout.WindowInsets.statusBars),
+                ).union(WindowInsets.statusBars),
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xCC0B2038)
                 ),
