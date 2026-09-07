@@ -710,32 +710,46 @@ fun MainScreen(
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color(0xE60B2038)) {
+            NavigationBar(
+                containerColor = Color(0xE60B2038),
+                contentColor = Color.White
+            ) {
+                val navColors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color.White,
+                    selectedTextColor = Color.White,
+                    unselectedIconColor = Color(0xFFE7F1F8),
+                    unselectedTextColor = Color(0xFFE7F1F8),
+                    indicatorColor = Color(0xFF1E96C8)
+                )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_campus_v2), contentDescription = "校园", modifier = Modifier.size(28.dp)) },
-                    label = { Text("校园") },
+                    label = { Text("校园", color = Color.White) },
                     selected = selectedTab == 0,
+                    colors = navColors,
                     onClick = { menuViewModel.playClickSound(); selectRootTab(0) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_academic_v2), contentDescription = "治院", modifier = Modifier.size(28.dp)) },
-                    label = { Text("治院") },
+                    label = { Text("治院", color = Color.White) },
                     selected = selectedTab == 1,
+                    colors = navColors,
                     onClick = { menuViewModel.playClickSound(); selectRootTab(1) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_teacher_v2), contentDescription = "人事", modifier = Modifier.size(28.dp)) },
-                    label = { Text("人事") },
+                    label = { Text("人事", color = Color.White) },
                     selected = selectedTab == 2,
+                    colors = navColors,
                     onClick = { menuViewModel.playClickSound(); selectRootTab(2) }
                 )
                 NavigationBarItem(
                     icon = { Image(painter = painterResource(id = R.drawable.nav_research_v2), contentDescription = "外联", modifier = Modifier.size(28.dp)) },
-                    label = { Text("外联") },
+                    label = { Text("外联", color = Color.White) },
                     selected = selectedTab == 3,
+                    colors = navColors,
                     onClick = { menuViewModel.playClickSound(); selectRootTab(3) }
                 )
-                }
+            }
         }
     ) { paddingValues ->
         Column(

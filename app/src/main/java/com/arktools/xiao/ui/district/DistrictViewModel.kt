@@ -90,7 +90,7 @@ class DistrictViewModel @Inject constructor(
             val teachers = teacherRepository.getTeachers()
             val teacherCount = teachers.size
             val avgSkill = if (teachers.isNotEmpty()) teachers.map { it.averageSkill }.average() else 0.0
-            val classCount = teachingManager.config.totalClasses
+            val classCount = maxOf(teachingManager.config.totalClasses, gameEngine.classes.size)
             val studentCount = studentRepository.getActiveStudentCount()
             val yearsAtLevel = school.currentYear - school.levelUpYear
 
@@ -153,7 +153,7 @@ class DistrictViewModel @Inject constructor(
 
         val req = GameBalanceConfig.getUpgradeRequirements(school.campusLevel + 1)
         val teacherCount = teacherRepository.getTeachers().size
-        val classCount = teachingManager.config.totalClasses
+        val classCount = maxOf(teachingManager.config.totalClasses, gameEngine.classes.size)
         val studentCount = studentRepository.getActiveStudentCount()
         val yearsAtLevel = school.currentYear - school.levelUpYear
 

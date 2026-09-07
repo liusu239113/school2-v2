@@ -197,6 +197,26 @@ object FacilityStudentEffect {
                         dMorality = effectivePower * GATE_MORALITY_GAIN * traitMods.moralityMod
                     )
                 }
+
+                FacilityType.CLINIC -> {
+                    if (health == HealthStatus.SICK && Random.nextFloat() < effectivePower * 0.18f) {
+                        health = HealthStatus.HEALTHY
+                        sickDays = 0
+                    }
+                    attrs = attrs.applyDelta(
+                        dPhysical = effectivePower * 0.08f * traitMods.physicalMod
+                    )
+                }
+
+                FacilityType.COUNSELING -> {
+                    if (health == HealthStatus.FATIGUED && Random.nextFloat() < effectivePower * 0.12f) {
+                        health = HealthStatus.HEALTHY
+                    }
+                    attrs = attrs.applyDelta(
+                        dMorality = effectivePower * 0.08f * traitMods.moralityMod,
+                        dSocial = effectivePower * 0.04f * traitMods.socialMod
+                    )
+                }
             }
         }
 

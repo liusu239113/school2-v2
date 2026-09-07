@@ -1207,10 +1207,18 @@ class GameEngine @Inject constructor(
                         dorm != null && dorm.capacity > dorm.currentLoad
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_DORM,
-                    com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_GYM,
-                    com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_CLINIC -> {
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_GYM -> {
                         val target = studentLifeManager.state.value.facilities[issue.aspect]
                         target != null && target.maintenanceLevel >= 90f
+                    }
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_CLINIC -> {
+                        val built = school.facilities.any {
+                            it.type == com.arktools.xiao.domain.model.FacilityType.CLINIC && it.isOperational
+                        }
+                        val target = studentLifeManager.state.value.facilities[
+                            com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH
+                        ]
+                        built && target != null && target.maintenanceLevel >= 90f
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.EXPAND_CANTEEN -> {
                         val cafe = studentLifeManager.state.value.facilities[
@@ -1224,9 +1232,13 @@ class GameEngine @Inject constructor(
                         }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_COUNSELING -> {
-                        studentLifeManager.state.value.programs.any {
+                        val built = school.facilities.any {
+                            it.type == com.arktools.xiao.domain.model.FacilityType.COUNSELING && it.isOperational
+                        }
+                        val programOn = studentLifeManager.state.value.programs.any {
                             it.active && it.aspect == com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY
                         }
+                        built && programOn
                     }
                 }
                 if (!ok) {

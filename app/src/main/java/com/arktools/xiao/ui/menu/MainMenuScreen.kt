@@ -326,12 +326,17 @@ private fun NewGamePanel(
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
+                        disabledTextColor = Color.White,
+                        errorTextColor = Color.White,
                         cursorColor = Color(0xFFFFD54F),
                         focusedBorderColor = Color(0xFF1E96C8),
                         unfocusedBorderColor = Color(0xFF5A7186),
                         focusedLabelColor = Color(0xFFFFD54F),
-                        unfocusedLabelColor = Color(0xFF9EB3C6)
-                    )
+                        unfocusedLabelColor = Color(0xFF9EB3C6),
+                        focusedPlaceholderColor = Color(0xFF9EB3C6),
+                        unfocusedPlaceholderColor = Color(0xFF9EB3C6)
+                    ),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White)
                 )
                 Text(
                     text = "${schoolName.length}/12",
@@ -351,12 +356,17 @@ private fun NewGamePanel(
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
+                        disabledTextColor = Color.White,
+                        errorTextColor = Color.White,
                         cursorColor = Color(0xFFFFD54F),
                         focusedBorderColor = Color(0xFF1E96C8),
                         unfocusedBorderColor = Color(0xFF5A7186),
                         focusedLabelColor = Color(0xFFFFD54F),
-                        unfocusedLabelColor = Color(0xFF9EB3C6)
-                    )
+                        unfocusedLabelColor = Color(0xFF9EB3C6),
+                        focusedPlaceholderColor = Color(0xFF9EB3C6),
+                        unfocusedPlaceholderColor = Color(0xFF9EB3C6)
+                    ),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White)
                 )
                 Text(
                     text = "${principalName.length}/6",

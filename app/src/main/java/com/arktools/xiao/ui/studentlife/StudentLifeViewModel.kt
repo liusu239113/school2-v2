@@ -122,13 +122,29 @@ class StudentLifeViewModel @Inject constructor(
                     else "食堂专项已经开着，点检查结案"
                 }
                 ComplaintAction.OPEN_COUNSELING -> {
-                    val prog = studentLifeManager.getAvailablePrograms()
-                        .firstOrNull { it.aspect == LifeAspect.PSYCHOLOGY }
-                    if (prog != null) gameEngine.setStudentLifeProgramActive(prog.id, true).message
-                    else "心理专项已经开着，点检查结案"
+                    val school = schoolRepository.getSchool()
+                    val built = school?.facilities?.any {
+                        it.type == com.arktools.xiao.domain.model.FacilityType.COUNSELING && it.isOperational
+                    } == true
+                    if (!built) {
+                        "校园还没建心理辅导站。去校园建造菜单建一栋，再建站里开辅导。"
+                    } else {
+                        val prog = studentLifeManager.getAvailablePrograms()
+                            .firstOrNull { it.aspect == LifeAspect.PSYCHOLOGY }
+                        if (prog != null) gameEngine.setStudentLifeProgramActive(prog.id, true).message
+                        else "心理专项已经开着，点检查结案"
+                    }
                 }
-                ComplaintAction.REPAIR_GYM, ComplaintAction.OPEN_CLINIC ->
+                ComplaintAction.REPAIR_GYM ->
                     gameEngine.repairStudentLifeFacility(LifeAspect.HEALTH).message
+                ComplaintAction.OPEN_CLINIC -> {
+                    val school = schoolRepository.getSchool()
+                    val built = school?.facilities?.any {
+                        it.type == com.arktools.xiao.domain.model.FacilityType.CLINIC && it.isOperational
+                    } == true
+                    if (!built) "校园还没建医务室。去校园建造菜单建一栋，再来开诊。"
+                    else gameEngine.repairStudentLifeFacility(LifeAspect.HEALTH).message
+                }
             }
         }
     }

@@ -512,6 +512,12 @@ private fun getFacilityBonusLabels(facility: Facility): List<Pair<String, Color>
         FacilityType.GATE -> {
             result.add("声誉+${10 * lv}%" to Color(0xFFFFD700))
         }
+        FacilityType.CLINIC -> {
+            result.add("健康投诉可结案" to Color(0xFF4CAF50))
+        }
+        FacilityType.COUNSELING -> {
+            result.add("心理投诉可结案" to Color(0xFF9C27B0))
+        }
     }
     return result
 }

@@ -1681,6 +1681,16 @@ private fun BuildingPanelContent(
                         FacilityType.LOGISTICS_CENTER -> {
                             OccupancyBar("维护折扣", facility.level * 20, 100)
                         }
+                        FacilityType.CLINIC -> {
+                            OccupancyBar("接诊", state.studentCount, 40 + facility.level * 20)
+                            Text("学生生活的健康投诉，必须先建这栋医务室。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("学生生活") { onOpenStudentLife() }
+                        }
+                        FacilityType.COUNSELING -> {
+                            OccupancyBar("辅导名额", state.studentCount, 30 + facility.level * 20)
+                            Text("心理投诉必须先建这栋，再去学生生活开辅导。", fontSize = 12.sp, color = Color(0xFF617386))
+                            PanelButton("学生生活") { onOpenStudentLife() }
+                        }
                         else -> {}
                     }
                     OccupancyBar("月维护", facility.type.baseMaintenance.toInt(), 20.coerceAtLeast(facility.type.baseMaintenance.toInt()))
@@ -1850,6 +1860,8 @@ private fun BuildMenuContent(
                 FacilityType.COMPUTER_LAB -> "机位 ${state.computerSeats} · 已建 ${owned} 栋"
                 FacilityType.SPORTS_FIELD -> "容纳 ${state.sportsCapacity} · 已建 ${owned} 栋"
                 FacilityType.ART_STUDIO -> "工位 ${state.studioCapacity} · 已建 ${owned} 栋"
+                FacilityType.CLINIC -> "健康投诉必须先建这栋 · 已建 ${owned} 栋"
+                FacilityType.COUNSELING -> "心理投诉必须先建这栋 · 已建 ${owned} 栋"
                 else -> type.description
             }
             BuildRow(

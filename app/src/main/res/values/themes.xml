@@ -2,5 +2,6 @@
 <resources>
     <style name="Theme.SchoolTycoon" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>

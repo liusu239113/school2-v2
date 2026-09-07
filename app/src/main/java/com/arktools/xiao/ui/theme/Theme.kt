@@ -57,8 +57,7 @@ fun SchoolTycoonTheme(
         CompositionLocalProvider(
             LocalGameFontFamily provides family,
             LocalTextStyle provides TextStyle(
-                fontFamily = family,
-                color = PanelInk
+                fontFamily = family
             )
         ) {
             content()

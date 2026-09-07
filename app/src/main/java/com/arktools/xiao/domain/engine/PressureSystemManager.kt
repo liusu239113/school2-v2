@@ -242,6 +242,8 @@ class PressureSystemManager @Inject constructor() {
         FacilityType.AUDITORIUM -> listOf("舞台灯光系统故障", "座椅大面积损坏", "音响系统需要大修").random()
         FacilityType.GARDEN -> listOf("花园灌溉系统漏水", "园艺设施损坏", "景观照明需维修").random()
         FacilityType.GATE -> listOf("校门电动门故障", "门卫室设施损坏", "校门LED屏幕故障").random()
+        FacilityType.CLINIC -> listOf("诊疗床需要更换", "药品柜温控故障", "校医值班室需要整修").random()
+        FacilityType.COUNSELING -> listOf("谈心室隔音损坏", "热线电话故障", "减压室设备需要更换").random()
     }
 
     // ═══════════════════════════════════════════

@@ -141,6 +141,8 @@ enum class FacilityType(
     SPORTS_FIELD("运动场", "运动会和体育课场地。可办校运会拉招生和满意度。", 45.0, 1.2, 3, FacilityCategory.SUPPORT, repeatable = true),
     CANTEEN("食堂", "餐位决定能不能吃上热饭。可加窗口，不够会投诉。", 28.0, 1.0, 3, FacilityCategory.SUPPORT, repeatable = true),
     DORMITORY("宿舍楼", "床位卡招生上限。点开本楼可看每层住了谁。", 95.0, 2.4, 3, FacilityCategory.SUPPORT, repeatable = true),
+    CLINIC("医务室", "校医值班和接诊。学生生活里的健康投诉必须先建这栋。", 32.0, 1.1, 3, FacilityCategory.SUPPORT, repeatable = true),
+    COUNSELING("心理辅导站", "心理热线和减压工作坊。心理投诉必须先建这栋再开辅导。", 28.0, 0.9, 3, FacilityCategory.SUPPORT, repeatable = true),
 
     // Prestige facilities
     AUDITORIUM("大礼堂", "声誉增长+5%/级，事件奖励加成+20%/级，学生社交+", 100.0, 2.5, 2, FacilityCategory.PRESTIGE),
@@ -227,6 +229,8 @@ object FacilityBonusCalculator {
                         FacilityType.INCUBATOR -> enrollment += 0.03f * levelMultiplier
                         FacilityType.INTERNATIONAL_CENTER -> reputationGrowth += 0.06f * levelMultiplier
                         FacilityType.LOGISTICS_CENTER -> { /* 效果体现在维护费折扣，不在加成面板 */ }
+                        FacilityType.CLINIC -> enrollment += 0.02f * levelMultiplier
+                        FacilityType.COUNSELING -> loyaltyDecay += 0.08f * levelMultiplier
                     }
                 }
             }
