@@ -34,50 +34,50 @@ object GameBalanceConfig {
     fun getUpgradeRequirements(targetLevel: Int): SchoolUpgradeRequirement {
         return when (targetLevel) {
             2 -> SchoolUpgradeRequirement(
-                cashCost = 80.0,         // 需要80万资金
-                minReputation = 150L,     // 至少150声望（被动月涨+竞赛/委托可主动冲）
+                cashCost = 120.0,
+                minReputation = 180L,
                 minTeachers = 6,
-                minClasses = 4,
+                minClasses = 4, // 教室班槽：1级教室楼=3间，要升楼或再建一栋
                 minStudents = 100,
-                description = "完成首批学院建设，获得地方教育主管部门办学许可"
+                description = "教室班槽够用，获得地方教育主管部门办学许可"
             )
             3 -> SchoolUpgradeRequirement(
-                cashCost = 300.0,        // 需要300万
-                minReputation = 600L,    // 600声望
+                cashCost = 420.0,
+                minReputation = 700L,
                 minTeachers = 18,
                 minClasses = 8,
-                minStudents = 300,       // v3.2: 400→300，避免"要学院才能扩招、要扩招才能建学院"死锁
-                minYearsAtCurrentLevel = 1,
-                description = "通过本科教学合格评估，形成稳定的专业与人才培养体系"
+                minStudents = 360,
+                minYearsAtCurrentLevel = 2,
+                description = "通过教学合格评估，形成稳定的专业与人才培养体系"
             )
             4 -> SchoolUpgradeRequirement(
-                cashCost = 1000.0,       // 需要1000万
-                minReputation = 2500L,   // 2500声望
-                minTeachers = 40,
+                cashCost = 1600.0,
+                minReputation = 2800L,
+                minTeachers = 42,
                 minClasses = 16,
-                minStudents = 800,      // v3.2: 1000→800
-                minYearsAtCurrentLevel = 2,
+                minStudents = 900,
+                minYearsAtCurrentLevel = 3,
                 minAverageTeacherSkill = 70,
                 description = "形成优势学科群，科研成果和毕业生就业质量进入省内前列"
             )
             5 -> SchoolUpgradeRequirement(
-                cashCost = 15000.0,      // v2.9: 需要1.5亿（原5000万太便宜）
-                minReputation = 8000L,   // 8000声望
-                minTeachers = 80,
-                minClasses = 28,
-                minStudents = 3000,
-                minYearsAtCurrentLevel = 3,
+                cashCost = 18000.0,
+                minReputation = 9000L,
+                minTeachers = 85,
+                minClasses = 32,
+                minStudents = 3200,
+                minYearsAtCurrentLevel = 4,
                 minAverageTeacherSkill = 85,
                 requiresResearch = true,
                 description = "建设国家级科研平台，进入高水平大学建设序列"
             )
             6 -> SchoolUpgradeRequirement(
-                cashCost = 80000.0,      // v2.9: 需要8亿（原2亿太便宜，后期资金过剩）
-                minReputation = 30000L,  // 30000声望
-                minTeachers = 160,
-                minClasses = 48,
-                minStudents = 8000,
-                minYearsAtCurrentLevel = 5,
+                cashCost = 90000.0,
+                minReputation = 32000L,
+                minTeachers = 170,
+                minClasses = 56,
+                minStudents = 8500,
+                minYearsAtCurrentLevel = 6,
                 minAverageTeacherSkill = 95,
                 requiresResearch = true,
                 requiresInternational = true,

@@ -14,7 +14,6 @@ import com.arktools.xiao.domain.repository.CourseRepository
 import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.repository.StudentRepository
 import com.arktools.xiao.domain.repository.TeacherRepository
-import com.arktools.xiao.domain.teaching.TeachingManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +28,6 @@ class DistrictViewModel @Inject constructor(
     private val teacherRepository: TeacherRepository,
     private val studentRepository: StudentRepository,
     private val expansionManager: CampusExpansionManager,
-    private val teachingManager: TeachingManager,
     private val gameEngine: GameEngine,
     private val audioManager: com.arktools.xiao.audio.AudioManager
 ) : ViewModel() {
@@ -90,7 +88,7 @@ class DistrictViewModel @Inject constructor(
             val teachers = teacherRepository.getTeachers()
             val teacherCount = teachers.size
             val avgSkill = if (teachers.isNotEmpty()) teachers.map { it.averageSkill }.average() else 0.0
-            val classCount = maxOf(teachingManager.config.totalClasses, gameEngine.classes.size)
+            val classroomSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
             val studentCount = studentRepository.getActiveStudentCount()
             val yearsAtLevel = school.currentYear - school.levelUpYear
 
@@ -106,11 +104,9 @@ class DistrictViewModel @Inject constructor(
                 _upgradeMessage.value = "教师不足！需要 ${req.minTeachers} 人（当前 ${teacherCount} 人）"
                 return@safeLaunch
             }
-            if (req.minClasses > 0 && classCount < req.minClasses) {
-                val realClasses = gameEngine.classes.size
-                val classroomSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
+            if (req.minClasses > 0 && classroomSlots < req.minClasses) {
                 _upgradeMessage.value =
-                    "教学班不足！需要 ${req.minClasses} 个班（现在教学班 $realClasses，教室班槽 $classroomSlots）。教室不够去校园再建/升级教室，班开出来才算。"
+                    "教室班槽不足！升到下一级需要 ${req.minClasses} 间教室容量（现在班槽 $classroomSlots）。一栋1级教室楼=3间，升级该楼或再建一栋就能加。"
                 return@safeLaunch
             }
             if (req.minStudents > 0 && studentCount < req.minStudents) {
@@ -156,7 +152,7 @@ class DistrictViewModel @Inject constructor(
 
         val req = GameBalanceConfig.getUpgradeRequirements(school.campusLevel + 1)
         val teacherCount = teacherRepository.getTeachers().size
-        val classCount = maxOf(teachingManager.config.totalClasses, gameEngine.classes.size)
+        val classroomSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
         val studentCount = studentRepository.getActiveStudentCount()
         val yearsAtLevel = school.currentYear - school.levelUpYear
 
@@ -169,10 +165,10 @@ class DistrictViewModel @Inject constructor(
         if (req.minClasses > 0) {
             conditions.add(
                 UpgradeCondition(
-                    "班级",
-                    "${classCount}个(班槽${com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)})",
-                    "${req.minClasses}个",
-                    classCount >= req.minClasses
+                    "教室班槽",
+                    "${classroomSlots}间（1级楼=3间）",
+                    "${req.minClasses}间",
+                    classroomSlots >= req.minClasses
                 )
             )
         }

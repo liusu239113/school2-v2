@@ -148,16 +148,16 @@ class StudentLifeManager @Inject constructor() {
         _state.update { state ->
             val facilities = state.facilities.toMutableMap()
             facilities[LifeAspect.DORMITORY]?.let { dorm ->
-                facilities[LifeAspect.DORMITORY] = dorm.copy(capacity = dormBeds.coerceAtLeast(1))
+                facilities[LifeAspect.DORMITORY] = dorm.copy(capacity = dormBeds.coerceAtLeast(0))
             }
             facilities[LifeAspect.CAFETERIA]?.let { cafe ->
-                facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = canteenSeats.coerceAtLeast(1))
+                facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = canteenSeats.coerceAtLeast(0))
             }
             facilities[LifeAspect.HEALTH]?.let { health ->
-                facilities[LifeAspect.HEALTH] = health.copy(capacity = clinicSlots.coerceAtLeast(1))
+                facilities[LifeAspect.HEALTH] = health.copy(capacity = clinicSlots.coerceAtLeast(0))
             }
             facilities[LifeAspect.PSYCHOLOGY]?.let { psych ->
-                facilities[LifeAspect.PSYCHOLOGY] = psych.copy(capacity = counselingSlots.coerceAtLeast(1))
+                facilities[LifeAspect.PSYCHOLOGY] = psych.copy(capacity = counselingSlots.coerceAtLeast(0))
             }
             state.copy(facilities = facilities)
         }
@@ -548,13 +548,8 @@ class StudentLifeManager @Inject constructor() {
                 events.add(LifeEvent.IssueOccurred(issue))
             }
 
-            // 自动解决旧问题(15%概率 — 大多需要玩家主动处理)
-            val updatedIssues = state.issues.map { issue ->
-                if (!issue.resolved && random.nextFloat() < 0.15f) {
-                    resolvedIssues.add(issue)
-                    issue.copy(resolved = true)
-                } else issue
-            }
+            // 投诉不会自动消失：必须对着真实楼做完对应建设/维修再点检查结案
+            val updatedIssues = state.issues
 
             state.copy(
                 facilities = facilities,
@@ -712,10 +707,12 @@ class StudentLifeManager @Inject constructor() {
                 // 维护度影响
                 val maintenanceFactor = (facility?.maintenanceLevel ?: 50f) / 100f
 
-                // 过载惩罚
-                val loadRatio = if ((facility?.capacity ?: 1) > 0) {
+                // 过载惩罚：没建对应楼时容量为 0，有学生就算挤爆
+                val loadRatio = if ((facility?.capacity ?: 0) <= 0) {
+                    if ((facility?.currentLoad ?: 0) > 0) 2f else 0f
+                } else {
                     (facility?.currentLoad?.toFloat() ?: 0f) / (facility?.capacity?.toFloat() ?: 1f)
-                } else 1f
+                }
                 val loadPenalty = when {
                     loadRatio > 1.5f -> -20f
                     loadRatio > 1.2f -> -10f
@@ -799,55 +796,55 @@ class StudentLifeManager @Inject constructor() {
             pool += Candidate(
                 LifeAspect.DORMITORY, "宿舍挤到加床",
                 "床位已经住满（负载 ${(dormLoad * 100).toInt()}%），走廊加床引发投诉。",
-                IssueSeverity.HIGH, ComplaintAction.EXPAND_DORM, "去宿舍点「扩容」加床位后才能结案"
+                IssueSeverity.HIGH, ComplaintAction.EXPAND_DORM, "去校园把宿舍楼加床或再建一栋，床位必须超过现住人数才能结案"
             )
         }
         if (dormLoad >= 0.85f || avgMaintenance < 55f) {
             pool += Candidate(
                 LifeAspect.DORMITORY, "宿舍漏水",
                 "住宿偏满或设施老化，卫生间渗水。",
-                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_DORM, "去宿舍点「维修」后才能结案"
+                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_DORM, "去校园把宿舍楼修好（楼况到90）才能结案"
             )
         }
         if (cafeLoad >= 1.0f) {
             pool += Candidate(
                 LifeAspect.CAFETERIA, "食堂排队过长",
                 "餐位不够（负载 ${(cafeLoad * 100).toInt()}%），学生吃不上热饭。",
-                IssueSeverity.HIGH, ComplaintAction.EXPAND_CANTEEN, "去食堂加开窗口或扩容后才能结案"
+                IssueSeverity.HIGH, ComplaintAction.EXPAND_CANTEEN, "去校园给食堂加窗口或再建一栋，餐位必须超过现排队人数才能结案"
             )
         }
         if (cafeLoad >= 0.8f) {
             pool += Candidate(
                 LifeAspect.CAFETERIA, "学生投诉菜品单一",
                 "食堂超负荷，窗口只能反复出同样的菜。",
-                IssueSeverity.LOW, ComplaintAction.CHANGE_MENU, "去食堂点「更换菜谱」后才能结案"
+                IssueSeverity.LOW, ComplaintAction.CHANGE_MENU, "先有食堂楼，再在学生生活开营养餐或有机菜专项才能结案"
             )
         }
         if (overall < 45f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "校园霸凌事件",
                 "整体满意度只有 ${overall.toInt()}，矛盾没人管，出现欺凌投诉。",
-                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开「减压工作坊」才能结案"
+                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开减压工作坊才能结案"
             )
         } else if (overall < 60f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "考试压力过大投诉",
                 "满意度 ${overall.toInt()}，学生觉得没人听他们说话。",
-                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开「减压工作坊」才能结案"
+                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开减压工作坊才能结案"
             )
         }
         if (avgMaintenance < 40f) {
             pool += Candidate(
                 LifeAspect.HEALTH, "运动设施损坏",
                 "维护度掉到 ${avgMaintenance.toInt()}，器材带伤运行。",
-                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_GYM, "去健康设施点「维修」后才能结案"
+                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_GYM, "去校园把体育馆修好（楼况到90）才能结案"
             )
         }
         if (month in listOf(1, 2, 12) && overall < 70f) {
             pool += Candidate(
                 LifeAspect.HEALTH, "流感季节爆发",
                 "冬春季叠加满意度不高，医务室挤满人。",
-                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "先去校园建医务室，再维修值班后才能结案"
+                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "先去校园建医务室，再把这栋楼修好值班才能结案"
             )
         }
         if (pool.isEmpty()) return null

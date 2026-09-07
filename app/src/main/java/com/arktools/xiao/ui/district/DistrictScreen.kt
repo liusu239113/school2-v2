@@ -914,7 +914,7 @@ private fun CapacityCard(state: CampusExpansionState) {
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "校园容量是实体空间上限，招生上限取决于「治院 → 教学配置」的教学班容量",
+                "招生学位和升级用的班级数，都按校园教室楼里的班槽算。一栋1级教室楼=3间教室。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )

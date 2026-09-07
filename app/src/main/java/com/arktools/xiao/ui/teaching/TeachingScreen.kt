@@ -166,9 +166,9 @@ private fun ClassroomCapacityCard(classroomCount: Int, classroomCapacity: Int) {
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF14648C)
             )
-            Text("现有教室 $classroomCount 间", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("现有教室楼 $classroomCount 栋，班槽 $classroomCapacity 间", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text(
-                "可容纳约 $seats 名学生。再建一间教室或升级现有教室，9月就能多招人。",
+                "可容纳约 $seats 名学生。一栋1级教室楼=3间教室。升级该楼或再建一栋，9月就能多招人。",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -178,7 +178,7 @@ private fun ClassroomCapacityCard(classroomCount: Int, classroomCapacity: Int) {
                 color = Color(0xFF14648C)
             )
             Text(
-                "规则：教室 Lv1=90人，Lv2=120人，Lv3=180人，Lv4=210人，Lv5=270人。两间教室就按两间加总。",
+                "规则：1级楼=3间/90人，2级=4间/120人，3级=6间/180人。两栋楼按两栋加总，不是一栋楼只有一间教室。",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

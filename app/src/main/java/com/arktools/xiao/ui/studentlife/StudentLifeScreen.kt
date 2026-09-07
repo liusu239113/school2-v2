@@ -455,18 +455,18 @@ private fun actionLabel(action: ComplaintAction): String = when (action) {
     ComplaintAction.EXPAND_CANTEEN -> "去食堂加窗口"
     ComplaintAction.CHANGE_MENU -> "去食堂换菜谱"
     ComplaintAction.OPEN_COUNSELING -> "去建心理辅导站"
-    ComplaintAction.REPAIR_GYM -> "去修运动馆"
+    ComplaintAction.REPAIR_GYM -> "去修体育馆"
     ComplaintAction.OPEN_CLINIC -> "去建医务室"
 }
 
 private fun actionWork(action: ComplaintAction): String = when (action) {
-    ComplaintAction.EXPAND_DORM -> "在学生宿舍楼加床，床位必须超过现住人数"
-    ComplaintAction.REPAIR_DORM -> "把宿舍楼况修到 90 以上"
-    ComplaintAction.EXPAND_CANTEEN -> "在第一食堂加窗口/餐位，容量必须超过现排队人数"
-    ComplaintAction.CHANGE_MENU -> "在食堂开办营养餐或有机菜专项"
+    ComplaintAction.EXPAND_DORM -> "在校园宿舍楼加床或再建一栋，床位必须超过现住人数"
+    ComplaintAction.REPAIR_DORM -> "把校园宿舍楼楼况修到 90 以上"
+    ComplaintAction.EXPAND_CANTEEN -> "在校园食堂加窗口或再建一栋，餐位必须超过现排队人数"
+    ComplaintAction.CHANGE_MENU -> "先有食堂楼，再开办营养餐或有机菜专项"
     ComplaintAction.OPEN_COUNSELING -> "先在校园建心理辅导站，再开热线或减压工作坊"
-    ComplaintAction.REPAIR_GYM -> "把运动馆设施修到 90 以上"
-    ComplaintAction.OPEN_CLINIC -> "先在校园建医务室，再把设施修到 90 以上开诊"
+    ComplaintAction.REPAIR_GYM -> "把校园体育馆楼况修到 90 以上"
+    ComplaintAction.OPEN_CLINIC -> "先在校园建医务室，再把这栋楼修到 90 以上开诊"
 }
 
 private fun signed(value: Float): String {

@@ -75,14 +75,10 @@ class TeachingViewModel @Inject constructor(
     }
 
     /**
-     * 教室有效容量 Flow（最大总班级数，考虑等级加成）
-     * 与 GameEngine 招生约束一致：每间教室 Lv1=3班, Lv2=4班, Lv3=6班, Lv4=7班, Lv5=9班
-     * 公式：sumOf { ((level+1)/2.0) * 3.0 }.toInt()
+     * 教室班槽：一栋1级教室楼=3间，升级该楼或再建一栋才加。
      */
     val classroomCapacityFlow = schoolRepository.getSchoolFlow().map { school ->
-        school?.facilities
-            ?.filter { it.type == FacilityType.CLASSROOM && it.isOperational }
-            ?.sumOf { ((it.level + 1) / 2.0).coerceAtLeast(1.0) * 3.0 }?.toInt() ?: 0
+        school?.let { FacilityCapacity.totalClassSlots(it.facilities) } ?: 0
     }
 
     /** 每种班型最大班级数（根据学校等级动态调整） */

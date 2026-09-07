@@ -142,7 +142,7 @@ enum class FacilityType(
     val repeatable: Boolean = false
 ) {
     // Teaching facilities — 建设成本适中，维护费合理（占学费收入10-20%为宜）
-    CLASSROOM("标准教室", "教室学位直接决定招生人数。Lv1=90人，两间教室按两间加总。", 18.0, 0.6, 5, FacilityCategory.TEACHING, repeatable = true),
+    CLASSROOM("标准教室", "一栋1级教室楼=3间教室/90人。升级该楼或再建一栋才加学位。", 18.0, 0.6, 5, FacilityCategory.TEACHING, repeatable = true),
     MULTIMEDIA_ROOM("多媒体教室", "公开课和演示课场地，打开演练后教学质量上升。", 35.0, 1.2, 3, FacilityCategory.TEACHING, repeatable = true),
     LABORATORY("实验室", "理学院课题台位。打开夜间实验室可加快科研日。", 50.0, 1.8, 3, FacilityCategory.TEACHING, repeatable = true),
     COMPUTER_LAB("计算机房", "工学院机位，决定信息技术课容量和课题速度。", 40.0, 1.5, 3, FacilityCategory.TEACHING, repeatable = true),

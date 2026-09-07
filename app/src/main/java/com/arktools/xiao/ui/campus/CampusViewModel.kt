@@ -21,7 +21,6 @@ import com.arktools.xiao.domain.policy.SchoolPolicyManager
 import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.repository.StudentRepository
 import com.arktools.xiao.domain.repository.TeacherRepository
-import com.arktools.xiao.domain.teaching.TeachingManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +43,6 @@ class CampusViewModel @Inject constructor(
     private val audioManager: AudioManager,
     private val teacherRepository: TeacherRepository,
     private val studentRepository: StudentRepository,
-    private val teachingManager: TeachingManager,
     private val cashShortfallAdManager: CashShortfallAdManager
 ) : ViewModel() {
 
@@ -1468,9 +1466,6 @@ class CampusViewModel @Inject constructor(
             val teachers = teacherRepository.getTeachers()
             val teacherCount = teachers.size
             val avgSkill = if (teachers.isNotEmpty()) teachers.map { it.averageSkill }.average() else 0.0
-            val realClasses = gameEngine.classes.size
-            val plannedClasses = teachingManager.config.totalClasses
-            val classCount = maxOf(realClasses, plannedClasses)
             val classroomSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
             val studentCount = studentRepository.getActiveStudentCount()
             val yearsAtLevel = school.currentYear - school.levelUpYear
@@ -1478,8 +1473,8 @@ class CampusViewModel @Inject constructor(
                 if (school.cash < req.cashCost) add("资金 ${req.cashCost.toInt()}万")
                 if (school.reputation < req.minReputation) add("声誉 ${req.minReputation}")
                 if (teacherCount < req.minTeachers) add("教师 ${req.minTeachers}人")
-                if (classCount < req.minClasses) {
-                    add("班级 ${req.minClasses}个（现在教学班 $realClasses，教室班槽 $classroomSlots。班槽不够去校园再建/升级教室）")
+                if (classroomSlots < req.minClasses) {
+                    add("教室班槽 ${req.minClasses}间（现在 $classroomSlots 间，1级教室楼=3间，升级或再建一栋）")
                 }
                 if (studentCount < req.minStudents) add("学生 ${req.minStudents}人")
                 if (yearsAtLevel < req.minYearsAtCurrentLevel) add("运营满 ${req.minYearsAtCurrentLevel}年")

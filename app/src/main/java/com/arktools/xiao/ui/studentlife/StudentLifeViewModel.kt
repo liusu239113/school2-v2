@@ -145,8 +145,14 @@ class StudentLifeViewModel @Inject constructor(
                         else "心理专项已经开着，点检查结案"
                     }
                 }
-                ComplaintAction.REPAIR_GYM ->
-                    gameEngine.repairStudentLifeFacility(LifeAspect.HEALTH).message
+                ComplaintAction.REPAIR_GYM -> {
+                    val school = schoolRepository.getSchool()
+                    val built = school?.facilities?.any {
+                        it.type == com.arktools.xiao.domain.model.FacilityType.SPORTS_FIELD && it.isOperational
+                    } == true
+                    if (!built) "校园还没建体育馆。去校园建造菜单建一栋，再来维修。"
+                    else gameEngine.repairStudentLifeFacility(LifeAspect.HEALTH).message
+                }
                 ComplaintAction.OPEN_CLINIC -> {
                     val school = schoolRepository.getSchool()
                     val built = school?.facilities?.any {

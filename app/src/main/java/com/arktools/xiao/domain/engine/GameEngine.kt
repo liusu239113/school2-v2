@@ -1107,6 +1107,29 @@ class GameEngine @Inject constructor(
         }
     }
 
+    private fun restoreCampusHallCondition(
+        school: School,
+        aspect: com.arktools.xiao.domain.studentlife.LifeAspect
+    ) {
+        val types = when (aspect) {
+            com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY ->
+                listOf(FacilityType.DORMITORY)
+            com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
+                listOf(FacilityType.CANTEEN)
+            com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH ->
+                listOf(FacilityType.CLINIC, FacilityType.SPORTS_FIELD)
+            com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY ->
+                listOf(FacilityType.COUNSELING)
+        }
+        school.facilities.replaceAll { facility ->
+            if (facility.type in types && facility.isOperational) {
+                facility.copy(condition = 100f)
+            } else {
+                facility
+            }
+        }
+    }
+
     suspend fun setStudentLifeProgramActive(
         programId: String,
         active: Boolean
@@ -1189,6 +1212,7 @@ class GameEngine @Inject constructor(
                 ) -> ManagedOperationResult(false, "设施状态已变化，请重试")
                 else -> {
                     school.cash -= cost
+                    restoreCampusHallCondition(school, aspect)
                     financialReportManager.recordExpense(
                         com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
                         cost,
@@ -1196,7 +1220,7 @@ class GameEngine @Inject constructor(
                     )
                     ManagedOperationResult(
                         true,
-                        "维修完成，花费 ¥${cost.toLong()}万",
+                        "维修完成，花费 ¥${cost.toLong()}万。对应校园楼已经修好。",
                         cost
                     )
                 }
@@ -1222,6 +1246,9 @@ class GameEngine @Inject constructor(
                         ManagedOperationResult(false, "设施状态已变化，请重试")
                     else -> {
                         school.cash -= cost
+                        com.arktools.xiao.domain.studentlife.LifeAspect.entries.forEach { aspect ->
+                            restoreCampusHallCondition(school, aspect)
+                        }
                         financialReportManager.recordExpense(
                             com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
                             cost,
@@ -1229,7 +1256,7 @@ class GameEngine @Inject constructor(
                         )
                         ManagedOperationResult(
                             true,
-                            "一键维修完成，花费 ¥${cost.toLong()}万",
+                            "一键维修完成，花费 ¥${cost.toLong()}万。宿舍食堂医务心理对应的楼都修好了。",
                             cost
                         )
                     }
@@ -1355,44 +1382,53 @@ class GameEngine @Inject constructor(
                 } ?: return@commitStudentLifeOperationLocked ManagedOperationResult(false, "这条投诉已经处理过了")
                 val ok = when (issue.requiredAction) {
                     com.arktools.xiao.domain.studentlife.ComplaintAction.EXPAND_DORM -> {
+                        val hasHall = school.facilities.any {
+                            it.type == FacilityType.DORMITORY && it.isOperational
+                        }
                         val dorm = studentLifeManager.state.value.facilities[
                             com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY
                         ]
-                        dorm != null && dorm.capacity > dorm.currentLoad
+                        hasHall && dorm != null && dorm.capacity > dorm.currentLoad
                     }
-                    com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_DORM,
+                    com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_DORM -> {
+                        school.facilities.filter {
+                            it.type == FacilityType.DORMITORY && it.isOperational
+                        }.let { list -> list.isNotEmpty() && list.all { it.condition >= 90f } }
+                    }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_GYM -> {
-                        val target = studentLifeManager.state.value.facilities[issue.aspect]
-                        target != null && target.maintenanceLevel >= 90f
+                        school.facilities.filter {
+                            it.type == FacilityType.SPORTS_FIELD && it.isOperational
+                        }.let { list -> list.isNotEmpty() && list.all { it.condition >= 90f } }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_CLINIC -> {
-                        val built = school.facilities.any {
-                            it.type == com.arktools.xiao.domain.model.FacilityType.CLINIC && it.isOperational
+                        val clinics = school.facilities.filter {
+                            it.type == FacilityType.CLINIC && it.isOperational
                         }
-                        val target = studentLifeManager.state.value.facilities[
-                            com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH
-                        ]
-                        built && target != null && target.maintenanceLevel >= 90f
+                        clinics.isNotEmpty() && clinics.all { it.condition >= 90f }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.EXPAND_CANTEEN -> {
+                        val hasHall = school.facilities.any {
+                            it.type == FacilityType.CANTEEN && it.isOperational
+                        }
                         val cafe = studentLifeManager.state.value.facilities[
                             com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA
                         ]
-                        cafe != null && cafe.capacity > cafe.currentLoad
+                        hasHall && cafe != null && cafe.capacity > cafe.currentLoad
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.CHANGE_MENU -> {
-                        studentLifeManager.state.value.programs.any {
+                        school.facilities.any {
+                            it.type == FacilityType.CANTEEN && it.isOperational
+                        } && studentLifeManager.state.value.programs.any {
                             it.active && it.aspect == com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA
                         }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_COUNSELING -> {
-                        val built = school.facilities.any {
-                            it.type == com.arktools.xiao.domain.model.FacilityType.COUNSELING && it.isOperational
+                        val halls = school.facilities.filter {
+                            it.type == FacilityType.COUNSELING && it.isOperational
                         }
-                        val programOn = studentLifeManager.state.value.programs.any {
+                        halls.isNotEmpty() && studentLifeManager.state.value.programs.any {
                             it.active && it.aspect == com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY
                         }
-                        built && programOn
                     }
                 }
                 if (!ok) {
@@ -1400,7 +1436,10 @@ class GameEngine @Inject constructor(
                 } else if (!studentLifeManager.applyResolveIssue(issueId)) {
                     ManagedOperationResult(false, "投诉状态已变化")
                 } else {
-                    ManagedOperationResult(true, "「${issue.title}」已结案，满意度回升。")
+                    ManagedOperationResult(
+                        true,
+                        "「${issue.title}」已结案。生活满意度回升，退学压力会跟着下来。"
+                    )
                 }
             }
         }
@@ -7252,7 +7291,13 @@ class GameEngine @Inject constructor(
                 FacilityCapacity.overcrowdingPenalty(dormRatio) +
                     FacilityCapacity.overcrowdingPenalty(canteenRatio)
                 ) / 30f
-            student.satisfaction = (student.satisfaction + satisfactionDelta + policySatisfactionDaily + teachingSatisfactionDaily - crowdingDaily).coerceIn(0f, 100f)
+            val lifeSatDaily = (
+                studentLifeManager.state.value.overallSatisfaction - 55f
+            ).coerceIn(-25f, 25f) / 30f
+            student.satisfaction = (
+                student.satisfaction + satisfactionDelta + policySatisfactionDaily +
+                    teachingSatisfactionDaily - crowdingDaily + lifeSatDaily
+                ).coerceIn(0f, 100f)
             if (dormRatio > 1f) {
                 student.dormSatisfaction = (student.dormSatisfaction - crowdingDaily * 2f).coerceAtLeast(5f)
             }
@@ -7263,7 +7308,11 @@ class GameEngine @Inject constructor(
             // 检查退学（含特质效果 + 政策修正 + 奖学金留存加成）
             val baseDropout = StudentSatisfactionCalculator.calculateDropoutProbability(student.satisfaction, student.traits)
             val retentionReduction = scholarshipManager.getRetentionBonus() / 30f  // 月度留存加成折算到每日
-            val dropoutProbability = (baseDropout + policyEffects.dropoutRateModifier / 30f - retentionReduction).coerceAtLeast(0f)
+            val lifeRetentionDaily = studentLifeManager.state.value.retentionImpact / 30f
+            val dropoutProbability = (
+                baseDropout + policyEffects.dropoutRateModifier / 30f -
+                    retentionReduction - lifeRetentionDaily
+                ).coerceAtLeast(0f)
             if (dropoutProbability > 0f && Random.nextFloat() < dropoutProbability) {
                 student.status = StudentStatus.DROPPED
                 student.graduateYear = school.currentYear

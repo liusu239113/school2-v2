@@ -32,7 +32,7 @@ object FacilityImageHelper {
             FacilityType.INTERNATIONAL_CENTER -> R.drawable.bld_intl
             FacilityType.LOGISTICS_CENTER -> R.drawable.bld_logistics
             FacilityType.CLINIC -> R.drawable.bld_hospital
-            FacilityType.COUNSELING -> R.drawable.bld_employment
+            FacilityType.COUNSELING -> R.drawable.bld_hospital
         }
     }
 }
