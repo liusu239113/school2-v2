@@ -111,13 +111,19 @@ data class SpecialProgram(
     var active: Boolean = false
 )
 
+data class LifeExpenseItem(
+    val description: String,
+    val amount: Long
+)
+
 data class LifeMonthlyResult(
     val totalExpenses: Long = 0,
     val satisfactionChange: Float = 0f,
     val newIssues: List<LifeIssue> = emptyList(),
     val resolvedIssues: List<LifeIssue> = emptyList(),
     val academicImpact: Float = 0f,
-    val events: List<LifeEvent> = emptyList()
+    val events: List<LifeEvent> = emptyList(),
+    val expenseItems: List<LifeExpenseItem> = emptyList()
 )
 
 sealed class LifeEvent {
@@ -133,7 +139,12 @@ class StudentLifeManager @Inject constructor() {
     private val _state = MutableStateFlow(StudentLifeState())
     val state: StateFlow<StudentLifeState> = _state.asStateFlow()
 
-    fun syncCampusCapacity(dormBeds: Int, canteenSeats: Int) {
+    fun syncCampusCapacity(
+        dormBeds: Int,
+        canteenSeats: Int,
+        clinicSlots: Int = 0,
+        counselingSlots: Int = 0
+    ) {
         _state.update { state ->
             val facilities = state.facilities.toMutableMap()
             facilities[LifeAspect.DORMITORY]?.let { dorm ->
@@ -141,6 +152,12 @@ class StudentLifeManager @Inject constructor() {
             }
             facilities[LifeAspect.CAFETERIA]?.let { cafe ->
                 facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = canteenSeats.coerceAtLeast(1))
+            }
+            facilities[LifeAspect.HEALTH]?.let { health ->
+                facilities[LifeAspect.HEALTH] = health.copy(capacity = clinicSlots.coerceAtLeast(1))
+            }
+            facilities[LifeAspect.PSYCHOLOGY]?.let { psych ->
+                facilities[LifeAspect.PSYCHOLOGY] = psych.copy(capacity = counselingSlots.coerceAtLeast(1))
             }
             state.copy(facilities = facilities)
         }
@@ -449,6 +466,7 @@ class StudentLifeManager @Inject constructor() {
             return LifeMonthlyResult()
         }
         var totalExpenses = 0L
+        val expenseItems = mutableListOf<LifeExpenseItem>()
         val events = mutableListOf<LifeEvent>()
         val newIssues = mutableListOf<LifeIssue>()
         val resolvedIssues = mutableListOf<LifeIssue>()
@@ -468,6 +486,12 @@ class StudentLifeManager @Inject constructor() {
                 } else 0.3f
                 val scaledCost = (facility.monthlyMaintenanceCost.toFloat() * occupancyRatio).toLong().coerceAtLeast(1L)
                 totalExpenses += scaledCost
+                expenseItems.add(
+                    LifeExpenseItem(
+                        description = "${aspect.displayName}月维护（入住${(occupancyRatio * 100).toInt()}%）",
+                        amount = scaledCost
+                    )
+                )
 
                 if (newMaintenance < 30f && facility.maintenanceLevel >= 30f) {
                     events.add(LifeEvent.FacilityDegraded(aspect, newMaintenance))
@@ -491,6 +515,12 @@ class StudentLifeManager @Inject constructor() {
             val activePrograms = state.programs.filter { it.active }
             activePrograms.forEach { program ->
                 totalExpenses += program.monthlyCost
+                expenseItems.add(
+                    LifeExpenseItem(
+                        description = "学生生活专项「${program.name}」",
+                        amount = program.monthlyCost
+                    )
+                )
                 if (random.nextFloat() < 0.3f) {
                     events.add(LifeEvent.ProgramEffect(program.name, program.satisfactionBoost))
                 }
@@ -544,7 +574,8 @@ class StudentLifeManager @Inject constructor() {
             newIssues = newIssues,
             resolvedIssues = resolvedIssues,
             academicImpact = currentState.academicImpact,
-            events = events
+            events = events,
+            expenseItems = expenseItems.toList()
         )
     }
 
@@ -796,13 +827,13 @@ class StudentLifeManager @Inject constructor() {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "校园霸凌事件",
                 "整体满意度只有 ${overall.toInt()}，矛盾没人管，出现欺凌投诉。",
-                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "开设「减压工作坊」后才能结案"
+                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开「减压工作坊」才能结案"
             )
         } else if (overall < 60f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "考试压力过大投诉",
                 "满意度 ${overall.toInt()}，学生觉得没人听他们说话。",
-                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "开设「减压工作坊」后才能结案"
+                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开「减压工作坊」才能结案"
             )
         }
         if (avgMaintenance < 40f) {
@@ -816,7 +847,7 @@ class StudentLifeManager @Inject constructor() {
             pool += Candidate(
                 LifeAspect.HEALTH, "流感季节爆发",
                 "冬春季叠加满意度不高，医务室挤满人。",
-                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "去健康设施点「维修」并保持值班后才能结案"
+                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "先去校园建医务室，再维修值班后才能结案"
             )
         }
         if (pool.isEmpty()) return null

@@ -95,6 +95,16 @@ class StudentLifeViewModel @Inject constructor(
         }
     }
 
+    fun expandCapacityByAd(aspect: LifeAspect, additional: Int) {
+        viewModelScope.safeLaunch {
+            _message.value = gameEngine.expandStudentLifeCapacity(
+                aspect,
+                additional,
+                freeByAd = true
+            ).message
+        }
+    }
+
     fun consumeMessage() {
         _message.value = null
     }

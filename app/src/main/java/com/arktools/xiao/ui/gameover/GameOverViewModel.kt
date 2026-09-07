@@ -59,7 +59,24 @@ class GameOverViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             when (val result = gameOverDetector.executeBailout()) {
                 is BailoutResult.SUCCESS -> {
-                    _bailoutMessage.value = "救助成功！获得 +${result.cashGrant.toInt()}万 +${result.reputationGrant}声誉"
+                    _bailoutMessage.value = if (result.debtCleared > 0) {
+                        "救助成功！已清掉欠款 ${result.debtCleared.toInt()}万，并注入办学经费 ${com.arktools.xiao.domain.engine.GameOverDetector.BAILOUT_CASH_GRANT.toInt()}万，声誉+${result.reputationGrant}"
+                    } else {
+                        "救助成功！获得办学经费 +${result.cashGrant.toInt()}万 +${result.reputationGrant}声誉"
+                    }
+                    schoolRepository.mutateSchool { school ->
+                        gameEngine.financialReportManager.recordIncome(
+                            com.arktools.xiao.domain.finance.IncomeCategory.OTHER_INCOME,
+                            result.cashGrant,
+                            if (result.debtCleared > 0) {
+                                "看广告救助：清债 ${result.debtCleared.toInt()}万 + 办学经费 ${com.arktools.xiao.domain.engine.GameOverDetector.BAILOUT_CASH_GRANT.toInt()}万"
+                            } else {
+                                "看广告救助：办学经费 +${result.cashGrant.toInt()}万"
+                            }
+                        )
+                        school.financialReportJson = gameEngine.financialReportManager.toJson()
+                        true
+                    }
                     gameEngine.resumeFromCrisis()
                     refreshHealthReport()
                 }

@@ -7,8 +7,10 @@ import com.arktools.xiao.domain.model.Facility
 import com.arktools.xiao.domain.model.FacilityBonusCalculator
 import com.arktools.xiao.domain.model.FacilityType
 import com.arktools.xiao.domain.model.School
+import com.arktools.xiao.domain.ad.CashShortfallAdManager
 import com.arktools.xiao.domain.engine.GameBalanceConfig
 import com.arktools.xiao.domain.policy.SchoolPolicyManager
+import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,7 +40,9 @@ class FacilityViewModel @Inject constructor(
     private val schoolRepository: SchoolRepository,
     private val studentRepository: StudentRepository,
     private val policyManager: SchoolPolicyManager,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    private val gameEngine: GameEngine,
+    private val cashShortfallAdManager: CashShortfallAdManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FacilityUiState())
@@ -105,15 +109,22 @@ class FacilityViewModel @Inject constructor(
 
                 val cost = FacilityBonusCalculator.getUpgradeCost(facility)
                 if (school.cash < cost) {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "升级${type.displayName}")
                     _uiState.value = _uiState.value.copy(message = "资金不足！升级需要 ${String.format("%.1f", cost)} 万元")
                     return@mutateSchool false
                 }
 
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                    cost,
+                    "升级${type.displayName}到 Lv.${facility.level + 1}"
+                )
                 val upgraded = facility.copy(level = facility.level + 1)
                 school.facilities[facilityIndex] = upgraded
                 upgradedName = type.displayName
                 upgradedLevel = upgraded.level
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
@@ -136,6 +147,7 @@ class FacilityViewModel @Inject constructor(
 
                 val totalRepairCost = needRepair.sumOf { it.type.baseMaintenance * 2 }
                 if (school.cash < totalRepairCost) {
+                    cashShortfallAdManager.offerIfShort(totalRepairCost, school.cash, "设施一键维修")
                     _uiState.value = _uiState.value.copy(
                         message = "资金不足！全部维修需要 ${String.format("%.1f", totalRepairCost)} 万元"
                     )
@@ -143,6 +155,11 @@ class FacilityViewModel @Inject constructor(
                 }
 
                 school.cash -= totalRepairCost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE,
+                    totalRepairCost,
+                    "设施一键维修"
+                )
                 needRepair.forEach { facility ->
                     val index = school.facilities.indexOfFirst { it.id == facility.id }
                     if (index != -1) {
@@ -151,6 +168,7 @@ class FacilityViewModel @Inject constructor(
                     }
                 }
                 totalCost = totalRepairCost
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
@@ -181,13 +199,20 @@ class FacilityViewModel @Inject constructor(
 
                 val repairCost = type.baseMaintenance * 2
                 if (school.cash < repairCost) {
+                    cashShortfallAdManager.offerIfShort(repairCost, school.cash, "维修${type.displayName}")
                     _uiState.value = _uiState.value.copy(message = "资金不足！维修需要 ${String.format("%.1f", repairCost)} 万元")
                     return@mutateSchool false
                 }
 
                 school.cash -= repairCost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE,
+                    repairCost,
+                    "维修${type.displayName}"
+                )
                 school.facilities[facilityIndex] = facility.copy(condition = 100f)
                 repairedName = type.displayName
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {

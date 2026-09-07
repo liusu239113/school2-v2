@@ -12,6 +12,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -114,5 +117,37 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun getAutoHandleConfig(): String? {
         return context.dataStore.data.map { it[AUTO_HANDLE_CONFIG] }.first()
+    }
+
+    private val CASH_SHORTFALL_AD_DATE = stringPreferencesKey("cash_shortfall_ad_date")
+    private val CASH_SHORTFALL_AD_COUNT = longPreferencesKey("cash_shortfall_ad_count")
+
+    private fun todayDate(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    suspend fun getCashShortfallAdCount(): Int {
+        val prefs = context.dataStore.data.first()
+        val today = todayDate()
+        return if (prefs[CASH_SHORTFALL_AD_DATE] == today) {
+            (prefs[CASH_SHORTFALL_AD_COUNT] ?: 0L).toInt()
+        } else {
+            0
+        }
+    }
+
+    suspend fun incrementCashShortfallAdCount(): Int {
+        val today = todayDate()
+        var next = 1
+        context.dataStore.edit { prefs ->
+            val current = if (prefs[CASH_SHORTFALL_AD_DATE] == today) {
+                (prefs[CASH_SHORTFALL_AD_COUNT] ?: 0L).toInt()
+            } else {
+                0
+            }
+            next = current + 1
+            prefs[CASH_SHORTFALL_AD_DATE] = today
+            prefs[CASH_SHORTFALL_AD_COUNT] = next.toLong()
+        }
+        return next
     }
 }

@@ -2,6 +2,7 @@ package com.arktools.xiao.ui.parent
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.parent.*
 import com.arktools.xiao.domain.repository.SchoolRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,7 +14,8 @@ import com.arktools.xiao.util.safeLaunch
 @HiltViewModel
 class ParentViewModel @Inject constructor(
     private val parentSatisfactionManager: ParentSatisfactionManager,
-    private val schoolRepository: SchoolRepository
+    private val schoolRepository: SchoolRepository,
+    private val gameEngine: GameEngine
 ) : ViewModel() {
 
     val state: StateFlow<ParentState> = parentSatisfactionManager.state
@@ -32,9 +34,16 @@ class ParentViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val paid = schoolRepository.mutateSchool { school ->
                 if (school.cash < costInWan) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(costInWan, school.cash, "家长会 · ${type.displayName}")
                     false
                 } else {
                     school.cash -= costInWan
+                    gameEngine.financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                        costInWan,
+                        "家长会 · ${type.displayName}"
+                    )
+                    school.financialReportJson = gameEngine.financialReportManager.toJson()
                     true
                 }
             }

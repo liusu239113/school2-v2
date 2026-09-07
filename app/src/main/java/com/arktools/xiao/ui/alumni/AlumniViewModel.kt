@@ -7,6 +7,7 @@ import com.arktools.xiao.domain.employment.EmploymentMarket
 import com.arktools.xiao.domain.employment.EmploymentMarketState
 import com.arktools.xiao.domain.employment.GraduateEmployment
 import com.arktools.xiao.domain.employment.GraduateSuperviseAction
+import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.repository.SchoolRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,7 +19,8 @@ import com.arktools.xiao.util.safeLaunch
 class AlumniViewModel @Inject constructor(
     private val alumniNetwork: AlumniNetwork,
     private val schoolRepository: SchoolRepository,
-    private val employmentMarket: EmploymentMarket
+    private val employmentMarket: EmploymentMarket,
+    private val gameEngine: GameEngine
 ) : ViewModel() {
 
     val alumni: StateFlow<List<Alumnus>> = alumniNetwork.alumni
@@ -81,7 +83,16 @@ class AlumniViewModel @Inject constructor(
             val activityCost = type.baseCost.toDouble()
             // 余额不足时不创建活动，避免“没花钱白嫖活动效果”
             val affordable = schoolRepository.mutateSchool { school ->
-                school.cash >= activityCost
+                if (school.cash < activityCost) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(
+                        activityCost,
+                        school.cash,
+                        "校友活动 · ${type.displayName}"
+                    )
+                    false
+                } else {
+                    true
+                }
             } != null
             if (!affordable) {
                 _lastActivityResult.value = null
@@ -94,12 +105,24 @@ class AlumniViewModel @Inject constructor(
             result?.let {
                 schoolRepository.mutateSchool { school ->
                     if (it.donationGained > 0) {
-                        school.cash += it.donationGained / 10000.0
+                        val donation = it.donationGained / 10000.0
+                        school.cash += donation
+                        gameEngine.financialReportManager.recordIncome(
+                            com.arktools.xiao.domain.finance.IncomeCategory.ALUMNI_CONTRIBUTION,
+                            donation,
+                            "校友活动捐赠 · ${type.displayName}"
+                        )
                     }
                     if (it.reputationGained > 0) {
                         school.reputation += it.reputationGained
                     }
                     school.cash -= activityCost
+                    gameEngine.financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                        activityCost,
+                        "校友活动 · ${type.displayName}"
+                    )
+                    school.financialReportJson = gameEngine.financialReportManager.toJson()
                     true
                 }
             }
@@ -125,8 +148,17 @@ class AlumniViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val cost = action.costWan
             val paid = schoolRepository.mutateSchool { school ->
-                if (school.cash < cost) return@mutateSchool false
+                if (school.cash < cost) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(cost, school.cash, "就业跟踪 · ${action.displayName}")
+                    return@mutateSchool false
+                }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TRAINING_COST,
+                    cost,
+                    "就业跟踪 · ${action.displayName}"
+                )
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             } != null
             if (!paid) {

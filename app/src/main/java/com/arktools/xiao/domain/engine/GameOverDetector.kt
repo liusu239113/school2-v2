@@ -50,8 +50,8 @@ class GameOverDetector @Inject constructor(
     // 救助系统配置
     companion object {
         const val MAX_BAILOUTS = 2 // 最多使用2次救助
-        const val BAILOUT_CASH_GRANT = 120.0 // 救助金额（提高广告奖励价值）
-        const val BAILOUT_REPUTATION_GRANT = 50L // 救助声誉（提高广告奖励价值）
+        const val BAILOUT_CASH_GRANT = 200.0 // 清债后额外注入的现金
+        const val BAILOUT_REPUTATION_GRANT = 50L // 救助声誉
         const val NEGATIVE_CASH_MONTHS_THRESHOLD = 3
         const val LOW_REPUTATION_THRESHOLD = 10L
         const val LOW_REPUTATION_MONTHS_THRESHOLD = 3
@@ -211,8 +211,9 @@ class GameOverDetector @Inject constructor(
 
         bailoutUsed++
 
-        // 注入救助资源
-        schoolRepository.addCash(BAILOUT_CASH_GRANT)
+        val debtCleared = if (school.cash < 0) -school.cash else 0.0
+        val totalGrant = debtCleared + BAILOUT_CASH_GRANT
+        schoolRepository.addCash(totalGrant)
         schoolRepository.addReputation(BAILOUT_REPUTATION_GRANT)
 
         // 重置连续计数器（给玩家喘息空间）
@@ -224,9 +225,10 @@ class GameOverDetector @Inject constructor(
         _crisisState.value = CrisisState.WARNING
 
         return BailoutResult.SUCCESS(
-            cashGrant = BAILOUT_CASH_GRANT,
+            cashGrant = totalGrant,
             reputationGrant = BAILOUT_REPUTATION_GRANT,
-            bailoutsRemaining = bailoutsRemaining
+            bailoutsRemaining = bailoutsRemaining,
+            debtCleared = debtCleared
         )
     }
 
@@ -360,7 +362,8 @@ sealed class BailoutResult {
     data class SUCCESS(
         val cashGrant: Double,
         val reputationGrant: Long,
-        val bailoutsRemaining: Int
+        val bailoutsRemaining: Int,
+        val debtCleared: Double = 0.0
     ) : BailoutResult()
 }
 

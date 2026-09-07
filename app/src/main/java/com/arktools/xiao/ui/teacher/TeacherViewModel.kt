@@ -3,6 +3,7 @@ package com.arktools.xiao.ui.teacher
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.audio.AudioManager
+import com.arktools.xiao.domain.ad.CashShortfallAdManager
 import com.arktools.xiao.domain.engine.GameBalanceConfig
 import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.model.Teacher
@@ -52,7 +53,8 @@ class TeacherViewModel @Inject constructor(
     private val audioManager: AudioManager,
     private val teacherDevManager: TeacherDevelopmentManager,
     private val gameEngine: GameEngine,
-    private val policyManager: com.arktools.xiao.domain.policy.SchoolPolicyManager
+    private val policyManager: com.arktools.xiao.domain.policy.SchoolPolicyManager,
+    private val cashShortfallAdManager: CashShortfallAdManager
 ) : ViewModel() {
 
     private val _teachers = MutableStateFlow<List<Teacher>>(emptyList())
@@ -224,12 +226,19 @@ class TeacherViewModel @Inject constructor(
             } else {
                 schoolRepository.mutateSchool { school ->
                     if (school.cash < channel.cost) {
+                        cashShortfallAdManager.offerIfShort(channel.cost, school.cash, "开通${channel.displayName}")
                         _errorMessage.value = "资金不足! 需要${String.format("%.1f", channel.cost)}万"
                         return@mutateSchool false
                     }
                     school.cash -= channel.cost
+                    gameEngine.financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY,
+                        channel.cost,
+                        "开通招聘渠道 · ${channel.displayName}"
+                    )
                     teacherDevManager.unlockChannel(talentChannel)
                     school.teacherDevJson = teacherDevManager.toJson()
+                    school.financialReportJson = gameEngine.financialReportManager.toJson()
                     true
                 }
             }
@@ -257,11 +266,18 @@ class TeacherViewModel @Inject constructor(
             var gameDay = 0L
             val result = schoolRepository.mutateSchool { school ->
                 if (school.cash < hiringFee) {
+                    cashShortfallAdManager.offerIfShort(hiringFee, school.cash, "招聘${hiredCandidate.name}")
                     _errorMessage.value = "资金不足！招聘${hiredCandidate.level.name}级教师需要猎头费 ${hiringFee} 万元"
                     return@mutateSchool false
                 }
                 school.cash -= hiringFee
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY,
+                    hiringFee,
+                    "招聘教师 · ${hiredCandidate.name}猎头费"
+                )
                 gameDay = school.currentYear.toLong() * 360 + (school.currentMonth - 1) * 30 + school.currentDay
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {

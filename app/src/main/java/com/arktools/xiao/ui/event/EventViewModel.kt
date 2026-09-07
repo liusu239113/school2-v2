@@ -425,8 +425,17 @@ class EventViewModel @Inject constructor(
                     schoolRepository.mutateSchool { school ->
                         val facilityBonuses = FacilityBonusCalculator.calculate(school.facilities)
                         val rewardMultiplier = 1.0 + facilityBonuses.eventRewardBonus
-                        if (event.bonusCash > 0.0) school.cash += event.bonusCash * rewardMultiplier
+                        if (event.bonusCash > 0.0) {
+                            val bonus = event.bonusCash * rewardMultiplier
+                            school.cash += bonus
+                            gameEngine.financialReportManager.recordIncome(
+                                com.arktools.xiao.domain.finance.IncomeCategory.OTHER_INCOME,
+                                bonus,
+                                event.title
+                            )
+                        }
                         if (event.bonusReputation > 0L) school.reputation += (event.bonusReputation * rewardMultiplier).toLong()
+                        school.financialReportJson = gameEngine.financialReportManager.toJson()
                         true
                     }
                 }
@@ -450,8 +459,16 @@ class EventViewModel @Inject constructor(
                 if (event.penaltyCash > 0.0 || event.penaltyReputation > 0L) {
                     // 原子操作：现金和声望扣除在同一事务中完成
                     schoolRepository.mutateSchool { school ->
-                        if (event.penaltyCash > 0.0) school.cash -= event.penaltyCash
+                        if (event.penaltyCash > 0.0) {
+                            school.cash -= event.penaltyCash
+                            gameEngine.financialReportManager.recordExpense(
+                                com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE,
+                                event.penaltyCash,
+                                event.title
+                            )
+                        }
                         if (event.penaltyReputation > 0L) school.reputation -= event.penaltyReputation
+                        school.financialReportJson = gameEngine.financialReportManager.toJson()
                         true
                     }
                 }

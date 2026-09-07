@@ -44,6 +44,9 @@ import com.arktools.xiao.ui.components.PixelIcon
 import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
+import com.arktools.xiao.ui.theme.PanelInk
+import com.arktools.xiao.ui.theme.PanelMuted
+import com.arktools.xiao.ui.theme.TextOnDark
 import com.arktools.xiao.ui.theme.TextPrimaryDark
 import com.arktools.xiao.ui.theme.TextSecondaryDark
 import com.arktools.xiao.ui.utils.FormatUtils
@@ -79,7 +82,7 @@ fun ReportScreen(
             Tab(
                 selected = selectedTabIndex == 1,
                 onClick = { selectedTabIndex = 1 },
-                text = { Text("大学账本", color = Color.White) }
+                text = { Text("收支明细", color = Color.White) }
             )
         }
 
@@ -148,45 +151,140 @@ private fun DataTrendContent(
 
 // ========== 财务管理页 ==========
 
+private enum class LedgerFilter(val label: String) {
+    ALL("全部"),
+    INCOME("收入"),
+    EXPENSE("支出")
+}
+
 @Composable
 private fun FinanceContent(
     finState: FinancialState,
     viewModel: ReportViewModel
 ) {
     var showBudgetDialog by remember { mutableStateOf(false) }
+    var ledgerFilter by remember { mutableStateOf(LedgerFilter.ALL) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+
+    val report = viewModel.getLedgerReport()
+    val incomeEntries = viewModel.getIncomeEntries()
+    val expenseEntries = viewModel.getExpenseEntries()
+    val monthLabel = if (report.year > 0 && report.month > 0) {
+        "${report.year}年${report.month}月"
+    } else {
+        "本月"
+    }
+    val sourceEntries = when (ledgerFilter) {
+        LedgerFilter.ALL -> viewModel.getAllEntries()
+        LedgerFilter.INCOME -> incomeEntries
+        LedgerFilter.EXPENSE -> expenseEntries
+    }
+    val visibleEntries = if (selectedCategory == null) {
+        sourceEntries
+    } else {
+        sourceEntries.filter { it.category == selectedCategory }
+    }
+    val categoryChips = sourceEntries.map { it.category }.distinct()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 财务健康概览
-        item { FinancialHealthCard(finState) }
         item {
-            PixelHardPanel {
-                Text("为什么会亏", color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("接到学费、教师薪资、学生生活专项、建造和维护。最大头就是负债原因。", color = TextSecondaryDark, fontSize = 12.sp)
-                viewModel.getLossDiagnosis().forEach { line ->
-                    Text(line, color = TextPrimaryDark, fontSize = 13.sp)
+            LedgerOverviewCard(
+                monthLabel = monthLabel,
+                report = report,
+                incomeCount = incomeEntries.size,
+                expenseCount = expenseEntries.size,
+                cashReserveMonths = finState.financialHealth.cashReserveMonths
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LedgerFilter.entries.forEach { filter ->
+                    val selected = ledgerFilter == filter
+                    PixelButton(
+                        text = filter.label,
+                        style = if (selected) PixelButtonStyle.PRIMARY else PixelButtonStyle.CANCEL,
+                        onClick = {
+                            ledgerFilter = filter
+                            selectedCategory = null
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
-
-        // 本月收支摘要（若当月为空则显示最近一次月报）
-        item {
-            val displayReport = if (finState.currentMonthReport.totalIncome > 0 || finState.currentMonthReport.totalExpense > 0) {
-                finState.currentMonthReport
-            } else {
-                finState.monthlyHistory.firstOrNull() ?: finState.currentMonthReport
+        if (categoryChips.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedCategory == null,
+                        onClick = { selectedCategory = null },
+                        label = { Text("全部分类", fontSize = 12.sp) }
+                    )
+                    categoryChips.forEach { cat ->
+                        FilterChip(
+                            selected = selectedCategory == cat,
+                            onClick = {
+                                selectedCategory = if (selectedCategory == cat) null else cat
+                            },
+                            label = { Text(cat, fontSize = 12.sp) }
+                        )
+                    }
+                }
             }
-            MonthFinanceSummaryCard(
-                displayReport,
-                finState.incomeTrend,
-                finState.expenseTrend,
-                finState.profitTrend
+        }
+        item {
+            Text(
+                when (ledgerFilter) {
+                    LedgerFilter.ALL -> "逐条流水"
+                    LedgerFilter.INCOME -> "收入明细"
+                    LedgerFilter.EXPENSE -> "支出明细"
+                } + if (selectedCategory != null) " · $selectedCategory" else "",
+                color = TextOnDark,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
             )
         }
-
-        // 预算管理按钮
+        if (visibleEntries.isEmpty()) {
+            item {
+                PixelHardPanel {
+                    Text("还没有流水", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(
+                        "建造宿舍、加床、发工资、收学费都会记在这里。过完一个月或花一笔钱后再回来看。",
+                        color = PanelMuted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        } else {
+            items(visibleEntries, key = { it.id }) { entry ->
+                LedgerEntryRow(entry)
+            }
+        }
+        if (ledgerFilter != LedgerFilter.INCOME) {
+            item { Text("支出分类合计", color = TextOnDark, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+            item { ExpenseBreakdownCard(viewModel.getExpenseBreakdown()) }
+        }
+        if (ledgerFilter != LedgerFilter.EXPENSE) {
+            item { Text("收入分类合计", color = TextOnDark, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+            item { IncomeBreakdownCard(viewModel.getIncomeBreakdown()) }
+        }
+        if (finState.monthlyHistory.isNotEmpty()) {
+            item { Text("往月账本", color = TextOnDark, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+            items(finState.monthlyHistory.take(6)) { history ->
+                HistoryMonthCard(history)
+            }
+        }
         item {
             PixelButton(
                 text = "预算管理",
@@ -195,32 +293,19 @@ private fun FinanceContent(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
-        // 收入构成
-        item { Text("收入来源", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-        item { IncomeBreakdownCard(viewModel.getIncomeBreakdown()) }
-
-        // 支出构成
-        item { Text("支出分类", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-        item { ExpenseBreakdownCard(viewModel.getExpenseBreakdown()) }
-
-        // 预算执行
         val budgetExecution = viewModel.getBudgetExecution()
         if (budgetExecution.isNotEmpty()) {
-            item { Text("预算执行", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            item { Text("预算执行", color = TextOnDark, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
             items(budgetExecution.values.toList()) { exec ->
                 BudgetExecutionCard(exec)
             }
         }
-
-        // 年度报表
         if (finState.yearlyReports.isNotEmpty()) {
-            item { Text("年度报表", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-            items(finState.yearlyReports) { report ->
-                YearlyReportCard(report)
+            item { Text("年度报表", color = TextOnDark, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+            items(finState.yearlyReports) { yearly ->
+                YearlyReportCard(yearly)
             }
         }
-
         item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 
@@ -234,6 +319,87 @@ private fun FinanceContent(
                 showBudgetDialog = false
             },
             onDismiss = { showBudgetDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun LedgerOverviewCard(
+    monthLabel: String,
+    report: FinanceMonthlyReport,
+    incomeCount: Int,
+    expenseCount: Int,
+    cashReserveMonths: Float
+) {
+    PixelHardPanel {
+        Text("$monthLabel 总览", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(
+            "收入 ${incomeCount} 笔 · 支出 ${expenseCount} 笔 · 现金还能撑 ${cashReserveMonths.toInt()} 个月",
+            color = PanelMuted,
+            fontSize = 12.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            LedgerStat("收入", formatFinanceNumber(report.totalIncome), AccentGreen)
+            LedgerStat("支出", formatFinanceNumber(report.totalExpense), AccentRed)
+            LedgerStat(
+                "净利",
+                formatFinanceNumber(report.netProfit),
+                if (report.netProfit >= 0) AccentGreen else AccentRed
+            )
+        }
+    }
+}
+
+@Composable
+private fun LedgerStat(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(label, color = PanelMuted, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun LedgerEntryRow(entry: LedgerEntry) {
+    PixelHardPanel(padding = 10.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(entry.description, color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(entry.category, color = PanelMuted, fontSize = 11.sp)
+            }
+            Text(
+                (if (entry.isIncome) "+" else "-") + formatFinanceNumber(entry.amount),
+                color = if (entry.isIncome) AccentGreen else AccentRed,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HistoryMonthCard(report: FinanceMonthlyReport) {
+    PixelHardPanel(padding = 10.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("${report.year}年${report.month}月", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(
+                "净利 ${formatFinanceNumber(report.netProfit)}",
+                color = if (report.netProfit >= 0) AccentGreen else AccentRed,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+            )
+        }
+        Text(
+            "收入 ${formatFinanceNumber(report.totalIncome)} · 支出 ${formatFinanceNumber(report.totalExpense)} · ${report.entries.size} 笔",
+            color = PanelMuted,
+            fontSize = 11.sp
         )
     }
 }

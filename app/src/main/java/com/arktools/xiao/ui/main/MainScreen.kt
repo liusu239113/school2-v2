@@ -212,6 +212,13 @@ fun MainScreen(
     val pendingBonusAmount by viewModel.pendingBonusAmount.collectAsState()
     val rewardNotification by viewModel.rewardNotification.collectAsState()
     val isAdLoading by AdHelper.isLoadingAd.collectAsState()
+    val cashShortfallOffer by viewModel.cashShortfallOffer.collectAsState()
+    val cashShortfallRemaining by viewModel.cashShortfallRemaining.collectAsState()
+    LaunchedEffect(cashShortfallOffer) {
+        if (cashShortfallOffer != null) {
+            viewModel.cashShortfallAdManager.refreshRemaining()
+        }
+    }
 
     // 加速到期检测：每秒检查一次，到期后回落1x
     LaunchedEffect(boostExpireTime) {
@@ -602,6 +609,31 @@ fun MainScreen(
                 }
             },
             onDismiss = { viewModel.dismissSpeedAdDialog() }
+        )
+    }
+
+    cashShortfallOffer?.let { offer ->
+        val activity = context as? android.app.Activity
+        com.arktools.xiao.ui.components.PixelAlertDialog(
+            onDismissRequest = { viewModel.dismissCashShortfall() },
+            title = "经费不够",
+            text = "${offer.actionLabel}还差 ${"%.1f".format(offer.shortfall)}万。\n看一次广告补上差额，今天还能看 ${cashShortfallRemaining} 次。",
+            confirmText = if (cashShortfallRemaining > 0) "看广告补差价" else "今天次数用完",
+            dismissText = "先不看",
+            onConfirm = {
+                if (activity != null && cashShortfallRemaining > 0) {
+                    viewModel.pauseForAd()
+                    AdHelper.showRewardAd(
+                        activity = activity,
+                        onRewarded = { viewModel.claimCashShortfallGrant() },
+                        onFailed = { viewModel.dismissCashShortfall() },
+                        onComplete = { viewModel.resumeAfterAd() }
+                    )
+                } else {
+                    viewModel.dismissCashShortfall()
+                }
+            },
+            onDismiss = { viewModel.dismissCashShortfall() }
         )
     }
 

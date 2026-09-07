@@ -49,6 +49,10 @@ object FacilityCapacity {
 
     fun sportsCapacity(level: Int): Int = 200 + (level - 1).coerceAtLeast(0) * 80
 
+    fun clinicSlots(level: Int): Int = 40 + (level - 1).coerceAtLeast(0) * 20
+
+    fun counselingSlots(level: Int): Int = 30 + (level - 1).coerceAtLeast(0) * 15
+
     fun studioCapacity(level: Int): Int = 20 + (level - 1).coerceAtLeast(0) * 8
 
     fun gardenPlots(level: Int): Int = 1 + (level - 1).coerceAtLeast(0)
@@ -89,6 +93,12 @@ object FacilityCapacity {
     fun totalLabBenches(facilities: List<Facility>): Int = stacked(facilities, FacilityType.LABORATORY, ::labBenches)
     fun totalComputerSeats(facilities: List<Facility>): Int = stacked(facilities, FacilityType.COMPUTER_LAB, ::computerSeats)
     fun totalSportsCapacity(facilities: List<Facility>): Int = stacked(facilities, FacilityType.SPORTS_FIELD, ::sportsCapacity)
+    fun totalClinicSlots(facilities: List<Facility>): Int =
+        facilities.filter { it.type == FacilityType.CLINIC && it.isOperational }
+            .sumOf { clinicSlots(it.level) }
+    fun totalCounselingSlots(facilities: List<Facility>): Int =
+        facilities.filter { it.type == FacilityType.COUNSELING && it.isOperational }
+            .sumOf { counselingSlots(it.level) }
     fun totalStudioCapacity(facilities: List<Facility>): Int = stacked(facilities, FacilityType.ART_STUDIO, ::studioCapacity)
     fun totalGardenPlots(facilities: List<Facility>): Int = stacked(facilities, FacilityType.GARDEN, ::gardenPlots)
 

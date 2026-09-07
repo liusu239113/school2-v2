@@ -16,6 +16,7 @@ import com.arktools.xiao.domain.repository.TeacherRepository
 import com.arktools.xiao.data.pref.SettingsDataStore
 import com.arktools.xiao.data.save.PersistenceCoordinator
 import com.arktools.xiao.data.save.SaveManager
+import com.arktools.xiao.domain.ad.CashShortfallAdManager
 import com.arktools.xiao.domain.ad.SpeedBoostManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ class MainViewModel @Inject constructor(
     private val persistenceCoordinator: PersistenceCoordinator,
     val achievementManager: com.arktools.xiao.domain.achievement.AchievementManager,
     val speedBoostManager: SpeedBoostManager,
+    val cashShortfallAdManager: CashShortfallAdManager,
     private val policyManager: com.arktools.xiao.domain.policy.SchoolPolicyManager
 ) : ViewModel() {
 
@@ -152,6 +154,74 @@ class MainViewModel @Inject constructor(
      */
     fun onBoostExpired() {
         setGameSpeed(1f)
+    }
+
+    val cashShortfallOffer = cashShortfallAdManager.offer
+    val cashShortfallRemaining = cashShortfallAdManager.remaining
+
+    fun offerCashShortfall(needed: Double, actionLabel: String) {
+        viewModelScope.safeLaunch {
+            val school = schoolRepository.getSchool() ?: return@safeLaunch
+            cashShortfallAdManager.refreshRemaining()
+            if (cashShortfallAdManager.remaining.value <= 0) {
+                _rewardNotification.value = "今天补差价广告已看满 5 次，明天再来"
+                kotlinx.coroutines.delay(2500)
+                _rewardNotification.value = null
+                return@safeLaunch
+            }
+            cashShortfallAdManager.offerIfShort(needed, school.cash, actionLabel)
+        }
+    }
+
+    fun dismissCashShortfall() {
+        cashShortfallAdManager.dismiss()
+    }
+
+    fun claimCashShortfallGrant() {
+        viewModelScope.safeLaunch {
+            val offer = cashShortfallAdManager.offer.value ?: return@safeLaunch
+            if (!cashShortfallAdManager.consumeWatch()) {
+                _rewardNotification.value = "今天补差价广告已看满 5 次，明天再来"
+                cashShortfallAdManager.dismiss()
+                kotlinx.coroutines.delay(2500)
+                _rewardNotification.value = null
+                return@safeLaunch
+            }
+            val granted = offer.shortfall
+            schoolRepository.mutateSchool { school ->
+                school.cash += granted
+                gameEngine.financialReportManager.recordIncome(
+                    com.arktools.xiao.domain.finance.IncomeCategory.OTHER_INCOME,
+                    granted,
+                    "看广告补差价 · ${offer.actionLabel}"
+                )
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
+                true
+            }
+            cashShortfallAdManager.dismiss()
+            _rewardNotification.value = "已补上 ${"%.1f".format(granted)}万，可以继续${offer.actionLabel}。今天还剩 ${cashShortfallAdManager.remaining.value} 次"
+            kotlinx.coroutines.delay(3000)
+            _rewardNotification.value = null
+        }
+    }
+
+    fun claimAdCashGrant() {
+        viewModelScope.safeLaunch {
+            val amount = 8.0
+            schoolRepository.mutateSchool { school ->
+                school.cash += amount
+                gameEngine.financialReportManager.recordIncome(
+                    com.arktools.xiao.domain.finance.IncomeCategory.OTHER_INCOME,
+                    amount,
+                    "看广告领取办学经费"
+                )
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
+                true
+            }
+            _rewardNotification.value = "看广告领取办学经费 +8.0万元"
+            kotlinx.coroutines.delay(3000)
+            _rewardNotification.value = null
+        }
     }
 
     /**

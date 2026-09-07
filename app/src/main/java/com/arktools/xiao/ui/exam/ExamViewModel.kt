@@ -60,6 +60,7 @@ class ExamViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val school = schoolRepository.getSchool() ?: return@safeLaunch
             if (school.cash < 4.0) {
+                gameEngine.cashShortfallAdManager.offerIfShort(4.0, school.cash, "考前辅导")
                 _uiState.value = _uiState.value.copy(message = "经费不够：考前辅导要 4 万。")
                 return@safeLaunch
             }
@@ -68,9 +69,15 @@ class ExamViewModel @Inject constructor(
                 return@safeLaunch
             }
             schoolRepository.deductCash(4.0)
+            gameEngine.financialReportManager.recordExpense(
+                com.arktools.xiao.domain.finance.ExpenseCategory.TEACHING_OPERATION,
+                4.0,
+                "考前辅导"
+            )
             gameEngine.examManager.buyCoaching(3f)
             schoolRepository.mutateSchool { latest ->
                 latest.examJson = gameEngine.examManager.toJson()
+                latest.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             _uiState.value = _uiState.value.copy(

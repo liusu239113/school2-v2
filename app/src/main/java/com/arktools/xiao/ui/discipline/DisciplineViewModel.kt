@@ -3,6 +3,7 @@ package com.arktools.xiao.ui.discipline
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.audio.AudioManager
+import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.policy.CollegeType
 import com.arktools.xiao.domain.model.DisciplineCatalog
 import com.arktools.xiao.domain.repository.SchoolRepository
@@ -21,7 +22,8 @@ import javax.inject.Inject
 class DisciplineViewModel @Inject constructor(
     private val schoolRepository: SchoolRepository,
     private val policyManager: SchoolPolicyManager,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    private val gameEngine: GameEngine
 ) : ViewModel() {
 
     data class Row(
@@ -118,16 +120,23 @@ class DisciplineViewModel @Inject constructor(
                 }
                 cost = DisciplineCatalog.upgradeCostWan(st.level)
                 if (school.cash < cost) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(cost, school.cash, "学科建设 · ${def.name}")
                     _state.value = _state.value.copy(message = "资金不足！需要 ${cost.toInt()} 万")
                     audioManager.playEventNegative()
                     return@mutateSchool false
                 }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHING_OPERATION,
+                    cost,
+                    "学科建设 · ${def.name}"
+                )
                 newLevel = st.level + 1
                 states[defId] = st.copy(level = newLevel, investWan = st.investWan + cost)
                 val updated = dev.copy(disciplinesJson = DisciplineCatalog.encode(states))
                 policyManager.replaceCollegeDevelopment(updated)
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {

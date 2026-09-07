@@ -31,10 +31,15 @@ class FinancialReportManager @Inject constructor() {
     companion object {
         const val MAX_MONTHLY_RECORDS = 24
         const val MAX_YEARLY_RECORDS = 10
+        const val MAX_LEDGER_ENTRIES = 240
+
+        private fun nextEntryId(prefix: String, category: String, size: Int): String {
+            return "$prefix-$category-$size-${System.currentTimeMillis() % 100000}"
+        }
     }
 
     /**
-     * 记录收入
+     * 记录收入（带明细说明，便于账本逐条查阅）
      */
     fun recordIncome(category: IncomeCategory, amount: Double, description: String = "") {
         if (amount <= 0) return
@@ -42,17 +47,25 @@ class FinancialReportManager @Inject constructor() {
             val currentMonth = state.currentMonthReport
             val updatedIncomes = currentMonth.incomes.toMutableMap()
             updatedIncomes[category] = (updatedIncomes[category] ?: 0.0) + amount
+            val entry = LedgerEntry(
+                id = nextEntryId("I", category.name, currentMonth.entries.size),
+                isIncome = true,
+                category = category.displayName,
+                description = description.ifBlank { category.displayName },
+                amount = amount
+            )
             state.copy(
                 currentMonthReport = currentMonth.copy(
                     incomes = updatedIncomes,
-                    totalIncome = updatedIncomes.values.sum()
+                    totalIncome = updatedIncomes.values.sum(),
+                    entries = (currentMonth.entries + entry).takeLast(MAX_LEDGER_ENTRIES)
                 )
             )
         }
     }
 
     /**
-     * 记录支出
+     * 记录支出（带明细说明，便于账本逐条查阅）
      */
     fun recordExpense(category: ExpenseCategory, amount: Double, description: String = "") {
         if (amount <= 0) return
@@ -60,10 +73,18 @@ class FinancialReportManager @Inject constructor() {
             val currentMonth = state.currentMonthReport
             val updatedExpenses = currentMonth.expenses.toMutableMap()
             updatedExpenses[category] = (updatedExpenses[category] ?: 0.0) + amount
+            val entry = LedgerEntry(
+                id = nextEntryId("E", category.name, currentMonth.entries.size),
+                isIncome = false,
+                category = category.displayName,
+                description = description.ifBlank { category.displayName },
+                amount = amount
+            )
             state.copy(
                 currentMonthReport = currentMonth.copy(
                     expenses = updatedExpenses,
-                    totalExpense = updatedExpenses.values.sum()
+                    totalExpense = updatedExpenses.values.sum(),
+                    entries = (currentMonth.entries + entry).takeLast(MAX_LEDGER_ENTRIES)
                 )
             )
         }
@@ -142,17 +163,26 @@ class FinancialReportManager @Inject constructor() {
     }
 
     /**
-     * 获取有效月报（当月有数据则用当月，否则用最近归档月报）
+     * 获取有效月报（当月有流水则用当月，否则用最近归档月报）
      */
-    private fun getEffectiveReport(): MonthlyReport {
+    fun getEffectiveReport(): MonthlyReport {
         val state = _state.value
         val current = state.currentMonthReport
-        return if (current.totalIncome > 0 || current.totalExpense > 0) {
+        return if (current.totalIncome > 0 || current.totalExpense > 0 || current.entries.isNotEmpty()) {
             current
         } else {
             state.monthlyHistory.firstOrNull() ?: current
         }
     }
+
+    fun getIncomeEntries(): List<LedgerEntry> =
+        getEffectiveReport().entries.filter { it.isIncome }.asReversed()
+
+    fun getExpenseEntries(): List<LedgerEntry> =
+        getEffectiveReport().entries.filter { !it.isIncome }.asReversed()
+
+    fun getAllEntries(): List<LedgerEntry> =
+        getEffectiveReport().entries.asReversed()
 
     /**
      * 获取收入构成分析
@@ -172,47 +202,6 @@ class FinancialReportManager @Inject constructor() {
     /**
      * 获取支出构成分析
      */
-    fun getLossDiagnosis(): List<String> {
-        val report = getEffectiveReport()
-        val cash = _state.value.financialHealth.cashReserveMonths
-        val lines = mutableListOf<String>()
-        if (report.totalExpense <= 0 && report.totalIncome <= 0) {
-            return listOf("这个月还没记上账。过完一个月再看明细。")
-        }
-        if (report.netProfit >= 0) {
-            lines.add("本月还没亏。盯住最大头支出，别让专项和建造把利润吃掉。")
-        } else {
-            val loss = -report.netProfit
-            lines.add("本月净亏 ¥${"%.1f".format(loss)}万。")
-        }
-        val expenses = report.expenses.entries.sortedByDescending { it.value }
-        expenses.take(3).forEach { (cat, amount) ->
-            val hint = when (cat) {
-                ExpenseCategory.LIFE_SERVICE -> "学生生活：食堂/宿舍专项和加床加餐位。专项能停就停。"
-                ExpenseCategory.FACILITY_MAINTENANCE -> "设施维护：宿舍食堂教室月维护。楼多了就会涨。"
-                ExpenseCategory.UTILITIES -> "水电物业：建筑运行成本。"
-                ExpenseCategory.EXPANSION -> "校区建设：刚建楼会一次性砸钱。"
-                ExpenseCategory.TEACHER_SALARY -> "教师薪资：人多了每个月都扣。"
-                ExpenseCategory.TEACHING_OPERATION -> "教学运营：班数和课时。"
-                ExpenseCategory.ACTIVITY_COST -> "活动经费：社团、会议、节日。"
-                ExpenseCategory.MARKETING -> "招生宣传：广告一直开着就会烧。"
-                ExpenseCategory.RESEARCH_FUNDING -> "科研投入。"
-                ExpenseCategory.TRAINING_COST -> "培训和就业项目。"
-                ExpenseCategory.EQUIPMENT -> "设备采购。"
-                ExpenseCategory.OTHER_EXPENSE -> "其他支出：事件罚款或临时项。"
-            }
-            lines.add("${cat.displayName} ¥${"%.1f".format(amount)}万 · $hint")
-        }
-        val tuition = report.incomes[IncomeCategory.TUITION] ?: 0.0
-        if (tuition > 0 && report.totalExpense > tuition * 1.2) {
-            lines.add("支出已经明显高于学费。先停学生生活专项，或放慢建造。")
-        }
-        if (cash < 1f) {
-            lines.add("现金储备不到一个月开支，优先停专项、缓建楼。")
-        }
-        return lines
-    }
-
     fun getExpenseBreakdown(): List<CategoryBreakdown> {
         val report = getEffectiveReport()
         val total = report.totalExpense.coerceAtLeast(1.0)
@@ -362,6 +351,17 @@ class FinancialReportManager @Inject constructor() {
         val expObj = JSONObject()
         for ((k, v) in r.expenses) expObj.put(k.name, v)
         obj.put("expenses", expObj)
+        val entryArr = JSONArray()
+        for (entry in r.entries) {
+            val eObj = JSONObject()
+            eObj.put("id", entry.id)
+            eObj.put("income", entry.isIncome)
+            eObj.put("category", entry.category)
+            eObj.put("desc", entry.description)
+            eObj.put("amount", entry.amount)
+            entryArr.put(eObj)
+        }
+        obj.put("entries", entryArr)
         return obj
     }
 
@@ -381,6 +381,22 @@ class FinancialReportManager @Inject constructor() {
                 try { expenses[ExpenseCategory.valueOf(key)] = expObj.getDouble(key) } catch (_: Exception) {}
             }
         }
+        val entries = mutableListOf<LedgerEntry>()
+        val entryArr = obj.optJSONArray("entries")
+        if (entryArr != null) {
+            for (i in 0 until entryArr.length()) {
+                val eObj = entryArr.optJSONObject(i) ?: continue
+                entries.add(
+                    LedgerEntry(
+                        id = eObj.optString("id", "E-$i"),
+                        isIncome = eObj.optBoolean("income", false),
+                        category = eObj.optString("category", ""),
+                        description = eObj.optString("desc", ""),
+                        amount = eObj.optDouble("amount", 0.0)
+                    )
+                )
+            }
+        }
         return MonthlyReport(
             year = obj.optInt("year", 0),
             month = obj.optInt("month", 0),
@@ -389,7 +405,8 @@ class FinancialReportManager @Inject constructor() {
             totalIncome = obj.optDouble("totalIncome", 0.0),
             totalExpense = obj.optDouble("totalExpense", 0.0),
             netProfit = obj.optDouble("netProfit", 0.0),
-            cashBalance = obj.optDouble("cashBalance", 0.0)
+            cashBalance = obj.optDouble("cashBalance", 0.0),
+            entries = entries
         )
     }
 }
@@ -407,6 +424,14 @@ data class FinancialState(
     val profitTrend: TrendDirection = TrendDirection.STABLE
 )
 
+data class LedgerEntry(
+    val id: String,
+    val isIncome: Boolean,
+    val category: String,
+    val description: String,
+    val amount: Double
+)
+
 data class MonthlyReport(
     val year: Int = 0,
     val month: Int = 0,
@@ -415,7 +440,8 @@ data class MonthlyReport(
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val netProfit: Double = 0.0,
-    val cashBalance: Double = 0.0
+    val cashBalance: Double = 0.0,
+    val entries: List<LedgerEntry> = emptyList()
 )
 
 data class YearlyReport(

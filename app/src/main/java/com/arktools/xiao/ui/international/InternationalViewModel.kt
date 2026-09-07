@@ -3,6 +3,7 @@ package com.arktools.xiao.ui.international
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.audio.AudioManager
+import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.graduate.GraduateSchoolManager
 import com.arktools.xiao.domain.international.InternationalProgramManager
 import com.arktools.xiao.domain.international.PartnerDef
@@ -22,7 +23,8 @@ import javax.inject.Inject
 class InternationalViewModel @Inject constructor(
     private val schoolRepository: SchoolRepository,
     private val policyManager: SchoolPolicyManager,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    private val gameEngine: GameEngine
 ) : ViewModel() {
 
     data class UiState(
@@ -97,10 +99,19 @@ class InternationalViewModel @Inject constructor(
         }
         viewModelScope.safeLaunch {
             val result = schoolRepository.mutateSchool { school ->
-                if (school.cash < def.feeWan) return@mutateSchool false
+                if (school.cash < def.feeWan) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(def.feeWan, school.cash, "国际合作 · ${def.name}")
+                    return@mutateSchool false
+                }
                 school.cash -= def.feeWan
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.MARKETING,
+                    def.feeWan,
+                    "国际合作签约 · ${def.name}"
+                )
                 if (!policyManager.internationalManager.signPartner(def.id)) return@mutateSchool false
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {

@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -179,6 +180,30 @@ fun SettingsScreen(
                 Text("游戏速度", style = MaterialTheme.typography.bodyLarge)
                 Text(
                     "默认 ×1 速度。×2~×5 加速需在顶栏速度按钮处观看广告解锁，持续 20 分钟。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                val activity = LocalContext.current as? android.app.Activity
+                Button(
+                    onClick = {
+                        if (activity != null) {
+                            mainViewModel.pauseForAd()
+                            com.arktools.adsdk.AdHelper.showRewardAd(
+                                activity = activity,
+                                onRewarded = { mainViewModel.claimAdCashGrant() },
+                                onComplete = { mainViewModel.resumeAfterAd() }
+                            )
+                        }
+                    },
+                    enabled = activity != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("看广告领取办学经费 +8万")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "加载时会弹出全屏转圈，和倍速广告一样。学生生活加床/接诊位也可以看广告免费加。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )

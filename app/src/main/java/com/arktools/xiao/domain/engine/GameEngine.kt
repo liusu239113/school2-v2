@@ -179,7 +179,8 @@ class GameEngine @Inject constructor(
     val teachingManager: com.arktools.xiao.domain.teaching.TeachingManager,
     val pressureSystemManager: PressureSystemManager,
     val crisisScenarioManager: CrisisScenarioManager,
-    val suggestionBoxManager: com.arktools.xiao.domain.suggestion.SuggestionBoxManager
+    val suggestionBoxManager: com.arktools.xiao.domain.suggestion.SuggestionBoxManager,
+    val cashShortfallAdManager: com.arktools.xiao.domain.ad.CashShortfallAdManager
 ) {
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var gameLoopJob: Job? = null
@@ -520,7 +521,17 @@ class GameEngine @Inject constructor(
                 )
                 if (!result.success) return@mutateSchool false
                 school.cash -= type.foundingCostWan
+                financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                    type.foundingCostWan,
+                    "成立学院 · ${type.displayName}"
+                )
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = protectedManagerJson(
+                    "financialReportJson",
+                    school.financialReportJson,
+                    financialReportManager::toJson
+                )
                 foundedName = type.displayName
                 true
             }
@@ -532,6 +543,13 @@ class GameEngine @Inject constructor(
                     school?.campusLevel ?: 1,
                     school?.cash ?: 0.0
                 )
+                if (school != null && school.cash < type.foundingCostWan) {
+                    cashShortfallAdManager.offerIfShort(
+                        type.foundingCostWan,
+                        school.cash,
+                        "成立${type.displayName}"
+                    )
+                }
                 return@withLock ManagedOperationResult(false, preview.message)
             }
             ManagedOperationResult(
@@ -583,7 +601,17 @@ class GameEngine @Inject constructor(
                 catalog, school.currentYear, school.currentMonth
             ) ?: return@mutateSchool false
             school.cash -= catalog.entryFee
+            financialReportManager.recordExpense(
+                com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                catalog.entryFee,
+                "竞赛报名 · ${tier.displayName}·${track.displayName}"
+            )
             school.policyJson = policyManager.toJson()
+            school.financialReportJson = protectedManagerJson(
+                "financialReportJson",
+                school.financialReportJson,
+                financialReportManager::toJson
+            )
             true
         }
         if (committed == null) {
@@ -615,7 +643,17 @@ class GameEngine @Inject constructor(
             val committed = schoolRepository.mutateSchool { s ->
                 if (s.cash < cost) return@mutateSchool false
                 s.cash -= cost
+                financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHING_OPERATION,
+                    cost,
+                    "开设核心课 · ${college.displayName}"
+                )
                 s.policyJson = policyManager.toJson()
+                s.financialReportJson = protectedManagerJson(
+                    "financialReportJson",
+                    s.financialReportJson,
+                    financialReportManager::toJson
+                )
                 true
             }
             if (committed == null) {
@@ -822,6 +860,7 @@ class GameEngine @Inject constructor(
             val school = schoolRepository.getSchool()
                 ?: return@withLock ManagedOperationResult(false, "学校数据尚未就绪")
             if (school.cash < cost) {
+                cashShortfallAdManager.offerIfShort(cost, school.cash, "建设附属医院")
                 return@withLock ManagedOperationResult(
                     false,
                     "资金不足：建设附属医院需要 ${cost.toInt()}万"
@@ -835,7 +874,17 @@ class GameEngine @Inject constructor(
                 }
                 policyManager.setAffiliatedHospital(true)
                 s.cash -= cost
+                financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                    cost,
+                    "建设附属医院"
+                )
                 s.policyJson = policyManager.toJson()
+                s.financialReportJson = protectedManagerJson(
+                    "financialReportJson",
+                    s.financialReportJson,
+                    financialReportManager::toJson
+                )
                 true
             }
             if (committed == null) {
@@ -1040,6 +1089,11 @@ class GameEngine @Inject constructor(
                         return@mutateSchool false
                     }
                     school.studentLifeJson = json
+                    school.financialReportJson = protectedManagerJson(
+                        "financialReportJson",
+                        school.financialReportJson,
+                        financialReportManager::toJson
+                    )
                     true
                 }
             } catch (e: Exception) {
@@ -1084,11 +1138,14 @@ class GameEngine @Inject constructor(
             val cost = studentLifeManager.getUpgradeCost(aspect).toDouble()
             when {
                 cost <= 0.0 -> ManagedOperationResult(false, "当前设施无法升级")
-                school.cash < cost -> ManagedOperationResult(
+                school.cash < cost -> {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "学生生活${aspect.displayName}")
+                    ManagedOperationResult(
                     false,
                     "资金不足，需要 ¥${cost.toLong()}万",
                     cost
-                )
+                    )
+                }
                 !studentLifeManager.applyFacilityUpgrade(
                     aspect,
                     school.campusLevel,
@@ -1096,6 +1153,11 @@ class GameEngine @Inject constructor(
                 ) -> ManagedOperationResult(false, "设施状态已变化，请重试")
                 else -> {
                     school.cash -= cost
+                    financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                        cost,
+                        "学生生活升级 · ${aspect.displayName}"
+                    )
                     ManagedOperationResult(
                         true,
                         "升级成功，花费 ¥${cost.toLong()}万",
@@ -1113,17 +1175,25 @@ class GameEngine @Inject constructor(
             val cost = studentLifeManager.getRepairCost(aspect).toDouble()
             when {
                 cost <= 0.0 -> ManagedOperationResult(false, "当前设施无需维修")
-                school.cash < cost -> ManagedOperationResult(
+                school.cash < cost -> {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "维修${aspect.displayName}")
+                    ManagedOperationResult(
                     false,
                     "资金不足，需要 ¥${cost.toLong()}万",
                     cost
-                )
+                    )
+                }
                 !studentLifeManager.applyFacilityRepair(
                     aspect,
                     cost.toLong()
                 ) -> ManagedOperationResult(false, "设施状态已变化，请重试")
                 else -> {
                     school.cash -= cost
+                    financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                        cost,
+                        "学生生活维修 · ${aspect.displayName}"
+                    )
                     ManagedOperationResult(
                         true,
                         "维修完成，花费 ¥${cost.toLong()}万",
@@ -1140,15 +1210,23 @@ class GameEngine @Inject constructor(
                 val cost = studentLifeManager.getRepairAllCost().toDouble()
                 when {
                     cost <= 0.0 -> ManagedOperationResult(false, "当前设施无需维修")
-                    school.cash < cost -> ManagedOperationResult(
+                    school.cash < cost -> {
+                        cashShortfallAdManager.offerIfShort(cost, school.cash, "学生生活一键维修")
+                        ManagedOperationResult(
                         false,
                         "资金不足，需要 ¥${cost.toLong()}万",
                         cost
-                    )
+                        )
+                    }
                     !studentLifeManager.applyRepairAll(cost.toLong()) ->
                         ManagedOperationResult(false, "设施状态已变化，请重试")
                     else -> {
                         school.cash -= cost
+                        financialReportManager.recordExpense(
+                            com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                            cost,
+                            "学生生活一键维修"
+                        )
                         ManagedOperationResult(
                             true,
                             "一键维修完成，花费 ¥${cost.toLong()}万",
@@ -1161,7 +1239,8 @@ class GameEngine @Inject constructor(
 
     suspend fun expandStudentLifeCapacity(
         aspect: com.arktools.xiao.domain.studentlife.LifeAspect,
-        additional: Int
+        additional: Int,
+        freeByAd: Boolean = false
     ): ManagedOperationResult = engineOperationMutex.withLock {
         commitStudentLifeOperationLocked { school ->
             val current = studentLifeManager.state.value.facilities[aspect]?.capacity ?: 0
@@ -1170,34 +1249,42 @@ class GameEngine @Inject constructor(
                     com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities)
                 com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
                     com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(school.facilities)
-                else -> Int.MAX_VALUE
+                com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH ->
+                    com.arktools.xiao.domain.model.FacilityCapacity.totalClinicSlots(school.facilities)
+                com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY ->
+                    com.arktools.xiao.domain.model.FacilityCapacity.totalCounselingSlots(school.facilities)
             }
-            val dormCount = school.facilities.count {
-                it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational
-            }
-            val canteenCount = school.facilities.count {
-                it.type == com.arktools.xiao.domain.model.FacilityType.CANTEEN && it.isOperational
-            }
-            val hardMax = when (aspect) {
+            val buildingCount = when (aspect) {
                 com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY ->
-                    buildingCap + 40 * dormCount.coerceAtLeast(1)
+                    school.facilities.count { it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational }
                 com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
-                    buildingCap + 40 * canteenCount.coerceAtLeast(1)
-                else -> Int.MAX_VALUE
+                    school.facilities.count { it.type == com.arktools.xiao.domain.model.FacilityType.CANTEEN && it.isOperational }
+                com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH ->
+                    school.facilities.count { it.type == com.arktools.xiao.domain.model.FacilityType.CLINIC && it.isOperational }
+                com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY ->
+                    school.facilities.count { it.type == com.arktools.xiao.domain.model.FacilityType.COUNSELING && it.isOperational }
             }
+            val extraPerBuilding = when (aspect) {
+                com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY,
+                com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA -> 40
+                com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH,
+                com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY -> 20
+            }
+            val hardMax = buildingCap + extraPerBuilding * buildingCount.coerceAtLeast(1)
             val synced = maxOf(current, buildingCap)
             val roomLeft = (hardMax - synced).coerceAtLeast(0)
-            if (aspect == com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY && buildingCap <= 0) {
-                return@commitStudentLifeOperationLocked ManagedOperationResult(
-                    false,
-                    "校园还没有宿舍楼。去校园建造菜单先建一栋宿舍，再在楼里加床。"
-                )
-            }
-            if (aspect == com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA && buildingCap <= 0) {
-                return@commitStudentLifeOperationLocked ManagedOperationResult(
-                    false,
-                    "校园还没有食堂。去校园建造菜单先建一栋食堂，再加餐位。"
-                )
+            if (buildingCap <= 0) {
+                val hint = when (aspect) {
+                    com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY ->
+                        "校园还没有宿舍楼。去校园建造菜单先建一栋宿舍，再在楼里加床。"
+                    com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
+                        "校园还没有食堂。去校园建造菜单先建一栋食堂，再加餐位。"
+                    com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH ->
+                        "校园还没有医务室。去校园建造菜单先建医务室，再加接诊位。不是加运动场位置。"
+                    com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY ->
+                        "校园还没有心理辅导站。去校园建造菜单先建心理辅导站，再加辅导名额。"
+                }
+                return@commitStudentLifeOperationLocked ManagedOperationResult(false, hint)
             }
             if (roomLeft <= 0) {
                 val hint = when (aspect) {
@@ -1205,34 +1292,55 @@ class GameEngine @Inject constructor(
                         "这几栋宿舍加床已经加满（楼内容量 $buildingCap，加床上限 $hardMax）。要再住人，去校园新建一栋宿舍楼。"
                     com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
                         "现有食堂加餐位已经加满（楼内容量 $buildingCap，加位上限 $hardMax）。要再扩容，去校园新建一栋食堂。"
-                    else -> "容量已满，需要新建对应建筑。"
+                    com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH ->
+                        "现有医务室接诊位已经加满（楼内容量 $buildingCap，加位上限 $hardMax）。要再扩容，去校园再建一栋医务室。"
+                    com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY ->
+                        "现有心理辅导站名额已经加满（楼内容量 $buildingCap，加位上限 $hardMax）。要再扩容，去校园再建一栋心理辅导站。"
                 }
                 return@commitStudentLifeOperationLocked ManagedOperationResult(false, hint)
             }
             val add = additional.coerceAtMost(roomLeft)
-            val cost = studentLifeManager.getExpandCost(aspect, add).toDouble()
+            val cost = if (freeByAd) 0.0 else studentLifeManager.getExpandCost(aspect, add).toDouble()
+            val applyCost = if (freeByAd) studentLifeManager.getExpandCost(aspect, add) else cost.toLong()
             when {
-                add <= 0 || cost <= 0.0 ->
+                add <= 0 || (!freeByAd && cost <= 0.0) ->
                     ManagedOperationResult(false, "当前无法扩容")
-                school.cash < cost -> ManagedOperationResult(
+                !freeByAd && school.cash < cost -> {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "扩容${aspect.displayName}")
+                    ManagedOperationResult(
                     false,
                     "资金不足，需要 ¥${cost.toLong()}万",
                     cost
-                )
-                !studentLifeManager.applyCapacityExpansion(aspect, add, cost.toLong()) ->
+                    )
+                }
+                !studentLifeManager.applyCapacityExpansion(aspect, add, applyCost) ->
                     ManagedOperationResult(false, "设施状态已变化，请重试")
                 else -> {
-                    school.cash -= cost
+                    if (!freeByAd) {
+                        school.cash -= cost
+                        financialReportManager.recordExpense(
+                            com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                            cost,
+                            when (aspect) {
+                                com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY -> "宿舍加床 +$add"
+                                com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA -> "食堂加餐位 +$add"
+                                com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH -> "医务室加接诊位 +$add"
+                                com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY -> "心理辅导站加名额 +$add"
+                            }
+                        )
+                    }
                     val extra = if (add < additional) " 本楼已近上限，还差的去校园再建一栋。" else ""
                     val feeHint = when (aspect) {
                         com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY -> "月维护费随床位增加。"
                         com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA -> "月维护费随餐位增加。"
-                        else -> ""
+                        com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH -> "月维护费随接诊位增加。"
+                        com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY -> "月维护费随辅导名额增加。"
                     }
+                    val payText = if (freeByAd) "看广告免费扩容+$add。" else "扩容+$add，花费 ¥${cost.toLong()}万。"
                     ManagedOperationResult(
                         true,
-                        "扩容+$add，花费 ¥${cost.toLong()}万。$feeHint$extra",
-                        cost
+                        "$payText$feeHint$extra",
+                        if (freeByAd) 0.0 else cost
                     )
                 }
             }
@@ -3516,6 +3624,7 @@ class GameEngine @Inject constructor(
     private class MonthlySettlementState {
         var isRetrySettlement: Boolean = false
         var expLifeExpenses = 0.0
+        var lifeExpenseItems: List<com.arktools.xiao.domain.studentlife.LifeExpenseItem> = emptyList()
         var expMaintenance = 0.0
         var expConference = 0.0
         var expClubActivity = 0.0
@@ -4088,7 +4197,9 @@ class GameEngine @Inject constructor(
                         FacilityCapacity.totalCanteenSeats(
                             latest.facilities,
                             policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
-                        )
+                        ),
+                        FacilityCapacity.totalClinicSlots(latest.facilities),
+                        FacilityCapacity.totalCounselingSlots(latest.facilities)
                     )
                     val lifeResult = studentLifeManager.advanceMonth(
                         st.studentCount,
@@ -4110,6 +4221,7 @@ class GameEngine @Inject constructor(
                 }
                 committedLifeResult?.let { lifeResult ->
                     st.expLifeExpenses += lifeResult.totalExpenses.toDouble()
+                    st.lifeExpenseItems = lifeResult.expenseItems
                     val canteenSeats = FacilityCapacity.totalCanteenSeats(
                         school.facilities,
                         policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
@@ -4524,64 +4636,112 @@ class GameEngine @Inject constructor(
                 ), school)
             }
 
-            // 财务报表系统月度结算
+            // 财务报表系统月度结算（逐条写说明，账本页按明细查阅）
             financialReportManager.recordIncome(
-                com.arktools.xiao.domain.finance.IncomeCategory.TUITION, st.monthlyRevenue
+                com.arktools.xiao.domain.finance.IncomeCategory.TUITION,
+                st.monthlyRevenue,
+                "学费入账（在校 ${st.studentCount} 人）"
             )
             financialReportManager.recordExpense(
-                com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY, st.expenseBreakdown.salary
+                com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY,
+                st.expenseBreakdown.salary,
+                "教师月薪"
             )
             if (st.expenseBreakdown.facilities > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.UTILITIES, st.expenseBreakdown.facilities
+                    com.arktools.xiao.domain.finance.ExpenseCategory.UTILITIES,
+                    st.expenseBreakdown.facilities,
+                    "水电物业"
                 )
             }
             if (st.expenseBreakdown.teaching > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHING_OPERATION, st.expenseBreakdown.teaching
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHING_OPERATION,
+                    st.expenseBreakdown.teaching,
+                    "教学运营（班数/课时）"
                 )
             }
             if (st.expMaintenance > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE, st.expMaintenance
+                    com.arktools.xiao.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE,
+                    st.expMaintenance,
+                    "校区建筑月维护"
                 )
             }
-            if (st.expConference + st.expClubActivity + st.expClubMonthly > 0) {
+            if (st.expConference > 0) {
                 financialReportManager.recordExpense(
                     com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
-                    st.expConference + st.expClubActivity + st.expClubMonthly
+                    st.expConference,
+                    "学术会议"
                 )
             }
-            if (st.expTeacherDev + st.expCareerProgram > 0) {
+            if (st.expClubActivity > 0) {
+                financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                    st.expClubActivity,
+                    "社团活动"
+                )
+            }
+            if (st.expClubMonthly > 0) {
+                financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                    st.expClubMonthly,
+                    "社团月度经费"
+                )
+            }
+            if (st.expTeacherDev > 0) {
                 financialReportManager.recordExpense(
                     com.arktools.xiao.domain.finance.ExpenseCategory.TRAINING_COST,
-                    st.expTeacherDev + st.expCareerProgram
+                    st.expTeacherDev,
+                    "教师职业发展"
                 )
             }
-            if (st.expLifeExpenses > 0) {
+            if (st.expCareerProgram > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE, st.expLifeExpenses
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TRAINING_COST,
+                    st.expCareerProgram,
+                    "就业辅导项目"
                 )
             }
-            // 校友捐赠收入（已在本月确定）
+            if (st.lifeExpenseItems.isNotEmpty()) {
+                st.lifeExpenseItems.forEach { item ->
+                    if (item.amount > 0) {
+                        financialReportManager.recordExpense(
+                            com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                            item.amount.toDouble(),
+                            item.description
+                        )
+                    }
+                }
+            } else if (st.expLifeExpenses > 0) {
+                financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                    st.expLifeExpenses,
+                    "学生生活月维护与专项"
+                )
+            }
             if (st.incAlumniDonation > 0) {
                 financialReportManager.recordIncome(
-                    com.arktools.xiao.domain.finance.IncomeCategory.ALUMNI_CONTRIBUTION, st.incAlumniDonation
+                    com.arktools.xiao.domain.finance.IncomeCategory.ALUMNI_CONTRIBUTION,
+                    st.incAlumniDonation,
+                    "校友捐赠"
                 )
             }
             // 注：govSubsidy/govFine/scholarship 在后续子系统计算后再录入（closeMonth前）
-            // Bug 23: 招生宣传费（每日扣款的月度近似）
             st.expMarketing = com.arktools.xiao.domain.model.MarketingCalculator.getDailyCost(school.marketingCampaigns) * 30.0
             if (st.expMarketing > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.MARKETING, st.expMarketing
+                    com.arktools.xiao.domain.finance.ExpenseCategory.MARKETING,
+                    st.expMarketing,
+                    "招生宣传（本月投放）"
                 )
             }
-            // Bug 29: 季节活动费（每日结算的月度累计）
             st.seasonalExpenses = seasonalActivityManager.consumeMonthlyExpenses().toDouble() / 10000.0
             if (st.seasonalExpenses > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST, st.seasonalExpenses
+                    com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                    st.seasonalExpenses,
+                    "季节活动"
                 )
             }
             // closeMonth 延迟到政府补贴和奖学金计算之后（见下方）
@@ -4873,6 +5033,11 @@ class GameEngine @Inject constructor(
                 if (researchGrant > 0) {
                     schoolRepository.addCash(researchGrant)
                     st.incResearchGrant += researchGrant
+                    financialReportManager.recordIncome(
+                        com.arktools.xiao.domain.finance.IncomeCategory.RESEARCH_GRANT,
+                        researchGrant,
+                        "纵向科研经费"
+                    )
                     deferEvent(GameEvent.PositiveEvent(
                         title = "科研经费到账",
                         message = "本校在研科研项目获得纵向经费拨款 ¥${String.format("%,.0f", researchGrant * 10000)}（研究型大学按月拨付）。",
@@ -4898,20 +5063,26 @@ class GameEngine @Inject constructor(
                 }
             }
 
-            // === 财务报表结算（在所有收支计算完成后关闭月报）===
+            // 政府补贴/罚款/奖学金先入账，关账放到校长薪资和税费之后
             if (st.incGovSubsidy > 0) {
                 financialReportManager.recordIncome(
-                    com.arktools.xiao.domain.finance.IncomeCategory.GOVERNMENT_SUBSIDY, st.incGovSubsidy
+                    com.arktools.xiao.domain.finance.IncomeCategory.GOVERNMENT_SUBSIDY,
+                    st.incGovSubsidy,
+                    "财政拨款/政府补贴"
                 )
             }
             if (st.expGovFine > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE, st.expGovFine
+                    com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE,
+                    st.expGovFine,
+                    "政府罚款"
                 )
             }
             if (st.expScholarship > 0) {
                 financialReportManager.recordExpense(
-                    com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE, st.expScholarship
+                    com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE,
+                    st.expScholarship,
+                    "奖助学金"
                 )
             }
             // Bug fix: 将所有额外支出累加到 monthlyExpenses，使 netProfit 反映真实总支出
@@ -4931,6 +5102,11 @@ class GameEngine @Inject constructor(
                     if (chainCash > 0) {
                         schoolRepository.addCash(chainCash)
                         st.incResearchGrant += chainCash
+                        financialReportManager.recordIncome(
+                            com.arktools.xiao.domain.finance.IncomeCategory.RESEARCH_GRANT,
+                            chainCash,
+                            "课题链阶段奖励"
+                        )
                     }
                     if (chainRep > 0) schoolRepository.addReputation(chainRep)
                 }
@@ -5032,6 +5208,16 @@ class GameEngine @Inject constructor(
                     st.incHospitalRevenue += st.revenue
                     schoolRepository.addReputation(2)
                     st.expHospitalOp += 8.0
+                    financialReportManager.recordIncome(
+                        com.arktools.xiao.domain.finance.IncomeCategory.FACILITY_RENTAL,
+                        st.revenue,
+                        "附属医院诊疗收入"
+                    )
+                    financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.FACILITY_MAINTENANCE,
+                        8.0,
+                        "附属医院运营"
+                    )
                     if (medStudents > 0 && kotlin.random.Random.nextFloat() < 0.18f) {
                         if (kotlin.random.Random.nextBoolean()) {
                             emitEvent(GameEvent.PositiveEvent(
@@ -5061,6 +5247,11 @@ class GameEngine @Inject constructor(
                     if (gradsIncome > 0) {
                         schoolRepository.addCash(gradsIncome)
                         st.incGradGrant += gradsIncome
+                        financialReportManager.recordIncome(
+                            com.arktools.xiao.domain.finance.IncomeCategory.RESEARCH_GRANT,
+                            gradsIncome,
+                            "硕博点导师经费"
+                        )
                     }
                     schoolRepository.addReputation(3)
                     runCatching { researchRepository.advanceResearchDay() }
@@ -5166,6 +5357,11 @@ class GameEngine @Inject constructor(
                                 schoolRepository.addCash(prize)
                                 schoolRepository.addReputation(reward)
                                 st.incCompetitionPrize += prize
+                                financialReportManager.recordIncome(
+                                    com.arktools.xiao.domain.finance.IncomeCategory.EVENT_REVENUE,
+                                    prize,
+                                    "校际竞赛奖金「${comp.name}」"
+                                )
                                 emitEvent(GameEvent.PositiveEvent(
                                     title = "校际竞赛夺冠",
                                     message = "${comp.name}在${competitionTier.displayName}组别夺得冠军！奖金${prize.toInt()}万入账，声誉+${reward}。师资覆盖越全，竞赛胜率越高。",
@@ -5191,18 +5387,6 @@ class GameEngine @Inject constructor(
                 android.util.Log.w("GameEngine", "Competition monthly resolve failed", it)
             }
 
-            financialReportManager.closeMonth(school.currentYear, school.currentMonth, school.cash)
-
-            // 财务报表结算完成后，持久化最新状态（避免重启后丢失本月收支记录）
-            schoolRepository.mutateSchool { latest ->
-                latest.financialReportJson = protectedManagerJson(
-                    "financialReportJson",
-                    latest.financialReportJson,
-                    financialReportManager::toJson
-                )
-                true
-            }
-
     }
 
     private suspend fun msStage4(school: School, st: MonthlySettlementState) {
@@ -5222,7 +5406,9 @@ class GameEngine @Inject constructor(
                     schoolRepository.deductCash(principalSalary)
                     st.monthlyExpenses += principalSalary
                     financialReportManager.recordExpense(
-                        com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY, principalSalary
+                        com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY,
+                        principalSalary,
+                        "校长月薪"
                     )
                 }
             }
@@ -5409,7 +5595,9 @@ class GameEngine @Inject constructor(
                     schoolRepository.deductCash(quarterlyTax)
                     st.monthlyExpenses += quarterlyTax  // Bug fix: 计入月度总支出
                     financialReportManager.recordExpense(
-                        com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE, quarterlyTax
+                        com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE,
+                        quarterlyTax,
+                        "季度税费"
                     )
                     deferEvent(GameEvent.NegativeEvent(
                         title = "季度税费缴纳",
@@ -5442,6 +5630,11 @@ class GameEngine @Inject constructor(
                     }
                     completedWithdrawals.add(w)
                     st.monthlyExpenses += w.refundAmount  // Bug fix: 退费计入月度总支出
+                    financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.OTHER_EXPENSE,
+                        w.refundAmount,
+                        "退学退费 · ${w.studentName}"
+                    )
                     deferEvent(GameEvent.NegativeEvent(
                         title = "学生退学",
                         message = "${w.studentName}退学退费。${w.reason}\n退费金额：${String.format("%.2f", w.refundAmount)}万元",
@@ -5977,6 +6170,9 @@ class GameEngine @Inject constructor(
                     )
                 }
             }
+
+            val closeCash = schoolRepository.getSchool()?.cash ?: school.cash
+            financialReportManager.closeMonth(school.currentYear, school.currentMonth, closeCash)
 
             checkNotNull(schoolRepository.mutateSchool { latest ->
                 writeManagerJsonFields(latest)

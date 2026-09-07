@@ -81,7 +81,14 @@ class ReportViewModel @Inject constructor(
         return financialReportManager.getExpenseBreakdown()
     }
 
-    fun getLossDiagnosis(): List<String> = financialReportManager.getLossDiagnosis()
+    fun getLedgerReport(): com.arktools.xiao.domain.finance.MonthlyReport =
+        financialReportManager.getEffectiveReport()
+
+    fun getIncomeEntries(): List<LedgerEntry> = financialReportManager.getIncomeEntries()
+
+    fun getExpenseEntries(): List<LedgerEntry> = financialReportManager.getExpenseEntries()
+
+    fun getAllEntries(): List<LedgerEntry> = financialReportManager.getAllEntries()
 
     // === 数据可视化辅助 ===
 

@@ -150,11 +150,18 @@ class ExternalViewModel @Inject constructor(
             val cost = 6.0
             val result = schoolRepository.mutateSchool { school ->
                 if (school.cash < cost) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(cost, school.cash, "外联挖人")
                     _state.value = _state.value.copy(message = "挖人需要 6 万，经费不够")
                     return@mutateSchool false
                 }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.MARKETING,
+                    cost,
+                    "外联挖人"
+                )
                 school.reputation += 80
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
@@ -170,11 +177,18 @@ class ExternalViewModel @Inject constructor(
             val cost = 8.0
             val result = schoolRepository.mutateSchool { school ->
                 if (school.cash < cost) {
+                    gameEngine.cashShortfallAdManager.offerIfShort(cost, school.cash, "外联抢生源")
                     _state.value = _state.value.copy(message = "抢生源需要 8 万，经费不够")
                     return@mutateSchool false
                 }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.MARKETING,
+                    cost,
+                    "外联抢生源"
+                )
                 school.reputation += 40
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {

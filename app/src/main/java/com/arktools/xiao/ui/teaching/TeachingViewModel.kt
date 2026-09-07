@@ -3,6 +3,7 @@ package com.arktools.xiao.ui.teaching
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.domain.engine.GameBalanceConfig
+import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.model.*
 import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.teaching.TeachingManager
@@ -22,7 +23,8 @@ class TeachingViewModel @Inject constructor(
     private val teachingManager: TeachingManager,
     private val schoolRepository: SchoolRepository,
     private val studentRepository: com.arktools.xiao.domain.repository.StudentRepository,
-    private val policyManager: com.arktools.xiao.domain.policy.SchoolPolicyManager
+    private val policyManager: com.arktools.xiao.domain.policy.SchoolPolicyManager,
+    private val gameEngine: GameEngine
 ) : ViewModel() {
 
     val state: StateFlow<TeachingState> = teachingManager.state
@@ -101,13 +103,21 @@ class TeachingViewModel @Inject constructor(
                 val seats = tier.maxSize * added
                 val school = schoolRepository.getSchool()
                 if (school == null || school.cash < setup) {
+                    if (school != null) {
+                        gameEngine.cashShortfallAdManager.offerIfShort(setup, school.cash, "新开${tier.displayName}")
+                    }
                     _lastActionMessage.value =
                         "经费不够：再开 ${added} 个${tier.displayName}要 ${"%.1f".format(setup)} 万，点加号不会生效。"
                     return@launch
                 }
                 schoolRepository.deductCash(setup)
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHING_OPERATION,
+                    setup,
+                    "新开${tier.displayName} ${added}个"
+                )
                 teachingManager.setClassCount(tier, next)
-                persistConfig()
+                persistConfig(includeFinance = true)
                 _lastActionMessage.value =
                     "已开 ${added} 个${tier.displayName}：立刻 +${seats} 个新生学位，扣开办费 ${"%.1f".format(setup)} 万，月费再 +${"%.1f".format(tier.monthlyCost * added)} 万。不开班 9 月招不满。"
                 return@launch
@@ -195,10 +205,13 @@ class TeachingViewModel @Inject constructor(
      * 将当前教学配置立即持久化到数据库
      * 修复：之前只在月度结算时保存，玩家配置后退出会丢失
      */
-    private fun persistConfig() {
+    private fun persistConfig(includeFinance: Boolean = false) {
         viewModelScope.launch {
             schoolRepository.mutateSchool { school ->
                 school.teachingConfigJson = teachingManager.toJson()
+                if (includeFinance) {
+                    school.financialReportJson = gameEngine.financialReportManager.toJson()
+                }
                 true
             }
         }

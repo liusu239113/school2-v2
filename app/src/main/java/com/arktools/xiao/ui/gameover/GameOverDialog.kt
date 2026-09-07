@@ -185,7 +185,7 @@ fun CrisisDialog(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "观看短视频后将获得 +120万 +50声誉 帮助度过危机",
+                            text = "观看短视频后清掉全部欠款，再注入 +200万办学经费和 +50声誉",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.6f)
                         )

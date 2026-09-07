@@ -3,6 +3,7 @@ package com.arktools.xiao.ui.campus
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arktools.xiao.audio.AudioManager
+import com.arktools.xiao.domain.ad.CashShortfallAdManager
 import com.arktools.xiao.domain.engine.GameBalanceConfig
 import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.domain.engine.SchoolDecision
@@ -43,7 +44,8 @@ class CampusViewModel @Inject constructor(
     private val audioManager: AudioManager,
     private val teacherRepository: TeacherRepository,
     private val studentRepository: StudentRepository,
-    private val teachingManager: TeachingManager
+    private val teachingManager: TeachingManager,
+    private val cashShortfallAdManager: CashShortfallAdManager
 ) : ViewModel() {
 
     data class CampusBuilding(
@@ -1075,6 +1077,7 @@ class CampusViewModel @Inject constructor(
                 }
                 val cost = com.arktools.xiao.domain.model.FacilityCapacity.repeatCost(type, existingCount)
                 if (school.cash < cost) {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "建造${spec.displayName}")
                     _state.value = _state.value.copy(message = "资金不足！需要 ${cost.toInt()} 万元")
                     return@mutateSchool false
                 }
@@ -1091,9 +1094,15 @@ class CampusViewModel @Inject constructor(
                     return@mutateSchool false
                 }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                    cost,
+                    "建造${spec.displayName}"
+                )
                 school.facilities.add(f)
                 newFacility = f
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result == null) {
@@ -1186,6 +1195,13 @@ class CampusViewModel @Inject constructor(
                     return@mutateSchool false
                 }
                 school.cash += refund
+                if (refund > 0) {
+                    gameEngine.financialReportManager.recordIncome(
+                        com.arktools.xiao.domain.finance.IncomeCategory.OTHER_INCOME,
+                        refund,
+                        "拆除${spec.displayName}退款"
+                    )
+                }
                 var removed = false
                 if (spec.facility != null) {
                     removed = school.facilities.removeAll { it.id == placed.facilityId }
@@ -1195,6 +1211,7 @@ class CampusViewModel @Inject constructor(
                     }
                 }
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result == null) {
@@ -1300,6 +1317,7 @@ class CampusViewModel @Inject constructor(
                 return
             }
             if (st.cash < tile.costWan) {
+                cashShortfallAdManager.offerIfShort(tile.costWan, st.cash, "铺设${tile.displayName}")
                 _state.value = _state.value.copy(message = "资金不足！需要 ${tile.costWan} 万")
                 audioManager.playEventNegative()
                 return
@@ -1308,6 +1326,12 @@ class CampusViewModel @Inject constructor(
                 val result = schoolRepository.mutateSchool { school ->
                     if (school.cash < tile.costWan) return@mutateSchool false
                     school.cash -= tile.costWan
+                    gameEngine.financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                        tile.costWan,
+                        "铺设${tile.displayName}"
+                    )
+                    school.financialReportJson = gameEngine.financialReportManager.toJson()
                     true
                 }
                 if (result != null) {
@@ -1364,6 +1388,12 @@ class CampusViewModel @Inject constructor(
             val persisted = if (refund > 0.0) {
                 schoolRepository.mutateSchool { school ->
                     school.cash += refund
+                    gameEngine.financialReportManager.recordIncome(
+                        com.arktools.xiao.domain.finance.IncomeCategory.OTHER_INCOME,
+                        refund,
+                        "拆除${tile.displayName}退款"
+                    )
+                    school.financialReportJson = gameEngine.financialReportManager.toJson()
                     true
                 } != null
             } else true
@@ -1499,16 +1529,23 @@ class CampusViewModel @Inject constructor(
                 }
                 val cost = FacilityBonusCalculator.getUpgradeCost(facility)
                 if (school.cash < cost) {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "升级${type.displayName}")
                     _state.value = _state.value.copy(
                         message = "资金不足！升级需要 ${String.format("%.1f", cost)} 万元"
                     )
                     return@mutateSchool false
                 }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                    cost,
+                    "升级${type.displayName}到 Lv.${facility.level + 1}"
+                )
                 val upgraded = facility.copy(level = facility.level + 1)
                 school.facilities[idx] = upgraded
                 name = type.displayName
                 lv = upgraded.level
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
@@ -1537,6 +1574,7 @@ class CampusViewModel @Inject constructor(
             val turningOn = next.activationScore() > current.activationScore()
             val result = schoolRepository.mutateSchool { school ->
                 if (turningOn && school.cash < startupCost) {
+                    cashShortfallAdManager.offerIfShort(startupCost, school.cash, "启动$label")
                     _state.value = _state.value.copy(
                         message = "$label 启动需要 ${"%.1f".format(startupCost)} 万，当前经费不够"
                     )
@@ -1544,10 +1582,16 @@ class CampusViewModel @Inject constructor(
                 }
                 if (turningOn) {
                     school.cash -= startupCost
+                    gameEngine.financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                        startupCost,
+                        "启动专项 · $label"
+                    )
                     school.reputation = (school.reputation + reputationHit).coerceAtLeast(0)
                 }
                 policyManager.replaceCollegeDevelopment(dev.copy(buildingOps = next))
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
@@ -1574,14 +1618,21 @@ class CampusViewModel @Inject constructor(
             val cost = 4.0
             val result = schoolRepository.mutateSchool { school ->
                 if (school.cash < cost) {
+                    cashShortfallAdManager.offerIfShort(cost, school.cash, "食堂加开窗口")
                     _state.value = _state.value.copy(message = "加窗口需要 4 万，经费不够")
                     return@mutateSchool false
                 }
                 school.cash -= cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.LIFE_SERVICE,
+                    cost,
+                    "食堂加开窗口"
+                )
                 val dev = policyManager.policies.value.collegeDevelopment
                 val ops = dev.buildingOps.copy(extraWindows = (dev.buildingOps.extraWindows + 1).coerceAtMost(6))
                 policyManager.replaceCollegeDevelopment(dev.copy(buildingOps = ops))
                 school.policyJson = policyManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {

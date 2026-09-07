@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -217,7 +218,7 @@ private fun LogisticsDesk(
             PixelHardPanel {
                 Text("学生生活", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(
-                    "宿舍食堂要先在校园建楼。楼里可以花钱加床/餐位并增加月维护；加满了再去校园建新楼。专项默认关闭，开办才扣月费。",
+                    "宿舍、食堂、医务室、心理辅导站都要先在校园建楼。楼里可以花钱加位并增加月维护；加满了再去校园建新楼。专项默认关闭，开办才扣月费。",
                     color = PanelMuted,
                     fontSize = 12.sp
                 )
@@ -240,6 +241,7 @@ private fun LogisticsDesk(
                 onUpgrade = { viewModel.upgradeFacility(aspect) },
                 onRepair = { viewModel.repairFacility(aspect) },
                 onExpand = { viewModel.expandCapacity(aspect, 20) },
+                onAdExpand = { viewModel.expandCapacityByAd(aspect, 20) },
                 onToggleProgram = { program, active ->
                     if (active) viewModel.deactivateProgram(program.id)
                     else viewModel.activateProgram(program.id)
@@ -261,6 +263,7 @@ private fun FacilityDutyCard(
     onUpgrade: () -> Unit,
     onRepair: () -> Unit,
     onExpand: () -> Unit,
+    onAdExpand: () -> Unit,
     onToggleProgram: (SpecialProgram, Boolean) -> Unit
 ) {
     val desk = facilityDesk(facility.aspect)
@@ -320,6 +323,22 @@ private fun FacilityDutyCard(
             text = desk.expandLabel + " ¥${expandCost}万",
             onClick = onExpand,
             style = PixelButtonStyle.CONFIRM,
+            height = 42.dp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        val activity = LocalContext.current as? android.app.Activity
+        PixelButton(
+            text = "看广告免费" + desk.expandLabel,
+            onClick = {
+                if (activity != null) {
+                    com.arktools.adsdk.AdHelper.showRewardAd(
+                        activity = activity,
+                        onRewarded = onAdExpand
+                    )
+                }
+            },
+            enabled = activity != null,
+            style = PixelButtonStyle.SECONDARY,
             height = 42.dp,
             modifier = Modifier.fillMaxWidth()
         )
@@ -405,21 +424,21 @@ private fun facilityDesk(aspect: LifeAspect): FacilityDesk = when (aspect) {
         programTitle = "食堂菜谱 / 窗口专项"
     )
     LifeAspect.HEALTH -> FacilityDesk(
-        shortName = "医务运动",
-        fullName = "校医院与运动馆",
-        duty = "管校医、运动场和健身房。设施坏了就修，医务没开就开。",
+        shortName = "医务室",
+        fullName = "校医务室",
+        duty = "先在校园建造菜单建医务室，再在这栋楼里加接诊位。不是加运动场位置。运动馆坏了走维修。",
         staffLabel = "校医",
         maintainLabel = "设施",
         capacityLabel = "接诊",
         capacityUnit = "人",
-        repairLabel = "修场馆",
+        repairLabel = "修医务室",
         expandLabel = "加 20 接诊位",
         programTitle = "健康专项"
     )
     LifeAspect.PSYCHOLOGY -> FacilityDesk(
         shortName = "心理站",
         fullName = "心理辅导站",
-        duty = "管热线和减压工作坊。投诉心理压力，必须从这里开辅导。",
+        duty = "先在校园建造菜单建心理辅导站，再在这栋楼里加辅导名额。投诉心理压力，必须从这里开辅导。",
         staffLabel = "咨询师",
         maintainLabel = "运转",
         capacityLabel = "名额",
