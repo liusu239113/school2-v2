@@ -129,6 +129,16 @@ fun StudentScreen(
                     )
                 }
             }
+            val graduationGrade = viewModel.graduationGrade.collectAsState().value
+            Text(
+                text = if (graduationGrade == GradeLevel.GRADE_3)
+                    "当前是高职专科 3 年制，毕业年级是大三，没有大四。大一到大三会同时在校。"
+                else
+                    "当前是 4 年制，毕业年级是大四。大一到大四会同时在校。",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = Color.White,
+                style = MaterialTheme.typography.bodySmall
+            )
 
             when (selectedTabIndex) {
                 0 -> StudentManageContent(viewModel = viewModel)

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -636,7 +637,12 @@ fun MainScreen(
         containerColor = Color(0xCC0B2038),
         topBar = {
             TopAppBar(
-                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(
+                    left = 48,
+                    top = 0,
+                    right = 0,
+                    bottom = 0
+                ).union(androidx.compose.foundation.layout.WindowInsets.statusBars),
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xCC0B2038)
                 ),
@@ -659,13 +665,14 @@ fun MainScreen(
                             color = Color.White
                         )
                         if (!Screen.isSubPage(selectedTab)) {
+                            val tier = school?.schoolTier()
                             Text(
-                                text = "${school?.currentYear ?: "--"}年 ${school?.currentMonth ?: "-"}月 ${school?.currentDay ?: "-"}日" +
-                                    (school?.let {
-                                        " · ${it.schoolTier().displayName}·${it.schoolOwnership().displayName}"
-                                    } ?: ""),
+                                text = "${school?.currentYear ?: "--"}年${school?.currentMonth ?: "-"}月${school?.currentDay ?: "-"}日" +
+                                    (tier?.let { " · ${it.displayName}${it.years}年制" } ?: ""),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFB8C7D6)
+                                color = Color(0xFFB8C7D6),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

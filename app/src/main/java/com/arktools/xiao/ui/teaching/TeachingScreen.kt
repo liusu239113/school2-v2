@@ -365,7 +365,7 @@ private fun SpecialProgramSection(viewModel: TeachingViewModel, state: TeachingS
                         Text(program.displayName, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                         Text(program.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            "开设${program.setupCost}万 | 月维护${program.monthlyMaintain}万 | 限${program.maxStudents}人",
+                            "开设${program.setupCost}万 | 月维护${program.monthlyMaintain}万 | ${if (program.maxStudents <= 0) "全校覆盖" else "限${program.maxStudents}人"}",
                             fontSize = 10.sp, color = MaterialTheme.colorScheme.outline
                         )
                     }

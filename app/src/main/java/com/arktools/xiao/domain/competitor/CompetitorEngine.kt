@@ -151,6 +151,17 @@ class CompetitorEngine @Inject constructor() {
         val playerAhead = school.reputation > competitor.reputation * 1.2
         val competitorAhead = competitor.reputation > school.reputation * 1.5
 
+        // 对手一直在招生：声誉高的学校会从玩家这边抢生源
+        if (competitorAhead && Random.nextFloat() < 0.18f + competitor.aggressiveness * 0.2f) {
+            val stolen = Random.nextInt(4, 12)
+            competitor.studentCount += stolen
+            competitor.specialEventCooldown = 3
+            return CompetitorEvent.MarketExpansion(
+                competitorName = competitor.name,
+                studentLoss = stolen
+            )
+        }
+
         // 敌对/狡猾AI在玩家领先时会发起攻击
         if (playerAhead && competitor.aggressiveness > Random.nextFloat()) {
             competitor.specialEventCooldown = 6  // 6个月冷却

@@ -11,13 +11,18 @@ import com.arktools.xiao.domain.model.Teacher
 import com.arktools.xiao.domain.exam.ExamManager
 import com.arktools.xiao.domain.exam.StudentScore
 import com.arktools.xiao.domain.repository.CourseRepository
+import com.arktools.xiao.domain.model.schoolTier
+import com.arktools.xiao.domain.repository.SchoolRepository
 import com.arktools.xiao.domain.repository.StudentRepository
 import com.arktools.xiao.domain.repository.TeacherRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.arktools.xiao.util.safeLaunch
@@ -63,7 +68,8 @@ class StudentViewModel @Inject constructor(
     private val courseRepository: CourseRepository,
     private val examManager: ExamManager,
     private val gameEngine: GameEngine,
-    private val teacherRepository: TeacherRepository
+    private val teacherRepository: TeacherRepository,
+    private val schoolRepository: SchoolRepository
 ) : ViewModel() {
 
     // ===== 学生管理状态 =====
@@ -73,6 +79,11 @@ class StudentViewModel @Inject constructor(
     // ===== 班级管理状态 =====
     private val _classUiState = MutableStateFlow(ClassUiState())
     val classUiState: StateFlow<ClassUiState> = _classUiState.asStateFlow()
+    val graduationGrade: StateFlow<GradeLevel> = schoolRepository.getSchoolFlow()
+        .map { school ->
+            school?.schoolTier()?.graduationGrade ?: GradeLevel.GRADE_4
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, GradeLevel.GRADE_4)
 
     init {
         loadStudentData()

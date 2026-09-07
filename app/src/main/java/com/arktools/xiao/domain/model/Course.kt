@@ -110,8 +110,8 @@ enum class SpecialProgram(
     ART_EXAM("美术集训", "联考/校考冲刺训练", 10.0, 3.0, 2, Subject.ART, 30, ProgramBonusType.ART_EXAM),
     MUSIC_EXAM("音乐集训", "音乐艺考专项训练", 10.0, 3.0, 2, Subject.MUSIC, 25, ProgramBonusType.ART_EXAM),
     SPORTS_ELITE("体育特训", "体育单招/高水平运动队", 8.0, 2.5, 2, Subject.PE, 25, ProgramBonusType.SPORTS),
-    PSYCHOLOGY("心理辅导站", "学生心理健康辅导", 5.0, 1.5, 1, null, 0, ProgramBonusType.SATISFACTION),
-    PEER_TUTORING("学生互助辅导", "优生帮扶后进生", 1.0, 0.5, 0, null, 0, ProgramBonusType.PEER_HELP)
+    PSYCHOLOGY("心理辅导站", "学生心理健康辅导", 5.0, 1.5, 1, null, 80, ProgramBonusType.SATISFACTION),
+    PEER_TUTORING("学生互助辅导", "优生帮扶后进生", 1.0, 0.5, 0, null, 60, ProgramBonusType.PEER_HELP)
 }
 
 enum class ProgramBonusType {

@@ -107,7 +107,7 @@ internal fun isStudentGraduationDue(
 ): Boolean {
     if (gradeLevel != graduationGrade) return false
     if (enrollYear <= 0) return processingMonth >= 6
-    // 9月入学到第 N 个次年6月毕业：三年制跨度3年，四年制跨度4年。
+    // 9月入学：三年制第3年6月毕业（跨度3），四年制第4年6月毕业（跨度4）。
     val spanYears = graduationGrade.order
     val enrolledYears = processingYear - enrollYear
     return enrolledYears > spanYears ||

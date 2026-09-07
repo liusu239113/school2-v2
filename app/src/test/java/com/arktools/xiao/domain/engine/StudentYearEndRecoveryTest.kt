@@ -8,7 +8,7 @@ import org.junit.Test
 class StudentYearEndRecoveryTest {
 
     @Test
-    fun gradeThreeStudentDoesNotGraduateBeforeJuneOfFourthSchoolYear() {
+    fun gradeThreeStudentDoesNotGraduateBeforeJuneOfThirdSchoolYear() {
         assertFalse(
             isStudentGraduationDue(
                 gradeLevel = GradeLevel.GRADE_3,
@@ -21,7 +21,7 @@ class StudentYearEndRecoveryTest {
     }
 
     @Test
-    fun gradeThreeStudentGraduatesFromJuneOfFourthSchoolYear() {
+    fun gradeThreeStudentGraduatesFromJuneOfThirdSchoolYear() {
         assertTrue(
             isStudentGraduationDue(
                 gradeLevel = GradeLevel.GRADE_3,
