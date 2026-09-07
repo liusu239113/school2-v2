@@ -24,6 +24,7 @@ class SettingsDataStore(private val context: Context) {
         val DARK_MODE = booleanPreferencesKey("dark_mode")
         val LAST_PLAY_TIME = longPreferencesKey("last_play_time")
         val SCHOOL_ID = stringPreferencesKey("school_id")
+        val FONT_PRESET = stringPreferencesKey("font_preset")
     }
 
     val soundEnabled: Flow<Boolean> = context.dataStore.data.map { it[SOUND_ENABLED] ?: true }
@@ -34,6 +35,13 @@ class SettingsDataStore(private val context: Context) {
     val darkMode: Flow<Boolean> = context.dataStore.data.map { it[DARK_MODE] ?: false }
     val lastPlayTime: Flow<Long> = context.dataStore.data.map { it[LAST_PLAY_TIME] ?: 0L }
     val schoolId: Flow<String?> = context.dataStore.data.map { it[SCHOOL_ID] }
+    val fontPreset: Flow<String> = context.dataStore.data.map {
+        it[FONT_PRESET] ?: "pixel"
+    }
+
+    suspend fun setFontPreset(id: String) {
+        context.dataStore.edit { it[FONT_PRESET] = id }
+    }
 
     suspend fun setSoundEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SOUND_ENABLED] = enabled }

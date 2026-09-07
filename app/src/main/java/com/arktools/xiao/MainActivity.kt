@@ -7,11 +7,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.arktools.xiao.audio.AudioManager
+import com.arktools.xiao.data.pref.SettingsDataStore
 import com.arktools.xiao.data.save.PersistenceCoordinator
 import com.arktools.xiao.domain.engine.GameEngine
 import com.arktools.xiao.ui.main.MainScreen
+import com.arktools.xiao.ui.theme.GameFontPreset
 import com.arktools.xiao.ui.theme.SchoolTycoonTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -28,6 +32,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var persistenceCoordinator: PersistenceCoordinator
 
+    @Inject
+    lateinit var settingsDataStore: SettingsDataStore
+
     /** 记录退后台前引擎是否已经是暂停状态，避免回前台时误恢复 */
     private var wasEnginePausedBeforeBackground = true
 
@@ -41,7 +48,8 @@ class MainActivity : ComponentActivity() {
         controller.systemBarsBehavior =
             androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         setContent {
-            SchoolTycoonTheme {
+            val fontPresetId by settingsDataStore.fontPreset.collectAsState(initial = "pixel")
+            SchoolTycoonTheme(fontPreset = GameFontPreset.fromId(fontPresetId)) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

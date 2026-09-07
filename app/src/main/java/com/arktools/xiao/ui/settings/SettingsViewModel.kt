@@ -44,6 +44,9 @@ class SettingsViewModel @Inject constructor(
     private val _textColorMode = MutableStateFlow("auto")
     val textColorMode: StateFlow<String> = _textColorMode.asStateFlow()
 
+    private val _fontPreset = MutableStateFlow("pixel")
+    val fontPreset: StateFlow<String> = _fontPreset.asStateFlow()
+
     init {
         viewModelScope.safeLaunch {
             settingsDataStore.darkMode.collect { _darkMode.value = it }
@@ -62,6 +65,9 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.safeLaunch {
             settingsDataStore.textColorMode.collect { _textColorMode.value = it }
+        }
+        viewModelScope.safeLaunch {
+            settingsDataStore.fontPreset.collect { _fontPreset.value = it }
         }
     }
 
@@ -131,6 +137,12 @@ class SettingsViewModel @Inject constructor(
     fun setTextColorMode(mode: String) {
         viewModelScope.safeLaunch {
             settingsDataStore.setTextColorMode(mode)
+        }
+    }
+
+    fun setFontPreset(id: String) {
+        viewModelScope.safeLaunch {
+            settingsDataStore.setFontPreset(id)
         }
     }
 }

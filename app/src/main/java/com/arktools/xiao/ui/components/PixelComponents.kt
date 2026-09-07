@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
@@ -64,7 +65,13 @@ fun LegacyPageHeader(title: String) {
             .background(com.arktools.xiao.ui.theme.PrimaryDark)
             .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {
-        Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(
+            title,
+            color = com.arktools.xiao.ui.theme.TextOnDark,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = com.arktools.xiao.ui.theme.LocalGameFontFamily.current
+        )
     }
 }
 
@@ -177,6 +184,7 @@ fun PixelButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = com.arktools.xiao.ui.theme.LocalGameFontFamily.current,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 ),
@@ -203,13 +211,20 @@ fun PixelHardPanel(
             slice = 48,
             modifier = Modifier.matchParentSize()
         )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(padding),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            content = content
-        )
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalTextStyle provides LocalTextStyle.current.copy(
+                color = com.arktools.xiao.ui.theme.PanelInk,
+                fontFamily = com.arktools.xiao.ui.theme.LocalGameFontFamily.current
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(padding),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                content = content
+            )
+        }
     }
 }
 
@@ -305,7 +320,7 @@ fun PixelAlertDialog(
                         fontWeight = FontWeight.Bold
                     ),
                     textAlign = TextAlign.Center,
-                    color = Color(0xFFE7F1F8)
+                    color = com.arktools.xiao.ui.theme.PanelInk
                 )
 
                 if (text != null) {
@@ -313,7 +328,7 @@ fun PixelAlertDialog(
                         text = text,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
-                        color = Color(0xFFC7D9E8)
+                        color = com.arktools.xiao.ui.theme.PanelMuted
                     )
                 }
 

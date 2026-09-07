@@ -45,6 +45,7 @@ import com.arktools.xiao.audio.AudioManager
 import com.arktools.xiao.ui.components.PixelNineSlice
 import com.arktools.xiao.R
 import com.arktools.xiao.ui.main.MainViewModel
+import com.arktools.xiao.ui.theme.GameFontPreset
 import com.arktools.xiao.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,6 +62,7 @@ fun SettingsScreen(
     val bgmVolume by settingsViewModel.bgmVolume.collectAsState()
     val selectedCampusBgm by settingsViewModel.selectedCampusBgm.collectAsState()
     val gameSpeed by settingsViewModel.gameSpeed.collectAsState()
+    val fontPreset by settingsViewModel.fontPreset.collectAsState()
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -129,7 +131,7 @@ fun SettingsScreen(
                     Text(
                         "危机和剧情音乐会临时覆盖；恢复经营后继续播放所选曲目。",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     val campusLevel = school?.campusLevel ?: 1
@@ -155,12 +157,30 @@ fun SettingsScreen(
                 }
             }
 
+            SettingsCard(title = "全局字体") {
+                Text(
+                    "改这里会立刻覆盖全游戏：标题、按钮、弹窗、校园、治院、人事、账本。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                GameFontPreset.entries.forEach { preset ->
+                    TextColorOption(
+                        label = "${preset.displayName} · ${preset.hint}",
+                        selected = fontPreset == preset.id,
+                        onClick = { settingsViewModel.setFontPreset(preset.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+
             SettingsCard(title = "经营设置") {
                 Text("游戏速度", style = MaterialTheme.typography.bodyLarge)
                 Text(
                     "默认 ×1 速度。×2~×5 加速需在顶栏速度按钮处观看广告解锁，持续 20 分钟。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
@@ -176,7 +196,7 @@ fun SettingsScreen(
                 Text(
                     "剧情教程会暂停时间并高亮底部四主区。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -186,7 +206,7 @@ fun SettingsScreen(
                 Text(
                     "4.1 起不再提供手动存档、读档或删除进度入口。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -202,7 +222,7 @@ fun SettingsScreen(
             Text(
                 text = "校长我来当 2 · v${com.arktools.xiao.BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -241,7 +261,7 @@ private fun SettingsRow(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
-            Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         action()
     }
@@ -251,7 +271,7 @@ private fun SettingsRow(
 private fun VolumeSlider(label: String, value: Float, onValueChange: (Float) -> Unit) {
     Column(modifier = Modifier.padding(start = 36.dp, end = 8.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
             Text("${(value * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = Primary)
         }
         Slider(
@@ -279,7 +299,7 @@ private fun TextColorOption(label: String, selected: Boolean, onClick: () -> Uni
 @Composable
 private fun InfoRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }

@@ -12,6 +12,13 @@ val BackgroundLight = Color(0xFFF4F7FA)
 val BackgroundDark = Color(0xFF0B1724)
 val CardDark = Color(0xFF14283B)
 val TextPrimaryLight = Color(0xFF182635)
-val TextSecondaryLight = Color(0xFF617386)
-val TextPrimaryDark = Color(0xFFFFFFFF)
-val TextSecondaryDark = Color(0xFFB8C7D6)
+val TextSecondaryLight = Color(0xFF4A5D70)
+// 白底像素卡上的正文色。历史命名 Dark 实际被当成白字用，导致标题看不见。
+val PanelInk = Color(0xFF122033)
+val PanelMuted = Color(0xFF4A5D70)
+val TextOnDark = Color(0xFFFFFFFF)
+val TextOnDarkMuted = Color(0xFFD5E2EE)
+@Deprecated("白卡上不要再用，改用 PanelInk")
+val TextPrimaryDark = PanelInk
+@Deprecated("白卡上不要再用，改用 PanelMuted")
+val TextSecondaryDark = PanelMuted

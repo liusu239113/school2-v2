@@ -11,10 +11,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,8 +47,10 @@ import com.arktools.xiao.ui.components.PixelHardPanel
 import com.arktools.xiao.ui.theme.AccentGreen
 import com.arktools.xiao.ui.theme.AccentOrange
 import com.arktools.xiao.ui.theme.AccentRed
-import com.arktools.xiao.ui.theme.TextPrimaryDark
-import com.arktools.xiao.ui.theme.TextSecondaryDark
+import com.arktools.xiao.ui.theme.PanelInk
+import com.arktools.xiao.ui.theme.PanelMuted
+import com.arktools.xiao.ui.theme.PrimaryDark
+import com.arktools.xiao.ui.theme.TextOnDark
 
 @Composable
 fun StudentLifeScreen(
@@ -50,11 +59,12 @@ fun StudentLifeScreen(
     val state by viewModel.state.collectAsState()
     val actionMessage by viewModel.message.collectAsState()
     val openIssues = state.issues.filter { !it.resolved }
+    var tab by rememberSaveable { mutableIntStateOf(if (openIssues.isNotEmpty()) 0 else 1) }
 
     actionMessage?.let { message ->
         PixelAlertDialog(
             onDismissRequest = { viewModel.consumeMessage() },
-            title = if (message.contains("不足") || message.contains("不够") || message.contains("失败")) "无法执行" else "学生生活",
+            title = if (message.contains("不足") || message.contains("不够") || message.contains("失败")) "还没做完" else "学生事务处",
             text = message,
             confirmText = "知道了",
             onConfirm = { viewModel.consumeMessage() }
@@ -63,147 +73,128 @@ fun StudentLifeScreen(
 
     PixelGameBackground {
         Column(modifier = Modifier.fillMaxSize()) {
-            LegacyPageHeader("学生生活")
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            LegacyPageHeader("学生事务处")
+            TabRow(
+                selectedTabIndex = tab,
+                containerColor = PrimaryDark,
+                contentColor = TextOnDark,
+                indicator = { positions ->
+                    if (tab in positions.indices) {
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(positions[tab]),
+                            color = Color(0xFFFFD54F)
+                        )
+                    }
+                }
             ) {
-                item {
-                    PixelHardPanel {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("校园生活台账", color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text(
-                                    "宿舍床位、食堂窗口、医务和心理。投诉必须先做对应建设，再点检查结案。",
-                                    color = TextSecondaryDark,
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    "月开支 ¥${state.monthlyExpenses}万 · 学业 ${signed(state.academicImpact)} · 留存 ${signed(state.retentionImpact)}",
-                                    color = TextPrimaryDark,
-                                    fontSize = 12.sp
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    "${state.overallSatisfaction.toInt()}",
-                                    color = satisfactionColor(state.overallSatisfaction),
-                                    fontSize = 36.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text("总满意度", color = TextSecondaryDark, fontSize = 11.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            LifeAspect.entries.forEach { aspect ->
-                                val score = state.satisfactionScores[aspect]?.score ?: 50f
-                                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(aspect.displayName, color = TextPrimaryDark, fontSize = 11.sp)
-                                    LinearProgressIndicator(
-                                        progress = { (score / 100f).coerceIn(0f, 1f) },
-                                        modifier = Modifier.fillMaxWidth().height(6.dp),
-                                        color = satisfactionColor(score),
-                                        trackColor = Color(0x33182635)
-                                    )
-                                    Text("${score.toInt()}", color = TextSecondaryDark, fontSize = 11.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (openIssues.isNotEmpty()) {
-                    item {
-                        Text("未结案投诉（先做建设）", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold)
-                    }
-                    items(openIssues, key = { it.id }) { issue ->
-                        ComplaintPanel(
-                            issue = issue,
-                            onAct = { viewModel.actOnComplaint(issue) },
-                            onCheck = { viewModel.resolveIssue(issue.id) }
+                Tab(
+                    selected = tab == 0,
+                    onClick = { tab = 0 },
+                    text = {
+                        Text(
+                            if (openIssues.isEmpty()) "投诉处理台" else "投诉处理台 ${openIssues.size}",
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("宿舍食堂医务心理", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
-                        val needRepair = state.facilities.values.any { it.maintenanceLevel < 100f }
-                        PixelButton(
-                            text = "一键维修",
-                            onClick = { viewModel.repairAllFacilities() },
-                            enabled = needRepair,
-                            style = PixelButtonStyle.SECONDARY,
-                            height = 40.dp,
-                            modifier = Modifier.fillMaxWidth(0.42f)
-                        )
-                    }
-                }
-
-                items(LifeAspect.entries, key = { it.name }) { aspect ->
-                    val facility = state.facilities[aspect] ?: return@items
-                    FacilityPanel(
-                        facility = facility,
-                        score = state.satisfactionScores[aspect],
-                        canUpgrade = viewModel.canUpgradeFacility(aspect),
-                        upgradeCost = viewModel.getUpgradeCost(aspect),
-                        expandCost = viewModel.getExpandCost(aspect, 20),
-                        onUpgrade = { viewModel.upgradeFacility(aspect) },
-                        onRepair = { viewModel.repairFacility(aspect) },
-                        onExpand = { viewModel.expandCapacity(aspect, 20) }
-                    )
-                }
-
-                item {
-                    Text("换菜 / 开辅导从这里开专项", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
-                }
-                item {
-                    ProgramsPanel(state, viewModel)
-                }
-                item { Spacer(Modifier.height(28.dp)) }
+                )
+                Tab(
+                    selected = tab == 1,
+                    onClick = { tab = 1 },
+                    text = { Text("后勤值班台", fontWeight = FontWeight.Bold) }
+                )
+            }
+            when (tab) {
+                0 -> ComplaintDesk(state, openIssues, viewModel) { tab = 1 }
+                else -> LogisticsDesk(state, viewModel)
             }
         }
     }
 }
 
 @Composable
-private fun ComplaintPanel(
+private fun ComplaintDesk(
+    state: StudentLifeState,
+    openIssues: List<LifeIssue>,
+    viewModel: StudentLifeViewModel,
+    onOpenLogistics: () -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            PixelHardPanel {
+                Text("学生投诉在这里处理", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    "进来点「去处理」会直接扩宿舍、加窗口、换菜谱或开辅导。做完再点「检查结案」，没做对应建设结不了案，满意度也不会回。",
+                    color = PanelMuted,
+                    fontSize = 12.sp
+                )
+                Text(
+                    "全校生活满意度 ${state.overallSatisfaction.toInt()} · 未结案 ${openIssues.size} 件",
+                    color = PanelInk,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        }
+        if (openIssues.isEmpty()) {
+            item {
+                PixelHardPanel {
+                    Text("处理台空着", color = PanelInk, fontWeight = FontWeight.Bold)
+                    Text("没有积压投诉。宿舍挤、食堂差、医务坏会从这里进件，不要在后勤值班台里找文字说明。", color = PanelMuted, fontSize = 12.sp)
+                    PixelButton(
+                        text = "去后勤值班台巡检",
+                        onClick = onOpenLogistics,
+                        style = PixelButtonStyle.SECONDARY,
+                        height = 40.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        } else {
+            items(openIssues, key = { it.id }) { issue ->
+                ComplaintCaseCard(
+                    issue = issue,
+                    onAct = { viewModel.actOnComplaint(issue) },
+                    onCheck = { viewModel.resolveIssue(issue.id) }
+                )
+            }
+        }
+        item { Spacer(Modifier.height(28.dp)) }
+    }
+}
+
+@Composable
+private fun ComplaintCaseCard(
     issue: LifeIssue,
     onAct: () -> Unit,
     onCheck: () -> Unit
 ) {
+    val desk = facilityDesk(issue.aspect)
     PixelHardPanel {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(issue.title, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(desk.shortName, color = PrimaryDark, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Text(issue.severity.displayName, color = severityColor(issue.severity), fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
-        Text(issue.description, color = TextSecondaryDark, fontSize = 12.sp)
-        Text("结案条件：${issue.requiredHint}", color = Color(0xFF14648C), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text("满意度 ${issue.satisfactionPenalty.toInt()}，没做建设点检查会失败", color = AccentRed, fontSize = 11.sp)
+        Text(issue.title, color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(issue.description, color = PanelMuted, fontSize = 12.sp)
+        Text("处理地点：${desk.fullName}", color = PanelInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("要做的事：${actionWork(issue.requiredAction)}", color = Color(0xFF14648C), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("没做完就检查，结案失败，满意度 ${issue.satisfactionPenalty.toInt()}", color = AccentRed, fontSize = 11.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PixelButton(
                 text = actionLabel(issue.requiredAction),
                 onClick = onAct,
                 style = PixelButtonStyle.PRIMARY,
-                height = 40.dp,
-                modifier = Modifier.weight(1f)
+                height = 44.dp,
+                modifier = Modifier.weight(1.2f)
             )
             PixelButton(
                 text = "检查结案",
                 onClick = onCheck,
                 style = PixelButtonStyle.CONFIRM,
-                height = 40.dp,
+                height = 44.dp,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -211,137 +202,252 @@ private fun ComplaintPanel(
 }
 
 @Composable
-private fun FacilityPanel(
+private fun LogisticsDesk(
+    state: StudentLifeState,
+    viewModel: StudentLifeViewModel
+) {
+    val programs = state.programs + viewModel.getAvailablePrograms().filter { available ->
+        state.programs.none { it.id == available.id }
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            PixelHardPanel {
+                Text("后勤值班台", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    "这里管四栋生活设施：宿舍楼、食堂、校医院/运动馆、心理辅导站。升级、维修、扩容都在对应楼里做，不是一代那种通用进度条。",
+                    color = PanelMuted,
+                    fontSize = 12.sp
+                )
+                Text(
+                    "月开支 ¥${state.monthlyExpenses}万 · 学业 ${signed(state.academicImpact)} · 留存 ${signed(state.retentionImpact)}",
+                    color = PanelInk,
+                    fontSize = 12.sp
+                )
+            }
+        }
+        items(LifeAspect.entries, key = { it.name }) { aspect ->
+            val facility = state.facilities[aspect] ?: return@items
+            FacilityDutyCard(
+                facility = facility,
+                score = state.satisfactionScores[aspect],
+                programs = programs.filter { it.aspect == aspect },
+                canUpgrade = viewModel.canUpgradeFacility(aspect),
+                upgradeCost = viewModel.getUpgradeCost(aspect),
+                expandCost = viewModel.getExpandCost(aspect, 20),
+                onUpgrade = { viewModel.upgradeFacility(aspect) },
+                onRepair = { viewModel.repairFacility(aspect) },
+                onExpand = { viewModel.expandCapacity(aspect, 20) },
+                onToggleProgram = { program, active ->
+                    if (active) viewModel.deactivateProgram(program.id)
+                    else viewModel.activateProgram(program.id)
+                }
+            )
+        }
+        item { Spacer(Modifier.height(28.dp)) }
+    }
+}
+
+@Composable
+private fun FacilityDutyCard(
     facility: LifeFacility,
     score: LifeSatisfactionScore?,
+    programs: List<SpecialProgram>,
     canUpgrade: Boolean,
     upgradeCost: Long,
     expandCost: Long,
     onUpgrade: () -> Unit,
     onRepair: () -> Unit,
-    onExpand: () -> Unit
+    onExpand: () -> Unit,
+    onToggleProgram: (SpecialProgram, Boolean) -> Unit
 ) {
+    val desk = facilityDesk(facility.aspect)
     val loadPercent = if (facility.capacity > 0) (facility.currentLoad * 100) / facility.capacity else 100
     val maxed = facility.quality == FacilityQuality.PREMIUM
     PixelHardPanel {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text(facility.aspect.displayName, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(facility.quality.displayName, color = qualityColor(facility.quality), fontSize = 12.sp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(desk.fullName, color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(desk.duty, color = PanelMuted, fontSize = 12.sp)
+                Text("档次 ${facility.quality.displayName} · ${desk.staffLabel} ${facility.staffCount}人", color = PrimaryDark, fontSize = 12.sp)
             }
-            Text(
-                "${score?.score?.toInt() ?: 0}分",
-                color = satisfactionColor(score?.score ?: 0f),
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "${score?.score?.toInt() ?: 0}",
+                    color = satisfactionColor(score?.score ?: 0f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                )
+                Text("满意度", color = PanelMuted, fontSize = 11.sp)
+            }
         }
-        BarRow("维护", facility.maintenanceLevel / 100f, "${facility.maintenanceLevel.toInt()}%", maintenanceColor(facility.maintenanceLevel))
+        BarRow(desk.maintainLabel, facility.maintenanceLevel / 100f, "${facility.maintenanceLevel.toInt()}%", maintenanceColor(facility.maintenanceLevel))
         BarRow(
-            "容量",
+            desk.capacityLabel,
             (facility.currentLoad.toFloat() / facility.capacity.coerceAtLeast(1)).coerceAtMost(1.2f) / 1.2f,
-            "${facility.currentLoad}/${facility.capacity}",
-            if (loadPercent > 100) AccentRed else Color(0xFF42A5F5)
+            "${facility.currentLoad}/${facility.capacity}${desk.capacityUnit}",
+            if (loadPercent > 100) AccentRed else Color(0xFF14648C)
         )
         if (!score?.issues.isNullOrEmpty()) {
             Text(score!!.issues.joinToString(" · "), color = AccentRed, fontSize = 11.sp)
         }
-        Text("月维护 ¥${facility.monthlyMaintenanceCost}万 · 员工 ${facility.staffCount}人", color = TextSecondaryDark, fontSize = 11.sp)
+        Text("月维护 ¥${facility.monthlyMaintenanceCost}万", color = PanelMuted, fontSize = 11.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PixelButton(
-                text = if (maxed) "已满级" else if (!canUpgrade) "等级不足" else "升级 ¥${upgradeCost}万",
+                text = when {
+                    maxed -> "已满级"
+                    !canUpgrade -> "校园等级不够"
+                    else -> "升级档次 ¥${upgradeCost}万"
+                },
                 onClick = onUpgrade,
                 enabled = canUpgrade && !maxed,
                 style = PixelButtonStyle.PRIMARY,
-                height = 40.dp,
-                modifier = Modifier.weight(1f)
+                height = 42.dp,
+                modifier = Modifier.weight(1.2f)
             )
             PixelButton(
-                text = "维修",
+                text = if (facility.maintenanceLevel < 80f) desk.repairLabel else "暂无需修",
                 onClick = onRepair,
                 enabled = facility.maintenanceLevel < 80f,
                 style = PixelButtonStyle.SECONDARY,
-                height = 40.dp,
+                height = 42.dp,
                 modifier = Modifier.weight(1f)
-            )
-            PixelButton(
-                text = "+20人 ¥${expandCost}万",
-                onClick = onExpand,
-                style = PixelButtonStyle.CONFIRM,
-                height = 40.dp,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProgramsPanel(state: StudentLifeState, viewModel: StudentLifeViewModel) {
-    val active = state.programs.filter { it.active }
-    val available = viewModel.getAvailablePrograms()
-    PixelHardPanel {
-        if (active.isEmpty() && available.isEmpty()) {
-            Text("没有可开专项", color = TextSecondaryDark, fontSize = 12.sp)
-            return@PixelHardPanel
-        }
-        if (active.isNotEmpty()) {
-            Text("已开设", color = AccentGreen, fontWeight = FontWeight.Bold)
-            active.forEach { ProgramRow(it, true) { viewModel.deactivateProgram(it.id) } }
-        }
-        if (available.isNotEmpty()) {
-            Text("可开设（换菜开营养餐，辅导开减压工作坊）", color = TextSecondaryDark, fontSize = 12.sp)
-            available.forEach { ProgramRow(it, false) { viewModel.activateProgram(it.id) } }
-        }
-    }
-}
-
-@Composable
-private fun ProgramRow(program: SpecialProgram, isActive: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(program.name, color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(
-                "${program.aspect.displayName} · ¥${program.monthlyCost}万/月 · +${program.satisfactionBoost.toInt()}满意度",
-                color = TextSecondaryDark,
-                fontSize = 11.sp
             )
         }
         PixelButton(
-            text = if (isActive) "关闭" else "开设",
-            onClick = onToggle,
-            style = if (isActive) PixelButtonStyle.DANGER else PixelButtonStyle.PRIMARY,
-            height = 36.dp,
-            modifier = Modifier.fillMaxWidth(0.28f)
+            text = desk.expandLabel + " ¥${expandCost}万",
+            onClick = onExpand,
+            style = PixelButtonStyle.CONFIRM,
+            height = 42.dp,
+            modifier = Modifier.fillMaxWidth()
         )
+        if (programs.isNotEmpty()) {
+            Text(desk.programTitle, color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            programs.forEach { program ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text(program.name, color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            "${program.description} · ¥${program.monthlyCost}万/月",
+                            color = PanelMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                    PixelButton(
+                        text = if (program.active) "停办" else "开办",
+                        onClick = { onToggleProgram(program, program.active) },
+                        style = if (program.active) PixelButtonStyle.DANGER else PixelButtonStyle.PRIMARY,
+                        height = 36.dp,
+                        modifier = Modifier.fillMaxWidth(0.28f)
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun BarRow(label: String, progress: Float, value: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = TextSecondaryDark, fontSize = 11.sp, modifier = Modifier.fillMaxWidth(0.16f))
+        Text(label, color = PanelInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(0.22f))
         LinearProgressIndicator(
             progress = { progress.coerceIn(0f, 1f) },
             modifier = Modifier.weight(1f).height(8.dp),
             color = color,
-            trackColor = Color(0x33182635)
+            trackColor = Color(0x33122633)
         )
-        Text(value, color = TextPrimaryDark, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp))
+        Text(value, color = PanelInk, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp))
     }
 }
 
+private data class FacilityDesk(
+    val shortName: String,
+    val fullName: String,
+    val duty: String,
+    val staffLabel: String,
+    val maintainLabel: String,
+    val capacityLabel: String,
+    val capacityUnit: String,
+    val repairLabel: String,
+    val expandLabel: String,
+    val programTitle: String
+)
+
+private fun facilityDesk(aspect: LifeAspect): FacilityDesk = when (aspect) {
+    LifeAspect.DORMITORY -> FacilityDesk(
+        shortName = "宿舍楼",
+        fullName = "学生宿舍楼",
+        duty = "管床位、水电和楼层维护。挤了就加床，坏了就修楼。",
+        staffLabel = "宿管",
+        maintainLabel = "楼况",
+        capacityLabel = "床位",
+        capacityUnit = "床",
+        repairLabel = "修宿舍",
+        expandLabel = "加 20 张床",
+        programTitle = "宿舍专项"
+    )
+    LifeAspect.CAFETERIA -> FacilityDesk(
+        shortName = "食堂",
+        fullName = "第一食堂",
+        duty = "管窗口、菜谱和排队。饭菜差就换菜，排长队就加窗口。",
+        staffLabel = "厨工",
+        maintainLabel = "卫生",
+        capacityLabel = "餐位",
+        capacityUnit = "座",
+        repairLabel = "整食堂",
+        expandLabel = "加 20 个餐位",
+        programTitle = "食堂菜谱 / 窗口专项"
+    )
+    LifeAspect.HEALTH -> FacilityDesk(
+        shortName = "医务运动",
+        fullName = "校医院与运动馆",
+        duty = "管校医、运动场和健身房。设施坏了就修，医务没开就开。",
+        staffLabel = "校医",
+        maintainLabel = "设施",
+        capacityLabel = "接诊",
+        capacityUnit = "人",
+        repairLabel = "修场馆",
+        expandLabel = "加 20 接诊位",
+        programTitle = "健康专项"
+    )
+    LifeAspect.PSYCHOLOGY -> FacilityDesk(
+        shortName = "心理站",
+        fullName = "心理辅导站",
+        duty = "管热线和减压工作坊。投诉心理压力，必须从这里开辅导。",
+        staffLabel = "咨询师",
+        maintainLabel = "运转",
+        capacityLabel = "名额",
+        capacityUnit = "人",
+        repairLabel = "整站点",
+        expandLabel = "加 20 个名额",
+        programTitle = "心理辅导专项"
+    )
+}
+
 private fun actionLabel(action: ComplaintAction): String = when (action) {
-    ComplaintAction.EXPAND_DORM -> "立刻扩宿舍"
-    ComplaintAction.REPAIR_DORM -> "立刻修宿舍"
-    ComplaintAction.EXPAND_CANTEEN -> "立刻加窗口"
-    ComplaintAction.CHANGE_MENU -> "立刻换菜谱"
-    ComplaintAction.OPEN_COUNSELING -> "立刻开辅导"
-    ComplaintAction.REPAIR_GYM -> "立刻修运动"
-    ComplaintAction.OPEN_CLINIC -> "立刻开医务"
+    ComplaintAction.EXPAND_DORM -> "去宿舍楼加床"
+    ComplaintAction.REPAIR_DORM -> "去宿舍楼维修"
+    ComplaintAction.EXPAND_CANTEEN -> "去食堂加窗口"
+    ComplaintAction.CHANGE_MENU -> "去食堂换菜谱"
+    ComplaintAction.OPEN_COUNSELING -> "去心理站开辅导"
+    ComplaintAction.REPAIR_GYM -> "去运动馆维修"
+    ComplaintAction.OPEN_CLINIC -> "去校医院开诊"
+}
+
+private fun actionWork(action: ComplaintAction): String = when (action) {
+    ComplaintAction.EXPAND_DORM -> "在学生宿舍楼加床，床位必须超过现住人数"
+    ComplaintAction.REPAIR_DORM -> "把宿舍楼况修到 90 以上"
+    ComplaintAction.EXPAND_CANTEEN -> "在第一食堂加窗口/餐位，容量必须超过现排队人数"
+    ComplaintAction.CHANGE_MENU -> "在食堂开办营养餐或有机菜专项"
+    ComplaintAction.OPEN_COUNSELING -> "在心理辅导站开办热线或减压工作坊"
+    ComplaintAction.REPAIR_GYM -> "把运动馆设施修到 90 以上"
+    ComplaintAction.OPEN_CLINIC -> "把校医院设施修到 90 以上并开诊"
 }
 
 private fun signed(value: Float): String {
@@ -349,18 +455,9 @@ private fun signed(value: Float): String {
     return if (n >= 0) "+$n%" else "$n%"
 }
 
-private fun qualityColor(quality: FacilityQuality): Color = when (quality) {
-    FacilityQuality.POOR -> AccentRed
-    FacilityQuality.BASIC -> Color(0xFF9E9E9E)
-    FacilityQuality.STANDARD -> Color(0xFF42A5F5)
-    FacilityQuality.GOOD -> AccentGreen
-    FacilityQuality.EXCELLENT -> Color(0xFFAB47BC)
-    FacilityQuality.PREMIUM -> Color(0xFFFFD700)
-}
-
 private fun satisfactionColor(score: Float): Color = when {
     score >= 80f -> AccentGreen
-    score >= 60f -> Color(0xFF8BC34A)
+    score >= 60f -> Color(0xFF2E7D32)
     score >= 40f -> AccentOrange
     else -> AccentRed
 }
@@ -372,8 +469,8 @@ private fun maintenanceColor(level: Float): Color = when {
 }
 
 private fun severityColor(severity: IssueSeverity): Color = when (severity) {
-    IssueSeverity.LOW -> Color(0xFFFFC107)
+    IssueSeverity.LOW -> Color(0xFFB26A00)
     IssueSeverity.MEDIUM -> AccentOrange
     IssueSeverity.HIGH -> AccentRed
-    IssueSeverity.CRITICAL -> Color(0xFF9C27B0)
+    IssueSeverity.CRITICAL -> Color(0xFF7B1FA2)
 }
