@@ -7290,10 +7290,10 @@ class GameEngine @Inject constructor(
             val crowdingDaily = (
                 FacilityCapacity.overcrowdingPenalty(dormRatio) +
                     FacilityCapacity.overcrowdingPenalty(canteenRatio)
-                ) / 30f
+                ).coerceAtMost(6f) / 60f
             val lifeSatDaily = (
-                studentLifeManager.state.value.overallSatisfaction - 55f
-            ).coerceIn(-25f, 25f) / 30f
+                studentLifeManager.state.value.overallSatisfaction - 50f
+            ).coerceIn(-8f, 8f) / 60f
             student.satisfaction = (
                 student.satisfaction + satisfactionDelta + policySatisfactionDaily +
                     teachingSatisfactionDaily - crowdingDaily + lifeSatDaily
@@ -7305,15 +7305,20 @@ class GameEngine @Inject constructor(
                 student.mealQuality = (student.mealQuality - crowdingDaily * 2f).coerceAtLeast(5f)
             }
 
-            // 检查退学（含特质效果 + 政策修正 + 奖学金留存加成）
+            // 检查退学：只在满意度很低时偶发，一天最多退几个人，不会两分钟退光。
             val baseDropout = StudentSatisfactionCalculator.calculateDropoutProbability(student.satisfaction, student.traits)
-            val retentionReduction = scholarshipManager.getRetentionBonus() / 30f  // 月度留存加成折算到每日
-            val lifeRetentionDaily = studentLifeManager.state.value.retentionImpact / 30f
+            val retentionReduction = scholarshipManager.getRetentionBonus().coerceAtLeast(0f) / 30f
+            val lifeRetentionDaily = studentLifeManager.state.value.retentionImpact.coerceAtLeast(0f) / 90f
             val dropoutProbability = (
-                baseDropout + policyEffects.dropoutRateModifier / 30f -
+                baseDropout + policyEffects.dropoutRateModifier.coerceAtLeast(0f) / 90f -
                     retentionReduction - lifeRetentionDaily
-                ).coerceAtLeast(0f)
-            if (dropoutProbability > 0f && Random.nextFloat() < dropoutProbability) {
+                ).coerceIn(0f, 0.002f)
+            val dailyCap = 1
+            if (
+                droppedStudents.size < dailyCap &&
+                dropoutProbability > 0f &&
+                Random.nextFloat() < dropoutProbability
+            ) {
                 student.status = StudentStatus.DROPPED
                 student.graduateYear = school.currentYear
                 student.graduateMonth = school.currentMonth

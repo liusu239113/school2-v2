@@ -31,8 +31,8 @@ object FacilityImageHelper {
             FacilityType.INCUBATOR -> R.drawable.bld_incubator
             FacilityType.INTERNATIONAL_CENTER -> R.drawable.bld_intl
             FacilityType.LOGISTICS_CENTER -> R.drawable.bld_logistics
-            FacilityType.CLINIC -> R.drawable.bld_hospital
-            FacilityType.COUNSELING -> R.drawable.bld_hospital
+            FacilityType.CLINIC -> R.drawable.bld_clinic
+            FacilityType.COUNSELING -> R.drawable.bld_counseling
         }
     }
 }

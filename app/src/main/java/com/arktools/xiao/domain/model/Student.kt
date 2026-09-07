@@ -267,10 +267,9 @@ object StudentSatisfactionCalculator {
         val effectiveSatisfaction = satisfaction + wealthyBonus
 
         return when {
-            effectiveSatisfaction <= 10f -> 0.05f
-            effectiveSatisfaction <= 20f -> 0.02f
-            effectiveSatisfaction <= 30f -> 0.005f
-            effectiveSatisfaction <= 40f -> 0.001f
+            effectiveSatisfaction <= 8f -> 0.004f
+            effectiveSatisfaction <= 15f -> 0.0015f
+            effectiveSatisfaction <= 22f -> 0.0004f
             else -> 0f
         }
     }

@@ -105,9 +105,9 @@ object CampusBuildTypes {
     )
     val COLLEGE_SPECS = listOf(
         Spec("C_LIBERAL", "人文学院", 3, 2, 18.0, 1, R.drawable.bld_liberal, college = CollegeType.LIBERAL_ARTS, removable = false, buildDays = 40),
-        Spec("C_SCIENCE", "理学院", 3, 3, 36.0, 2, R.drawable.bld_generic, college = CollegeType.SCIENCE, removable = false, buildDays = 50),
-        Spec("C_ENGINEERING", "工学院", 4, 3, 58.0, 3, R.drawable.bld_generic, college = CollegeType.ENGINEERING, removable = false, buildDays = 60),
-        Spec("C_BUSINESS", "商学院", 3, 3, 72.0, 4, R.drawable.bld_generic, college = CollegeType.BUSINESS, removable = false, buildDays = 55),
+        Spec("C_SCIENCE", "理学院", 3, 3, 36.0, 2, R.drawable.bld_science, college = CollegeType.SCIENCE, removable = false, buildDays = 50),
+        Spec("C_ENGINEERING", "工学院", 4, 3, 58.0, 3, R.drawable.bld_engineering, college = CollegeType.ENGINEERING, removable = false, buildDays = 60),
+        Spec("C_BUSINESS", "商学院", 3, 3, 72.0, 4, R.drawable.bld_business, college = CollegeType.BUSINESS, removable = false, buildDays = 55),
         Spec("C_ART", "艺术学院", 3, 2, 65.0, 3, R.drawable.bld_art, college = CollegeType.ARTS, removable = false, buildDays = 50),
         Spec("C_MEDICINE", "医学院", 4, 3, 110.0, 4, R.drawable.bld_medicine, college = CollegeType.MEDICINE, removable = false, buildDays = 70)
     )
@@ -120,8 +120,8 @@ object CampusBuildTypes {
         Spec("F_GARDEN", "校园花园", 2, 2, 12.0, 1, R.drawable.bld_garden, facility = FacilityType.GARDEN, buildDays = 8),
         Spec("F_GATE", "校门", 4, 3, 8.0, 1, R.drawable.bld_gate, facility = FacilityType.GATE, buildDays = 6),
         Spec("F_SPORTS_FIELD", "体育馆", 4, 3, 45.0, 1, R.drawable.bld_sports, facility = FacilityType.SPORTS_FIELD, buildDays = 40),
-        Spec("F_CLINIC", "医务室", 2, 2, 32.0, 1, R.drawable.bld_hospital, facility = FacilityType.CLINIC, buildDays = 18, downstream = "学生生活健康投诉必须先建这栋"),
-        Spec("F_COUNSELING", "心理辅导站", 2, 2, 28.0, 1, R.drawable.bld_hospital, facility = FacilityType.COUNSELING, buildDays = 16, downstream = "心理投诉必须先建这栋再开辅导"),
+        Spec("F_CLINIC", "医务室", 2, 2, 32.0, 1, R.drawable.bld_clinic, facility = FacilityType.CLINIC, buildDays = 18, downstream = "学生生活健康投诉必须先建这栋"),
+        Spec("F_COUNSELING", "心理辅导站", 2, 2, 28.0, 1, R.drawable.bld_counseling, facility = FacilityType.COUNSELING, buildDays = 16, downstream = "心理投诉必须先建这栋再开辅导"),
         Spec("F_LABORATORY", "实验室", 3, 2, 50.0, 2, R.drawable.bld_lab, facility = FacilityType.LABORATORY, buildDays = 30, prerequisiteColleges = listOf(CollegeType.SCIENCE), downstream = "解锁理科实验课与应用科研"),
         Spec("F_COMPUTER_LAB", "计算机房", 3, 2, 40.0, 2, R.drawable.bld_computer, facility = FacilityType.COMPUTER_LAB, buildDays = 25, prerequisiteColleges = listOf(CollegeType.ENGINEERING), downstream = "解锁编程课与数字化项目"),
         Spec("F_ART_STUDIO", "艺术工作室", 2, 2, 25.0, 2, R.drawable.bld_studio, facility = FacilityType.ART_STUDIO, buildDays = 20, prerequisiteColleges = listOf(CollegeType.ARTS), downstream = "解锁艺术实践与作品产出"),
