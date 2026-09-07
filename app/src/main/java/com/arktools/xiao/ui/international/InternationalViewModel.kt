@@ -82,8 +82,13 @@ class InternationalViewModel @Inject constructor(
         audioManager.playButtonClick()
         val cur = _state.value
         if (cur.signedIds.contains(def.id)) return
-        if (cur.campusLevel < 5) {
-            _state.value = cur.copy(message = "校园 Lv.5 解锁国际合作")
+        val minLevel = when (def.tier) {
+            "C" -> 1
+            "B" -> 2
+            else -> 4
+        }
+        if (cur.campusLevel < minLevel) {
+            _state.value = cur.copy(message = "${def.name} 需要校园 Lv.$minLevel")
             audioManager.playEventNegative()
             return
         }

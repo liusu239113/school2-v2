@@ -61,14 +61,15 @@ class InternationalProgramManager @Inject constructor() {
 
     companion object {
         val CATALOG: List<PartnerDef> = listOf(
-            PartnerDef("P_EAST", "东海岸理工学院", "美国", "A", 300.0, 9000L, 160L, 6),
-            PartnerDef("P_RHINE", "莱茵应用科学大学", "德国", "A", 260.0, 8000L, 140L, 6),
-            PartnerDef("P_SAKURA", "樱丘大学", "日本", "B", 200.0, 6500L, 90L, 4),
-            PartnerDef("P_LION", "狮城国立大学", "新加坡", "B", 220.0, 7000L, 100L, 4),
-            PartnerDef("P_MAPLE", "枫叶理工大学", "加拿大", "B", 210.0, 6500L, 90L, 4),
-            PartnerDef("P_HANNOVER", "汉诺威工业大学", "德国", "C", 150.0, 5000L, 55L, 2),
-            PartnerDef("P_SOUTHERN", "全球南方联合大学", "多元", "C", 120.0, 4500L, 45L, 2),
-            PartnerDef("P_POLARIS", "北极星艺术学堂", "芬兰", "C", 130.0, 4800L, 50L, 2)
+            PartnerDef("P_NEIGHBOR", "邻邦职业学院", "越南", "C", 18.0, 80L, 12L, 2),
+            PartnerDef("P_ASEAN", "东盟应用学院", "泰国", "C", 28.0, 150L, 18L, 2),
+            PartnerDef("P_SOUTHERN", "全球南方联合大学", "多元", "C", 45.0, 280L, 28L, 3),
+            PartnerDef("P_POLARIS", "北极星艺术学堂", "芬兰", "C", 55.0, 360L, 32L, 3),
+            PartnerDef("P_SAKURA", "樱丘大学", "日本", "B", 90.0, 700L, 50L, 4),
+            PartnerDef("P_LION", "狮城国立大学", "新加坡", "B", 110.0, 900L, 60L, 4),
+            PartnerDef("P_MAPLE", "枫叶理工大学", "加拿大", "B", 120.0, 1100L, 65L, 4),
+            PartnerDef("P_RHINE", "莱茵应用科学大学", "德国", "A", 180.0, 1800L, 90L, 6),
+            PartnerDef("P_EAST", "东海岸理工学院", "美国", "A", 220.0, 2500L, 110L, 6)
         )
 
         fun byId(id: String): PartnerDef? = CATALOG.firstOrNull { it.id == id }

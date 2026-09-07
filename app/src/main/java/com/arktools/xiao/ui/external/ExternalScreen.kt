@@ -251,7 +251,7 @@ fun ExternalScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    "社会合作 / 扩建",
+                    "校园扩建",
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -291,7 +291,7 @@ fun ExternalScreen(
                     color = Color(0xFF617386)
                 )
                 Text(
-                    "每月企业送来要约：接单付启动资金，到期按师资/学院/设施结算。这是外联收入、就业和生源加成的主要来源。",
+                    "接单不用预付。本月起每月进账，到期再给结项款。师资、学院、设施越好，结项越稳。",
                     fontSize = 12.sp,
                     color = Color(0xFF617386)
                 )
@@ -322,7 +322,7 @@ fun ExternalScreen(
                             color = Color(0xFF182635)
                         )
                         Text(
-                            "${commission.partner} · ${commission.durationMonths} 月 · 投入 ${commission.upfrontCostWan.toInt()}万 · 每月 +${commission.monthlyCashWan.toInt()}万 · 结项 +${commission.completionCashWan.toInt()}万",
+                            "${commission.partner} · ${commission.durationMonths} 月 · 每月 +${commission.monthlyCashWan.toInt()}万 · 结项 +${commission.completionCashWan.toInt()}万",
                             fontSize = 11.sp,
                             color = Color(0xFF617386)
                         )

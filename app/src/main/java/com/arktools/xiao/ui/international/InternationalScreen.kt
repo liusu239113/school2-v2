@@ -35,7 +35,7 @@ fun InternationalScreen(
     viewModel: InternationalViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val unlocked = state.campusLevel >= 5
+    val unlocked = true
 
     LazyColumn(
         modifier = Modifier
@@ -47,7 +47,7 @@ fun InternationalScreen(
         item {
             Text("国际交流", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(
-                "签约海外院校换留学生名额与年度声誉；冲击世界一流（Lv.6）必须有国际合作",
+                "C 档邻校现在就能签。签完每年 9 月招留学生，学费进账；外派交换生一年后归国加声誉。B/A 档随校园等级开放。",
                 color = Color(0xFFB8C7D6),
                 fontSize = 13.sp
             )
@@ -95,26 +95,6 @@ fun InternationalScreen(
             }
         }
 
-        if (!unlocked) {
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF3A2A18))
-                        .padding(14.dp)
-                ) {
-                    Text("尚未解锁", color = Color(0xFFFFD54F), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "校园升级到 Lv.5（高水平研究型大学）后开放国际合作。届时签约海外院校，是 Lv.6 的硬性条件。",
-                        color = Color(0xFFB8C7D6),
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
-                    )
-                }
-            }
-        }
-
         if (unlocked && state.signedIds.isNotEmpty()) {
             item {
                 Text("合作院校", color = Color(0xFF1E96C8), fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -149,8 +129,20 @@ fun InternationalScreen(
             val catalog = viewModel.catalog().filter { !viewModel.signed(it.id) }
             items(catalog.size) { i ->
                 val def = catalog[i]
-                val canSign = state.cash >= def.feeWan && state.reputation >= def.repRequired
-                PartnerCard(def, signed = false, canSign = canSign) { viewModel.sign(def) }
+                val minLevel = when (def.tier) {
+                    "C" -> 1
+                    "B" -> 2
+                    else -> 4
+                }
+                val canSign = state.campusLevel >= minLevel &&
+                    state.cash >= def.feeWan &&
+                    state.reputation >= def.repRequired
+                PartnerCard(
+                    def = def,
+                    signed = false,
+                    canSign = canSign,
+                    lockHint = if (state.campusLevel < minLevel) "校园 Lv.$minLevel 开放" else null
+                ) { viewModel.sign(def) }
             }
         }
 
@@ -171,6 +163,7 @@ private fun PartnerCard(
     def: com.arktools.xiao.domain.international.PartnerDef,
     signed: Boolean,
     canSign: Boolean,
+    lockHint: String? = null,
     onSign: () -> Unit
 ) {
     val tierColor = when (def.tier) {
@@ -218,7 +211,7 @@ private fun PartnerCard(
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        "签约 ${def.feeWan.toInt()} 万",
+                        lockHint ?: "签约 ${def.feeWan.toInt()} 万",
                         color = if (canSign) Color.White else Color(0xFF9DB0C2),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold

@@ -795,23 +795,21 @@ class GameEngine @Inject constructor(
             }
             val snapshot = partnerCommissionManager.toJson()
             val committed = schoolRepository.mutateSchool { s ->
-                if (s.cash < commission.upfrontCostWan) return@mutateSchool false
                 if (partnerCommissionManager.accept(id, s.currentYear, s.currentMonth) == null) {
                     return@mutateSchool false
                 }
-                s.cash -= commission.upfrontCostWan
                 s.commissionJson = partnerCommissionManager.toJson()
                 true
             }
             if (committed == null) {
                 runCatching { partnerCommissionManager.restoreFromJson(snapshot) }
-                return@withLock ManagedOperationResult(false, "资金不足，未接单")
+                return@withLock ManagedOperationResult(false, "接单失败，请稍后重试")
             }
             ManagedOperationResult(
                 true,
-                "已接单「${commission.title}」，支付启动资金 ${commission.upfrontCostWan.toInt()} 万。" +
-                    "委托期 ${commission.durationMonths} 个月，到期按办学条件结算。",
-                commission.upfrontCostWan
+                "已接单「${commission.title}」。不用预付。" +
+                    "本月起每月 +${commission.monthlyCashWan.toInt()} 万，${commission.durationMonths} 个月后结项再给 ${commission.completionCashWan.toInt()} 万。" +
+                    "师资、学院、设施越好，结项成功率越高。"
             )
         }
 
@@ -8671,7 +8669,7 @@ class GameEngine @Inject constructor(
         }
 
         // 留学生招生（每年 9 月）
-        if (school.currentMonth == 9 && im.state.value.lastIntakeYear != school.currentYear && school.campusLevel >= 5) {
+        if (school.currentMonth == 9 && im.state.value.lastIntakeYear != school.currentYear && im.hasAnyPartner) {
             val quota = im.intlQuota()
             if (quota > 0) {
                 val rng = kotlin.random.Random

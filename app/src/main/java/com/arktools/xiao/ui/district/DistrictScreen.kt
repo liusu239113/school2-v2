@@ -174,18 +174,6 @@ private fun DistrictManageContent(viewModel: DistrictViewModel) {
             }
 
             item {
-                val commissionViewModel: CommissionViewModel = hiltViewModel()
-                val commissionState by commissionViewModel.state.collectAsState()
-                PartnerCommissionSection(
-                    state = commissionState,
-                    onAccept = commissionViewModel::accept,
-                    onDecline = commissionViewModel::decline,
-                    blockedOf = commissionViewModel::requirementBlocked,
-                    onConsumeMessage = commissionViewModel::consumeMessage
-                )
-            }
-
-            item {
                 CampusUpgradeCard(
                     school = school,
                     onUpgradeClick = { showUpgradeDialog = true }
@@ -1333,7 +1321,7 @@ private fun PartnerCommissionSection(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "每月企业送来新要约：接单付启动资金，委托期结束按师资、学院与设施条件结算成败。委托是外联收入与就业、生源加成的主要来源。",
+                text = "接单不用预付。本月起每月进账，到期再给结项款。师资、学院、设施越好，结项越稳。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
             )
@@ -1451,7 +1439,7 @@ private fun PartnerCommissionSection(
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                             Text(
-                                text = "接单（${commission.upfrontCostWan.toInt()}万）",
+                                text = "接单",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (blocked == null) MaterialTheme.colorScheme.primary

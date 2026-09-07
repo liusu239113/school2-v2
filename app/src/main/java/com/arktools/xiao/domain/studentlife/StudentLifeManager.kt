@@ -186,14 +186,14 @@ class StudentLifeManager @Inject constructor() {
     // 可开设的特色项目（monthlyCost 单位：万元）
     // 费用显著提高，有实质成本压力
     private val availablePrograms = listOf(
-        SpecialProgram("prog_01", "营养早餐计划", LifeAspect.CAFETERIA, "为学生提供营养均衡的免费早餐", 8L, 6f),
-        SpecialProgram("prog_02", "心理热线服务", LifeAspect.PSYCHOLOGY, "24小时心理咨询热线", 6L, 7f),
-        SpecialProgram("prog_03", "晨跑打卡", LifeAspect.HEALTH, "组织学生每日晨跑，增强体质", 5L, 5f),
-        SpecialProgram("prog_04", "宿舍文化建设", LifeAspect.DORMITORY, "美化宿舍环境，举办宿舍评比", 6L, 5f),
-        SpecialProgram("prog_05", "减压工作坊", LifeAspect.PSYCHOLOGY, "定期举办压力管理工作坊", 12L, 9f),
-        SpecialProgram("prog_06", "有机蔬菜基地", LifeAspect.CAFETERIA, "校内自种有机蔬菜供应食堂", 15L, 7f),
-        SpecialProgram("prog_07", "健身房免费开放", LifeAspect.HEALTH, "学生可免费使用校内健身设施", 18L, 8f),
-        SpecialProgram("prog_08", "智能宿舍系统", LifeAspect.DORMITORY, "安装智能门禁、空调控制系统", 25L, 12f)
+        SpecialProgram("prog_01", "营养早餐计划", LifeAspect.CAFETERIA, "为学生提供营养均衡的免费早餐", 2L, 6f),
+        SpecialProgram("prog_02", "心理热线服务", LifeAspect.PSYCHOLOGY, "24小时心理咨询热线", 2L, 7f),
+        SpecialProgram("prog_03", "晨跑打卡", LifeAspect.HEALTH, "组织学生每日晨跑，增强体质", 1L, 5f),
+        SpecialProgram("prog_04", "宿舍文化建设", LifeAspect.DORMITORY, "美化宿舍环境，举办宿舍评比", 2L, 5f),
+        SpecialProgram("prog_05", "减压工作坊", LifeAspect.PSYCHOLOGY, "定期举办压力管理工作坊", 3L, 9f),
+        SpecialProgram("prog_06", "有机蔬菜基地", LifeAspect.CAFETERIA, "校内自种有机蔬菜供应食堂", 4L, 7f),
+        SpecialProgram("prog_07", "健身房免费开放", LifeAspect.HEALTH, "学生可免费使用校内健身设施", 4L, 8f),
+        SpecialProgram("prog_08", "智能宿舍系统", LifeAspect.DORMITORY, "安装智能门禁、空调控制系统", 5L, 12f)
     )
 
     init {

@@ -12,7 +12,7 @@ import kotlinx.serialization.json.Json
 /**
  * 企业/机构合作委托系统：外联的常驻决策来源。
  * - 每月刷新 2 条委托要约（按校园等级/声誉/学院加权挑选模板）
- * - 校长最多同时推进 2 项委托；接单即付启动资金，到期结算
+ * - 校长最多同时推进 2 项委托；接单不预付，按月拿分成，到期结算结项款
  * - 结算成功率受师资均分、相关学院、相关设施影响
  * - 收益：现金 / 声誉 / 就业质量加成 / 招生加成 / 额外科研推进日
  */
@@ -132,70 +132,82 @@ class PartnerCommissionManager @Inject constructor() {
             CommissionKind.FUNDING, "宏远食品集团", "食堂冠名与食材直供协议",
             "集团冠名第一食堂并直供食材，要求 upkeep 达标；完成获三年期赞助与一次性捐赠。",
             requiredFacility = "CANTEEN", minCampusLevel = 1,
-            upfrontCostWan = 8.0, durationMonths = 2, monthlyCashWan = 6.0,
-            completionCashWan = 30.0, completionReputation = 6L
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 6.0,
+            completionCashWan = 18.0, completionReputation = 6L
         ),
         Template(
             CommissionKind.FUNDING, "城西建设集团", "教学楼命名的捐赠谈判",
             "建设集团拟捐资命名一栋教学楼，需先完成礼仪接待与方案评审。",
-            minCampusLevel = 2, upfrontCostWan = 5.0, durationMonths = 2,
-            monthlyCashWan = 0.0, completionCashWan = 60.0, completionReputation = 10L
+            minCampusLevel = 2, upfrontCostWan = 0.0, durationMonths = 2,
+            monthlyCashWan = 4.0, completionCashWan = 40.0, completionReputation = 10L
         ),
         Template(
             CommissionKind.EMPLOYMENT, "启明星软件园", "订单班共建与实习输送",
             "园区企业组团开设订单班，需工学院支撑；完成大幅提升毕业去向质量。",
             requiredCollege = "ENGINEERING", minCampusLevel = 2,
-            upfrontCostWan = 20.0, durationMonths = 3, monthlyCashWan = 4.0,
-            completionCashWan = 15.0, completionReputation = 12L, employmentBoost = 0.12f
+            upfrontCostWan = 0.0, durationMonths = 3, monthlyCashWan = 8.0,
+            completionCashWan = 22.0, completionReputation = 12L, employmentBoost = 0.12f
         ),
         Template(
             CommissionKind.EMPLOYMENT, "康宁医疗集团", "医护人才定向培养",
             "医疗集团定向培养护理与康复人才，要求医学院已竣工。",
             requiredCollege = "MEDICINE", minCampusLevel = 3,
-            upfrontCostWan = 30.0, durationMonths = 3, monthlyCashWan = 6.0,
-            completionCashWan = 20.0, completionReputation = 14L, employmentBoost = 0.15f
+            upfrontCostWan = 0.0, durationMonths = 3, monthlyCashWan = 10.0,
+            completionCashWan = 28.0, completionReputation = 14L, employmentBoost = 0.15f
         ),
         Template(
             CommissionKind.RESEARCH, "省属产业技术研究院", "横向课题：产线降耗优化",
             "企业出题、学校解题。理学院师生联合攻关，结题奖励科研经费与推进日。",
             requiredCollege = "SCIENCE", minCampusLevel = 2,
-            upfrontCostWan = 15.0, durationMonths = 2, monthlyCashWan = 3.0,
-            completionCashWan = 40.0, completionReputation = 10L, researchDaysBonus = 3
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 7.0,
+            completionCashWan = 32.0, completionReputation = 10L, researchDaysBonus = 3
         ),
         Template(
             CommissionKind.RESEARCH, "数联云科技", "大数据联合实验室首期项目",
             "共建联合实验室承接数据分析项目，需机房投入运营。",
             requiredFacility = "COMPUTER_LAB", minCampusLevel = 2,
-            upfrontCostWan = 18.0, durationMonths = 2, monthlyCashWan = 5.0,
-            completionCashWan = 35.0, completionReputation = 9L, researchDaysBonus = 2
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 8.0,
+            completionCashWan = 28.0, completionReputation = 9L, researchDaysBonus = 2
         ),
         Template(
             CommissionKind.ENROLLMENT, "市教育局", "社区职业教育公益培训",
             "承接社区公益培训项目，换取教育局对本校招生的宣传倾斜。",
             minCampusLevel = 1,
-            upfrontCostWan = 6.0, durationMonths = 2, monthlyCashWan = 2.0,
-            completionCashWan = 10.0, completionReputation = 8L, enrollmentBonus = 0.06f
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 4.0,
+            completionCashWan = 12.0, completionReputation = 8L, enrollmentBonus = 0.06f
         ),
         Template(
             CommissionKind.ENROLLMENT, "新航道教育集团", "县域生源基地共建",
             "与三所县域中学共建生源基地，需商学院团队做升学规划。",
             requiredCollege = "BUSINESS", requiredReputation = 150L, minCampusLevel = 2,
-            upfrontCostWan = 12.0, durationMonths = 2, monthlyCashWan = 3.0,
-            completionCashWan = 12.0, completionReputation = 10L, enrollmentBonus = 0.08f
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 5.0,
+            completionCashWan = 16.0, completionReputation = 10L, enrollmentBonus = 0.08f
         ),
         Template(
             CommissionKind.REPUTATION, "市文化馆", "校地文化艺术季联办",
             "联办公益文化艺术季，艺术工作室排练演出，显著提升社会口碑。",
             requiredFacility = "ART_STUDIO", minCampusLevel = 2,
-            upfrontCostWan = 10.0, durationMonths = 1, monthlyCashWan = 0.0,
-            completionCashWan = 8.0, completionReputation = 18L
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 3.0,
+            completionCashWan = 10.0, completionReputation = 18L
         ),
         Template(
             CommissionKind.REPUTATION, "市体育局", "全民健身体测进校园",
             "承接全市体质测评志愿服务，需运动场支撑，赢在城市形象曝光。",
             requiredFacility = "SPORTS_FIELD", minCampusLevel = 2,
-            upfrontCostWan = 8.0, durationMonths = 1, monthlyCashWan = 0.0,
-            completionCashWan = 10.0, completionReputation = 15L
+            upfrontCostWan = 0.0, durationMonths = 2, monthlyCashWan = 3.0,
+            completionCashWan = 12.0, completionReputation = 15L
+        ),
+        Template(
+            CommissionKind.FUNDING, "邻里商会", "夜校技能班冠名",
+            "商会冠名夜校技能班，学生少也能先接。每月有进账，结项再给一笔。",
+            minCampusLevel = 1, upfrontCostWan = 0.0, durationMonths = 2,
+            monthlyCashWan = 5.0, completionCashWan = 10.0, completionReputation = 4L
+        ),
+        Template(
+            CommissionKind.EMPLOYMENT, "本地制造协会", "学徒见习输送",
+            "协会要见习名额。有工学院更好，没有也能先做基础输送。",
+            minCampusLevel = 1, upfrontCostWan = 0.0, durationMonths = 2,
+            monthlyCashWan = 4.0, completionCashWan = 8.0, completionReputation = 5L, employmentBoost = 0.04f
         )
     )
 

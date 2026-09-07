@@ -1026,6 +1026,7 @@ fun CampusView(
                             }
                         }
                     )
+                    AppointmentPickers(viewModel)
                 }
             }
         }
@@ -1099,139 +1100,6 @@ fun CampusView(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
-        }
-
-        val pickingAdvisor by viewModel.pickingAdvisorClass.collectAsState()
-        pickingAdvisor?.let { classId ->
-            val options by viewModel.advisorOptions.collectAsState()
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { viewModel.closePickers() },
-                title = { Text("任命班主任") },
-                text = {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 420.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            "按管理、心理、教学综合排序。点名字立刻任命，已带班的会从原班挪过来。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF617386)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (options.isEmpty()) Text("暂无在职教师", fontSize = 13.sp)
-                        options.forEach { option ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { viewModel.assignAdvisor(classId, option.id) }
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                if (option.avatarRes != 0) {
-                                    Image(
-                                        painter = painterResource(id = option.avatarRes),
-                                        contentDescription = option.name,
-                                        modifier = Modifier.size(40.dp),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(option.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
-                                        if (option.recommended) {
-                                            Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
-                                        }
-                                    }
-                                    Text(option.detail, fontSize = 11.sp, color = Color(0xFF617386))
-                                    Text(
-                                        "教学${option.teaching} 管理${option.management} 心理${option.psychology}",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF14648C)
-                                    )
-                                    option.assignedClass?.let { assigned ->
-                                        Text("已在 $assigned 当班主任", fontSize = 11.sp, color = Color(0xFFB15A54))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Text(
-                        "关闭",
-                        modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
-        }
-
-        val pickingOfficer by viewModel.pickingOfficer.collectAsState()
-        pickingOfficer?.let { target ->
-            val options by viewModel.studentOptions.collectAsState()
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { viewModel.closePickers() },
-                title = { Text("任命${target.role.displayName}") },
-                text = {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 420.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            "本班学生都能看。推荐按这个岗位的属性排，点名字立刻任命。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF617386)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (options.isEmpty()) Text("本班暂无学生", fontSize = 13.sp)
-                        options.forEach { student ->
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = student.eligible) {
-                                        viewModel.appointOfficer(target.classId, target.role, student.id)
-                                    }
-                                    .padding(vertical = 8.dp)
-                            ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(
-                                        student.name,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (student.eligible) Color(0xFF182635) else Color(0xFF9AA5AF)
-                                    )
-                                    if (student.recommended) {
-                                        Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
-                                    }
-                                }
-                                Text(
-                                    "智${student.intelligence} 体${student.physical} 社${student.social} 创${student.creativity} 德${student.morality} · 满意${student.satisfaction}",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF617386)
-                                )
-                                Text(
-                                    "资格分 ${student.qualificationScore} · ${if (student.eligible) "符合要求" else "未达到要求"}" +
-                                        (student.currentRole?.let { " · 已任$it" } ?: ""),
-                                    fontSize = 11.sp,
-                                    color = if (student.eligible) Color(0xFF14648C) else Color(0xFFB15A54)
-                                )
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Text(
-                        "关闭",
-                        modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
         }
 
         // 建造抽屉
@@ -1402,6 +1270,218 @@ private fun advanceWalkers(
 @Composable
 private fun LaunchedEffect2(key: Any?, block: suspend () -> Unit) {
     androidx.compose.runtime.LaunchedEffect(key) { block() }
+}
+
+@Composable
+private fun AppointmentPickers(viewModel: CampusViewModel) {
+    val pickingAdvisor by viewModel.pickingAdvisorClass.collectAsState()
+    pickingAdvisor?.let { classId ->
+        val options by viewModel.advisorOptions.collectAsState()
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.closePickers() },
+            title = { Text("任命班主任") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        "按管理、心理、教学综合排序。点名字立刻任命，已带班的会从原班挪过来。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF617386)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (options.isEmpty()) Text("暂无在职教师", fontSize = 13.sp)
+                    options.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.assignAdvisor(classId, option.id) }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (option.avatarRes != 0) {
+                                Image(
+                                    painter = painterResource(id = option.avatarRes),
+                                    contentDescription = option.name,
+                                    modifier = Modifier.size(40.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(option.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                    if (option.recommended) {
+                                        Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
+                                    }
+                                }
+                                Text(option.detail, fontSize = 11.sp, color = Color(0xFF617386))
+                                Text(
+                                    "教学${option.teaching} 管理${option.management} 心理${option.psychology}",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF14648C)
+                                )
+                                option.assignedClass?.let { assigned ->
+                                    Text("已在 $assigned 当班主任", fontSize = 11.sp, color = Color(0xFFB15A54))
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Text(
+                    "关闭",
+                    modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        )
+    }
+
+    val pickingOfficer by viewModel.pickingOfficer.collectAsState()
+    pickingOfficer?.let { target ->
+        val options by viewModel.studentOptions.collectAsState()
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.closePickers() },
+            title = { Text("任命${target.role.displayName}") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        "本班学生都能看。推荐按这个岗位的属性排，点名字立刻任命。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF617386)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (options.isEmpty()) Text("本班暂无学生", fontSize = 13.sp)
+                    options.forEach { student ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = student.eligible) {
+                                    viewModel.appointOfficer(target.classId, target.role, student.id)
+                                }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    student.name,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (student.eligible) Color(0xFF182635) else Color(0xFF9AA5AF)
+                                )
+                                if (student.recommended) {
+                                    Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
+                                }
+                            }
+                            Text(
+                                "智${student.intelligence} 体${student.physical} 社${student.social} 创${student.creativity} 德${student.morality} · 满意${student.satisfaction}",
+                                fontSize = 11.sp,
+                                color = Color(0xFF617386)
+                            )
+                            Text(
+                                "资格分 ${student.qualificationScore} · ${if (student.eligible) "符合要求" else "未达到要求"}" +
+                                    (student.currentRole?.let { " · 已任$it" } ?: ""),
+                                fontSize = 11.sp,
+                                color = if (student.eligible) Color(0xFF14648C) else Color(0xFFB15A54)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Text(
+                    "关闭",
+                    modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        )
+    }
+
+    val managingClassId by viewModel.managingOfficersClass.collectAsState()
+    managingClassId?.let { classId ->
+        val row = viewModel.classRows.collectAsState().value.firstOrNull { it.classId == classId }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.closeOfficerBoard() },
+            title = { Text("管理班委") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 460.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "六个职位随便点。推荐按这个岗位的属性排，点任命立刻生效。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF617386)
+                    )
+                    ClassOfficerRole.entries.forEach { role ->
+                        val holder = row?.officers?.get(role)
+                        val effect = when (role) {
+                            ClassOfficerRole.MONITOR -> "班风、凝聚力"
+                            ClassOfficerRole.STUDY_COMMITTEE -> "学业分"
+                            ClassOfficerRole.LIFE_COMMITTEE -> "满意度、凝聚力"
+                            ClassOfficerRole.ARTS_COMMITTEE -> "班风"
+                            ClassOfficerRole.SPORTS_COMMITTEE -> "满意度、凝聚力"
+                            ClassOfficerRole.MENTAL_HEALTH_COMMITTEE -> "满意度、纪律"
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFF0F4F8))
+                                .padding(8.dp)
+                        ) {
+                            Text(role.displayName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                            Text(
+                                if (holder == null) "空缺 · 影响$effect" else "$holder · 影响$effect",
+                                fontSize = 11.sp,
+                                color = Color(0xFF617386)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    if (holder == null) "任命" else "更换",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF14648C),
+                                    modifier = Modifier
+                                        .clickable { viewModel.openOfficerPicker(classId, role) }
+                                        .padding(vertical = 4.dp)
+                                )
+                                if (holder != null) {
+                                    Text(
+                                        "撤销",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFB15A54),
+                                        modifier = Modifier
+                                            .clickable { viewModel.removeOfficer(classId, role) }
+                                            .padding(vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Text(
+                    "关闭",
+                    modifier = Modifier.clickable { viewModel.closeOfficerBoard() }.padding(8.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        )
+    }
 }
 
 /** 建筑面板内容（实底白卡 + 搬移/拆除） */
@@ -1663,19 +1743,7 @@ private fun BuildingPanelContent(
                                         fontSize = 12.sp,
                                         color = Color(0xFF617386)
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        PanelButtonSmall("任命班委") {
-                                            val vacant = ClassOfficerRole.entries.firstOrNull { row.officers[it] == null }
-                                                ?: ClassOfficerRole.MONITOR
-                                            viewModel.openOfficerPicker(row.classId, vacant)
-                                        }
-                                        val filled = ClassOfficerRole.entries.firstOrNull { row.officers[it] != null }
-                                        if (filled != null) {
-                                            PanelButtonSmall("撤销${filled.displayName}") {
-                                                viewModel.removeOfficer(row.classId, filled)
-                                            }
-                                        }
-                                    }
+                                    PanelButtonSmall("管理班委") { viewModel.openOfficerBoard(row.classId) }
                                 }
                             }
                             PanelButton("教学强度与作息") { onOpenTeaching() }

@@ -196,6 +196,9 @@ class CampusViewModel @Inject constructor(
 
     data class OfficerPickerTarget(val classId: String, val role: ClassOfficerRole)
 
+    private val _managingOfficersClass = MutableStateFlow<String?>(null)
+    val managingOfficersClass = _managingOfficersClass.asStateFlow()
+
     private val _classRows = MutableStateFlow<List<ClassRow>>(emptyList())
     val classRows: StateFlow<List<ClassRow>> = _classRows.asStateFlow()
 
@@ -684,6 +687,16 @@ class CampusViewModel @Inject constructor(
             _officerMessage.value = "已撤销${role.displayName}"
             rebuildClassRows()
         }
+    }
+
+    fun openOfficerBoard(classId: String) {
+        audioManager.playButtonClick()
+        _managingOfficersClass.value = classId
+    }
+
+    fun closeOfficerBoard() {
+        _managingOfficersClass.value = null
+        _pickingOfficer.value = null
     }
 
     fun closePickers() {
