@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v1.0.0-r*"
+      - "v*-r*"
 
 permissions:
   contents: write
@@ -79,18 +79,20 @@ jobs:
             app/build/outputs/apk/release/app-release.apk | tee "$RUNNER_TEMP/apk-badging.txt"
           EXPECTED_CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts | head -n1)
           EXPECTED_PKG=$(grep -oP 'applicationId = "\K[^"]+' app/build.gradle.kts | head -n1)
+          EXPECTED_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts | head -n1)
           grep -F "name='${EXPECTED_PKG}'" "$RUNNER_TEMP/apk-badging.txt"
           grep -F "versionCode='${EXPECTED_CODE}'" "$RUNNER_TEMP/apk-badging.txt"
-          grep -F "versionName='1.0.0'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "versionName='${EXPECTED_NAME}'" "$RUNNER_TEMP/apk-badging.txt"
 
       - name: Derive release metadata
         run: |
           set -euo pipefail
-          REV="${GITHUB_REF_NAME#v1.0.0-r}"
+          REV="${GITHUB_REF_NAME##*-r}"
           test -n "$REV" && test "$REV" != "$GITHUB_REF_NAME"
-          echo "APK_BASE=school2-v1.0.0-r${REV}-release" >> "$GITHUB_ENV"
-          echo "ARTIFACT_NAME=school2-v1.0.0-r${REV}-signed" >> "$GITHUB_ENV"
+          echo "APK_BASE=school2-${GITHUB_REF_NAME}-release" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=school2-${GITHUB_REF_NAME}-signed" >> "$GITHUB_ENV"
           echo "REV=${REV}" >> "$GITHUB_ENV"
+          echo "DISPLAY_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       - name: Rename and checksum APK
         run: |
@@ -112,7 +114,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: 校长我来当 2 v1.0.0 修订版 ${{ env.REV }}
+          name: 校长我来当 2 ${{ env.DISPLAY_VERSION }}
           files: |
             ${{ env.APK_BASE }}.apk
             ${{ env.APK_BASE }}.apk.sha256
