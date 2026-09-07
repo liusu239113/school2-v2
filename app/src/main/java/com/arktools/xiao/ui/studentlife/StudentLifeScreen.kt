@@ -59,12 +59,12 @@ fun StudentLifeScreen(
     val state by viewModel.state.collectAsState()
     val actionMessage by viewModel.message.collectAsState()
     val openIssues = state.issues.filter { !it.resolved }
-    var tab by rememberSaveable { mutableIntStateOf(if (openIssues.isNotEmpty()) 0 else 1) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
 
     actionMessage?.let { message ->
         PixelAlertDialog(
             onDismissRequest = { viewModel.consumeMessage() },
-            title = if (message.contains("不足") || message.contains("不够") || message.contains("失败")) "还没做完" else "学生事务处",
+            title = if (message.contains("不足") || message.contains("不够") || message.contains("失败")) "还没做完" else "学生生活",
             text = message,
             confirmText = "知道了",
             onConfirm = { viewModel.consumeMessage() }
@@ -73,7 +73,7 @@ fun StudentLifeScreen(
 
     PixelGameBackground {
         Column(modifier = Modifier.fillMaxSize()) {
-            LegacyPageHeader("学生事务处")
+            LegacyPageHeader("学生生活")
             TabRow(
                 selectedTabIndex = tab,
                 containerColor = PrimaryDark,
@@ -90,22 +90,22 @@ fun StudentLifeScreen(
                 Tab(
                     selected = tab == 0,
                     onClick = { tab = 0 },
-                    text = {
-                        Text(
-                            if (openIssues.isEmpty()) "投诉处理台" else "投诉处理台 ${openIssues.size}",
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    text = { Text("宿舍食堂医务心理", fontWeight = FontWeight.Bold) }
                 )
                 Tab(
                     selected = tab == 1,
                     onClick = { tab = 1 },
-                    text = { Text("后勤值班台", fontWeight = FontWeight.Bold) }
+                    text = {
+                        Text(
+                            if (openIssues.isEmpty()) "生活投诉" else "生活投诉 ${openIssues.size}",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 )
             }
             when (tab) {
-                0 -> ComplaintDesk(state, openIssues, viewModel) { tab = 1 }
-                else -> LogisticsDesk(state, viewModel)
+                0 -> LogisticsDesk(state, viewModel)
+                else -> ComplaintDesk(state, openIssues, viewModel) { tab = 0 }
             }
         }
     }
@@ -124,9 +124,9 @@ private fun ComplaintDesk(
     ) {
         item {
             PixelHardPanel {
-                Text("学生投诉在这里处理", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("生活投诉", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(
-                    "进来点「去处理」会直接扩宿舍、加窗口、换菜谱或开辅导。做完再点「检查结案」，没做对应建设结不了案，满意度也不会回。",
+                    "从治院或行政楼进学生生活后，积压投诉在这一栏处理。点按钮会直接加床、加窗口、换菜或开辅导，做完再检查结案。",
                     color = PanelMuted,
                     fontSize = 12.sp
                 )
@@ -141,10 +141,10 @@ private fun ComplaintDesk(
         if (openIssues.isEmpty()) {
             item {
                 PixelHardPanel {
-                    Text("处理台空着", color = PanelInk, fontWeight = FontWeight.Bold)
-                    Text("没有积压投诉。宿舍挤、食堂差、医务坏会从这里进件，不要在后勤值班台里找文字说明。", color = PanelMuted, fontSize = 12.sp)
+                    Text("暂时没有生活投诉", color = PanelInk, fontWeight = FontWeight.Bold)
+                    Text("宿舍挤、食堂差、医务坏会进这一栏。要先加床、换菜或开辅导，再点检查结案。", color = PanelMuted, fontSize = 12.sp)
                     PixelButton(
-                        text = "去后勤值班台巡检",
+                        text = "回宿舍食堂医务心理",
                         onClick = onOpenLogistics,
                         style = PixelButtonStyle.SECONDARY,
                         height = 40.dp,
@@ -215,9 +215,9 @@ private fun LogisticsDesk(
     ) {
         item {
             PixelHardPanel {
-                Text("后勤值班台", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("学生生活", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(
-                    "这里管四栋生活设施：宿舍楼、食堂、校医院/运动馆、心理辅导站。升级、维修、扩容都在对应楼里做，不是一代那种通用进度条。",
+                    "这页就是宿舍、食堂、校医院/运动馆、心理辅导站。每栋写清管什么、现在挤不挤、该修还是该扩。投诉不在这里结案，去「生活投诉」栏处理。",
                     color = PanelMuted,
                     fontSize = 12.sp
                 )
