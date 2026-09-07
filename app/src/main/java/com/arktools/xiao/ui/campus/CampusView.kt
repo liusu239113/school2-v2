@@ -1110,9 +1110,15 @@ fun CampusView(
                 text = {
                     Column(
                         modifier = Modifier
-                            .heightIn(max = 360.dp)
+                            .heightIn(max = 420.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
+                        Text(
+                            "按管理、心理、教学综合排序。点名字立刻任命，已带班的会从原班挪过来。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF617386)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         if (options.isEmpty()) Text("暂无在职教师", fontSize = 13.sp)
                         options.forEach { option ->
                             Row(
@@ -1131,9 +1137,22 @@ fun CampusView(
                                         contentScale = ContentScale.Crop
                                     )
                                 }
-                                Column {
-                                    Text(option.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(option.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                        if (option.recommended) {
+                                            Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
+                                        }
+                                    }
                                     Text(option.detail, fontSize = 11.sp, color = Color(0xFF617386))
+                                    Text(
+                                        "教学${option.teaching} 管理${option.management} 心理${option.psychology}",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF14648C)
+                                    )
+                                    option.assignedClass?.let { assigned ->
+                                        Text("已在 $assigned 当班主任", fontSize = 11.sp, color = Color(0xFFB15A54))
+                                    }
                                 }
                             }
                         }
@@ -1159,9 +1178,15 @@ fun CampusView(
                 text = {
                     Column(
                         modifier = Modifier
-                            .heightIn(max = 360.dp)
+                            .heightIn(max = 420.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
+                        Text(
+                            "本班学生都能看。推荐按这个岗位的属性排，点名字立刻任命。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF617386)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         if (options.isEmpty()) Text("本班暂无学生", fontSize = 13.sp)
                         options.forEach { student ->
                             Column(
@@ -1172,14 +1197,25 @@ fun CampusView(
                                     }
                                     .padding(vertical = 8.dp)
                             ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        student.name,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (student.eligible) Color(0xFF182635) else Color(0xFF9AA5AF)
+                                    )
+                                    if (student.recommended) {
+                                        Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
+                                    }
+                                }
                                 Text(
-                                    student.name,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (student.eligible) Color(0xFF182635) else Color(0xFF9AA5AF)
+                                    "智${student.intelligence} 体${student.physical} 社${student.social} 创${student.creativity} 德${student.morality} · 满意${student.satisfaction}",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF617386)
                                 )
                                 Text(
-                                    "资格分 ${student.qualificationScore} · ${if (student.eligible) "符合要求" else "未达到要求"}",
+                                    "资格分 ${student.qualificationScore} · ${if (student.eligible) "符合要求" else "未达到要求"}" +
+                                        (student.currentRole?.let { " · 已任$it" } ?: ""),
                                     fontSize = 11.sp,
                                     color = if (student.eligible) Color(0xFF14648C) else Color(0xFFB15A54)
                                 )
@@ -1614,16 +1650,24 @@ private fun BuildingPanelContent(
                                     }
                                     val appointed = ClassOfficerRole.entries.count { row.officers[it] != null }
                                     Text(
-                                        "班干部 $appointed/${ClassOfficerRole.entries.size}",
+                                        buildString {
+                                            append("班干部 $appointed/${ClassOfficerRole.entries.size}")
+                                            val names = row.officers.entries.joinToString(" · ") {
+                                                "${it.key.displayName} ${it.value}"
+                                            }
+                                            if (names.isNotBlank()) {
+                                                append(" · ")
+                                                append(names)
+                                            }
+                                        },
                                         fontSize = 12.sp,
                                         color = Color(0xFF617386)
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        val vacant = ClassOfficerRole.entries.firstOrNull { row.officers[it] == null }
-                                        if (vacant != null) {
-                                            PanelButtonSmall("任命${vacant.displayName}") {
-                                                viewModel.openOfficerPicker(row.classId, vacant)
-                                            }
+                                        PanelButtonSmall("任命班委") {
+                                            val vacant = ClassOfficerRole.entries.firstOrNull { row.officers[it] == null }
+                                                ?: ClassOfficerRole.MONITOR
+                                            viewModel.openOfficerPicker(row.classId, vacant)
                                         }
                                         val filled = ClassOfficerRole.entries.firstOrNull { row.officers[it] != null }
                                         if (filled != null) {
@@ -1697,17 +1741,21 @@ private fun BuildingPanelContent(
                             OccupancyBar("维护折扣", facility.level * 20, 100)
                         }
                         FacilityType.CLINIC -> {
-                            val clinicCap = com.arktools.xiao.domain.model.FacilityCapacity.clinicSlots(facility.level)
-                            val clinicLoad = (state.studentCount / 8).coerceAtLeast(if (state.studentCount > 0) 1 else 0)
-                            OccupancyBar("接诊", clinicLoad, clinicCap)
-                            Text("校医值班，不是一人一床。一栋就能覆盖一大批学生。", fontSize = 12.sp, color = Color(0xFF617386))
+                            OccupancyBar("全校接诊", state.studentCount, state.clinicSlots)
+                            Text(
+                                "本楼容量 ${com.arktools.xiao.domain.model.FacilityCapacity.clinicSlots(facility.level)}。几栋医务室加总，不是一人一床。",
+                                fontSize = 12.sp,
+                                color = Color(0xFF617386)
+                            )
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         FacilityType.COUNSELING -> {
-                            val counselCap = com.arktools.xiao.domain.model.FacilityCapacity.counselingSlots(facility.level)
-                            val counselLoad = (state.studentCount / 8).coerceAtLeast(if (state.studentCount > 0) 1 else 0)
-                            OccupancyBar("辅导名额", counselLoad, counselCap)
-                            Text("心理站按值班名额算，不用跟在校人数一对一。", fontSize = 12.sp, color = Color(0xFF617386))
+                            OccupancyBar("全校辅导", state.studentCount, state.counselingSlots)
+                            Text(
+                                "本楼容量 ${com.arktools.xiao.domain.model.FacilityCapacity.counselingSlots(facility.level)}。几栋心理站加总，不是所有人挤同一栋。",
+                                fontSize = 12.sp,
+                                color = Color(0xFF617386)
+                            )
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         else -> {}
@@ -1887,8 +1935,8 @@ private fun BuildMenuContent(
                 FacilityType.COMPUTER_LAB -> "机位 ${state.computerSeats} · 已建 ${owned} 栋"
                 FacilityType.SPORTS_FIELD -> "容纳 ${state.sportsCapacity} · 已建 ${owned} 栋"
                 FacilityType.ART_STUDIO -> "工位 ${state.studioCapacity} · 已建 ${owned} 栋"
-                FacilityType.CLINIC -> "健康投诉必须先建这栋 · 已建 ${owned} 栋"
-                FacilityType.COUNSELING -> "心理投诉必须先建这栋 · 已建 ${owned} 栋"
+                FacilityType.CLINIC -> "全校接诊 ${state.studentCount}/${state.clinicSlots} · 已建 ${owned} 栋"
+                FacilityType.COUNSELING -> "全校辅导 ${state.studentCount}/${state.counselingSlots} · 已建 ${owned} 栋"
                 else -> type.description
             }
             BuildRow(

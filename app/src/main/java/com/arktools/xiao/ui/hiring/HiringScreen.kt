@@ -54,6 +54,7 @@ fun HiringScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val devState by viewModel.devState.collectAsState()
     val availableTalent = devState.talentPool.filter { it.status == com.arktools.xiao.domain.teacherdev.TalentStatus.AVAILABLE }
+    val channelUnlockPrompt by viewModel.channelUnlockPrompt.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -101,7 +102,7 @@ fun HiringScreen(
         }
 
         item {
-            Text("① 解锁年度招聘渠道（每年每渠道只收费一次）", color = Color(0xFFB8C7D6), fontSize = 13.sp)
+            Text("① 点渠道先弹窗确认：这是开通本年度名单，不是刷新。招走一个就少一个。", color = Color(0xFFB8C7D6), fontSize = 13.sp)
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -212,6 +213,30 @@ fun HiringScreen(
             confirmButton = {
                 TextButton(onClick = { viewModel.clearError() }) {
                     Text("知道了")
+                }
+            }
+        )
+    }
+
+    channelUnlockPrompt?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissChannelUnlockPrompt() },
+            title = { Text("开通${prompt.channel.displayName}") },
+            text = {
+                Text(
+                    "这 ${prompt.channel.cost.toInt()} 万是本年度开通这个渠道，不是刷新名单。" +
+                        "开通后能看今年这批固定候选人（还剩 ${prompt.remaining} 人）。" +
+                        "招走一个就少一个，想换一批人请看广告刷新人才池。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmUnlockChannel() }) {
+                    Text("确认开通")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissChannelUnlockPrompt() }) {
+                    Text("取消")
                 }
             }
         )

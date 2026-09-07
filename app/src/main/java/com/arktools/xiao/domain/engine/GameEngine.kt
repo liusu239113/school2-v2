@@ -4430,13 +4430,30 @@ class GameEngine @Inject constructor(
                     schoolRepository.mutateSchool { latest ->
                         if (partnerResult.monthlyIncome > 0) {
                             latest.cash += partnerResult.monthlyIncome
+                            financialReportManager.recordIncome(
+                                com.arktools.xiao.domain.finance.IncomeCategory.RESEARCH_GRANT,
+                                partnerResult.monthlyIncome,
+                                "企业委托月度到账"
+                            )
                         }
                         latest.commissionJson = partnerCommissionManager.toJson()
+                        latest.financialReportJson = financialReportManager.toJson()
                         true
                     }
                 }
                 partnerResult.completions.forEach { c ->
-                    if (c.completionCashWan > 0) schoolRepository.addCash(c.completionCashWan)
+                    if (c.completionCashWan > 0) {
+                        schoolRepository.addCash(c.completionCashWan)
+                        financialReportManager.recordIncome(
+                            com.arktools.xiao.domain.finance.IncomeCategory.RESEARCH_GRANT,
+                            c.completionCashWan,
+                            "企业委托结项 · ${c.title}"
+                        )
+                        schoolRepository.mutateSchool { latest ->
+                            latest.financialReportJson = financialReportManager.toJson()
+                            true
+                        }
+                    }
                     if (c.completionReputation > 0) {
                         schoolRepository.addReputation(c.completionReputation)
                     }
@@ -4446,11 +4463,11 @@ class GameEngine @Inject constructor(
                     deferEvent(GameEvent.PositiveEvent(
                         title = "企业委托结项：${c.title}",
                         message = "${c.partner}的合作委托「${c.title}」顺利结项。" +
-                            "结项款 ${c.completionCashWan.toInt()} 万到账，声誉 +${c.completionReputation}" +
+                            "结项款 ${c.completionCashWan.toInt()} 万已进账本，声誉 +${c.completionReputation}" +
                             (if (c.employmentBoost > 0f) "；就业合作口碑将提升后续毕业去向质量" else "") +
                             (if (c.enrollmentBonus > 0f) "；生源共建将惠及下届招生" else "") + "。",
-                        bonusCash = 0.0,
-                        bonusReputation = 0
+                        bonusCash = c.completionCashWan,
+                        bonusReputation = c.completionReputation
                     ))
                 }
                 partnerResult.failures.forEach { c ->

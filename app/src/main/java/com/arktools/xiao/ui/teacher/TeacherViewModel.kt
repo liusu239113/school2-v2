@@ -105,6 +105,18 @@ class TeacherViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    data class ChannelUnlockPrompt(
+        val channel: RecruitmentChannel,
+        val remaining: Int
+    )
+
+    private val _channelUnlockPrompt = MutableStateFlow<ChannelUnlockPrompt?>(null)
+    val channelUnlockPrompt: StateFlow<ChannelUnlockPrompt?> = _channelUnlockPrompt.asStateFlow()
+
+    fun dismissChannelUnlockPrompt() {
+        _channelUnlockPrompt.value = null
+    }
+
     private val _schoolLevel = MutableStateFlow(1)
     val schoolLevel: StateFlow<Int> = _schoolLevel.asStateFlow()
 
@@ -242,37 +254,59 @@ class TeacherViewModel @Inject constructor(
                 return@safeLaunch
             }
             val alreadyUnlocked = teacherDevManager.isChannelUnlocked(talentChannel)
-            val snapshot = teacherDevManager.snapshotState()
-            val result = if (alreadyUnlocked) {
-                schoolRepository.getSchool()
-            } else {
-                schoolRepository.mutateSchool { school ->
-                    if (school.cash < channel.cost) {
-                        cashShortfallAdManager.offerIfShort(channel.cost, school.cash, "开通${channel.displayName}")
-                        _errorMessage.value = "资金不足! 需要${String.format("%.1f", channel.cost)}万"
-                        return@mutateSchool false
-                    }
-                    school.cash -= channel.cost
-                    gameEngine.financialReportManager.recordExpense(
-                        com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY,
-                        channel.cost,
-                        "开通招聘渠道 · ${channel.displayName}"
-                    )
-                    teacherDevManager.unlockChannel(talentChannel)
-                    school.teacherDevJson = teacherDevManager.toJson()
-                    school.financialReportJson = gameEngine.financialReportManager.toJson()
-                    true
-                }
+            if (!alreadyUnlocked) {
+                _channelUnlockPrompt.value = ChannelUnlockPrompt(channel, visibleCandidates.size)
+                return@safeLaunch
             }
-            if (result != null) {
-                _selectedChannel.value = channel
-                _candidates.value = visibleCandidates.map { it.teacher.toTeacher() }
-                if (_candidates.value.isEmpty()) {
-                    _errorMessage.value = "本年度该渠道人才名额已用完，请等待下一年度补充"
+            showUnlockedChannel(channel, visibleCandidates)
+        }
+    }
+
+    fun confirmUnlockChannel() {
+        val prompt = _channelUnlockPrompt.value ?: return
+        viewModelScope.safeLaunch {
+            val channel = prompt.channel
+            val talentChannel = when (channel) {
+                RecruitmentChannel.AD -> TalentChannel.AD
+                RecruitmentChannel.SCHOOL -> TalentChannel.SCHOOL
+                RecruitmentChannel.HEADHUNTER -> TalentChannel.HEADHUNTER
+            }
+            val snapshot = teacherDevManager.snapshotState()
+            val result = schoolRepository.mutateSchool { school ->
+                if (school.cash < channel.cost) {
+                    cashShortfallAdManager.offerIfShort(channel.cost, school.cash, "开通${channel.displayName}")
+                    _errorMessage.value = "资金不足! 需要${String.format("%.1f", channel.cost)}万"
+                    return@mutateSchool false
                 }
+                school.cash -= channel.cost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.TEACHER_SALARY,
+                    channel.cost,
+                    "开通招聘渠道 · ${channel.displayName}"
+                )
+                teacherDevManager.unlockChannel(talentChannel)
+                school.teacherDevJson = teacherDevManager.toJson()
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
+                true
+            }
+            _channelUnlockPrompt.value = null
+            if (result != null) {
+                val visibleCandidates = teacherDevManager.candidatesForChannel(talentChannel)
+                showUnlockedChannel(channel, visibleCandidates)
             } else {
                 teacherDevManager.restoreSnapshot(snapshot)
             }
+        }
+    }
+
+    private fun showUnlockedChannel(
+        channel: RecruitmentChannel,
+        visibleCandidates: List<TeacherTalentCandidate>
+    ) {
+        _selectedChannel.value = channel
+        _candidates.value = visibleCandidates.map { it.teacher.toTeacher() }
+        if (_candidates.value.isEmpty()) {
+            _errorMessage.value = "本年度该渠道人才名额已用完，请等待下一年度补充"
         }
     }
 

@@ -658,6 +658,7 @@ private fun HireTeacherDialog(
     val selectedChannel by viewModel.selectedChannel.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val schoolLevel by viewModel.schoolLevel.collectAsState()
+    val channelUnlockPrompt by viewModel.channelUnlockPrompt.collectAsState()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -781,6 +782,20 @@ private fun HireTeacherDialog(
             text = msg,
             confirmText = "知道了",
             onConfirm = { viewModel.clearError() }
+        )
+    }
+
+    channelUnlockPrompt?.let { prompt ->
+        PixelAlertDialog(
+            onDismissRequest = { viewModel.dismissChannelUnlockPrompt() },
+            title = "开通${prompt.channel.displayName}",
+            text = "这 ${prompt.channel.cost.toInt()} 万是本年度开通这个渠道，不是刷新名单。" +
+                "开通后能看今年这批固定候选人（还剩 ${prompt.remaining} 人）。" +
+                "招走一个就少一个，想换一批人请看广告刷新人才池。",
+            confirmText = "确认开通",
+            dismissText = "取消",
+            onConfirm = { viewModel.confirmUnlockChannel() },
+            onDismiss = { viewModel.dismissChannelUnlockPrompt() }
         )
     }
 }

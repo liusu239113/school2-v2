@@ -103,6 +103,8 @@ class CampusViewModel @Inject constructor(
         val computerSeats: Int = 0,
         val sportsCapacity: Int = 0,
         val studioCapacity: Int = 0,
+        val clinicSlots: Int = 0,
+        val counselingSlots: Int = 0,
         val unlockedCells: Int = 0,
         val totalCells: Int = 0,
         val currentYear: Int = 2026,
@@ -141,6 +143,7 @@ class CampusViewModel @Inject constructor(
     )
 
     data class ClassStudentInfo(
+        val id: String = "",
         val name: String,
         val grade: String,
         val intelligence: Int,
@@ -168,14 +171,27 @@ class CampusViewModel @Inject constructor(
         val id: String,
         val name: String,
         val detail: String,
-        val avatarRes: Int
+        val avatarRes: Int,
+        val teaching: Int = 0,
+        val management: Int = 0,
+        val psychology: Int = 0,
+        val assignedClass: String? = null,
+        val recommended: Boolean = false
     )
 
     data class StudentOption(
         val id: String,
         val name: String,
         val qualificationScore: Int,
-        val eligible: Boolean
+        val eligible: Boolean,
+        val intelligence: Int = 0,
+        val physical: Int = 0,
+        val social: Int = 0,
+        val creativity: Int = 0,
+        val morality: Int = 0,
+        val satisfaction: Int = 0,
+        val currentRole: String? = null,
+        val recommended: Boolean = false
     )
 
     data class OfficerPickerTarget(val classId: String, val role: ClassOfficerRole)
@@ -307,6 +323,8 @@ class CampusViewModel @Inject constructor(
                     computerSeats = com.arktools.xiao.domain.model.FacilityCapacity.totalComputerSeats(school.facilities),
                     sportsCapacity = com.arktools.xiao.domain.model.FacilityCapacity.totalSportsCapacity(school.facilities),
                     studioCapacity = com.arktools.xiao.domain.model.FacilityCapacity.totalStudioCapacity(school.facilities),
+                    clinicSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClinicSlots(school.facilities),
+                    counselingSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalCounselingSlots(school.facilities),
                     unlockedCells = BT.unlockedRect(school.campusLevel).cells,
                     totalCells = BT.GRID_W * BT.GRID_H,
                     monthlyRevenue = com.arktools.xiao.domain.model.StatisticsManager.latest()?.revenue ?: 0.0,
@@ -427,6 +445,7 @@ class CampusViewModel @Inject constructor(
                 .sortedBy { it.name }
                 .map { student ->
                     ClassStudentInfo(
+                        id = student.id,
                         name = student.name,
                         grade = student.gradeLevel.displayName,
                         intelligence = student.attributes.intelligence.toInt(),
@@ -520,13 +539,26 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val teachers = runCatching { teacherRepository.getTeachers() }
                 .getOrDefault(emptyList()).filter { it.isWorking }
-            _advisorOptions.value = teachers.map { teacher ->
+            val assignedByTeacher = gameEngine.classes
+                .mapNotNull { cls -> cls.headTeacherId?.let { it to cls.displayName } }
+                .toMap()
+            val scored = teachers.map { teacher ->
+                val score = teacher.management * 2 + teacher.psychology + teacher.teaching
                 AdvisorOption(
                     id = teacher.id,
                     name = teacher.name,
                     detail = teacher.level.name + "级 · " + teacher.role.displayName,
-                    avatarRes = com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(teacher)
-                )
+                    avatarRes = com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(teacher),
+                    teaching = teacher.teaching,
+                    management = teacher.management,
+                    psychology = teacher.psychology,
+                    assignedClass = assignedByTeacher[teacher.id],
+                    recommended = false
+                ) to score
+            }.sortedByDescending { it.second }
+            val bestId = scored.firstOrNull()?.first?.id
+            _advisorOptions.value = scored.map { (option, _) ->
+                option.copy(recommended = option.id == bestId)
             }
             _pickingAdvisorClass.value = classId
         }
@@ -534,15 +566,31 @@ class CampusViewModel @Inject constructor(
 
     fun assignAdvisor(classId: String, teacherId: String) {
         audioManager.playButtonClick()
+        val cls = gameEngine.classes.firstOrNull { it.id == classId } ?: return
+        val teacher = (if (cachedTeachers.isNotEmpty()) cachedTeachers else emptyList())
+            .firstOrNull { it.id == teacherId }
         viewModelScope.safeLaunch {
-            val cls = gameEngine.classes.firstOrNull { it.id == classId } ?: return@safeLaunch
-            val teacher = runCatching { teacherRepository.getTeachers() }
+            val resolved = teacher ?: runCatching { teacherRepository.getTeachers() }
                 .getOrDefault(emptyList()).firstOrNull { it.id == teacherId } ?: return@safeLaunch
-            gameEngine.classManager.assignHeadTeacher(cls, teacher, gameEngine.classes)
+            gameEngine.classManager.assignHeadTeacher(cls, resolved, gameEngine.classes)
             gameEngine.saveHeadTeacherMap()
             gameEngine.notifyClassesChanged()
+            _classRows.value = _classRows.value.map { row ->
+                when {
+                    row.classId == classId -> row.copy(
+                        advisorName = resolved.name,
+                        advisorAvatarRes = com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(resolved)
+                    )
+                    row.advisorName == resolved.name -> row.copy(
+                        advisorName = null,
+                        advisorAvatarRes = 0
+                    )
+                    else -> row
+                }
+            }
             _pickingAdvisorClass.value = null
-            _officerMessage.value = "已任命 " + teacher.name + " 为 " + cls.displayName + " 学业导师"
+            _officerMessage.value = "已任命 " + resolved.name + " 为 " + cls.displayName + " 班主任"
+            rebuildClassRows()
         }
     }
 
@@ -551,10 +599,33 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val students = runCatching { studentRepository.getStudentsByClass(classId) }
                 .getOrDefault(emptyList())
-            _studentOptions.value = students.map { student ->
+            val currentRoles = ClassOfficers.decode(
+                policyManager.policies.value.collegeDevelopment.classOfficersJson
+            )[classId].orEmpty()
+            val roleByStudent = currentRoles.entries.associate { (heldRole, officer) ->
+                officer.studentId to heldRole.displayName
+            }
+            val options = students.map { student ->
                 val q = role.qualification(student)
-                StudentOption(student.id, student.name, q.score.toInt(), q.eligible)
-            }.sortedWith(compareByDescending<StudentOption> { it.eligible }.thenByDescending { it.qualificationScore })
+                StudentOption(
+                    id = student.id,
+                    name = student.name,
+                    qualificationScore = q.score.toInt(),
+                    eligible = q.eligible,
+                    intelligence = student.attributes.intelligence.toInt(),
+                    physical = student.attributes.physical.toInt(),
+                    social = student.attributes.social.toInt(),
+                    creativity = student.attributes.creativity.toInt(),
+                    morality = student.attributes.morality.toInt(),
+                    satisfaction = student.satisfaction.toInt(),
+                    currentRole = roleByStudent[student.id]
+                )
+            }.sortedWith(
+                compareByDescending<StudentOption> { it.eligible }
+                    .thenByDescending { it.qualificationScore }
+            )
+            val bestId = options.firstOrNull { it.eligible }?.id
+            _studentOptions.value = options.map { it.copy(recommended = it.id == bestId) }
             _pickingOfficer.value = OfficerPickerTarget(classId, role)
         }
     }
@@ -584,6 +655,11 @@ class CampusViewModel @Inject constructor(
                 school.policyJson = policyManager.toJson()
                 true
             }
+            _classRows.value = _classRows.value.map { row ->
+                if (row.classId != classId) row else row.copy(
+                    officers = roles.mapValues { it.value.name }
+                )
+            }
             _pickingOfficer.value = null
             _officerMessage.value = "${student.name} 已任命为${role.displayName}"
             gameEngine.notifyClassesChanged()
@@ -600,6 +676,11 @@ class CampusViewModel @Inject constructor(
             if (roles.isEmpty()) all.remove(classId) else all[classId] = roles
             policyManager.replaceCollegeDevelopment(dev.copy(classOfficersJson = ClassOfficers.encode(all)))
             schoolRepository.mutateSchool { school -> school.policyJson = policyManager.toJson(); true }
+            _classRows.value = _classRows.value.map { row ->
+                if (row.classId != classId) row else row.copy(
+                    officers = roles.mapValues { it.value.name }
+                )
+            }
             _officerMessage.value = "已撤销${role.displayName}"
             rebuildClassRows()
         }
