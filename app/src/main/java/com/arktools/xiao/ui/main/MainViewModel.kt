@@ -207,7 +207,7 @@ class MainViewModel @Inject constructor(
 
     fun claimAdCashGrant() {
         viewModelScope.safeLaunch {
-            val amount = 8.0
+            val amount = 25.0
             schoolRepository.mutateSchool { school ->
                 school.cash += amount
                 gameEngine.financialReportManager.recordIncome(
@@ -218,7 +218,7 @@ class MainViewModel @Inject constructor(
                 school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
-            _rewardNotification.value = "看广告领取办学经费 +8.0万元"
+            _rewardNotification.value = "看广告领取办学经费 +25万元"
             kotlinx.coroutines.delay(3000)
             _rewardNotification.value = null
         }

@@ -216,6 +216,22 @@ private fun TeacherTeamContent(
                     ) {
                         Text("一键培训", fontSize = 12.sp)
                     }
+                    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+                    FilledTonalButton(
+                        onClick = {
+                            if (activity != null) {
+                                com.arktools.adsdk.AdHelper.showRewardAd(
+                                    activity = activity,
+                                    onRewarded = { viewModel.teamBuildingByAd() }
+                                )
+                            }
+                        },
+                        enabled = teachers.isNotEmpty() && activity != null,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("看广告团建", fontSize = 12.sp)
+                    }
                     Text(
                         text = "${teachers.size} 人",
                         style = MaterialTheme.typography.bodyMedium

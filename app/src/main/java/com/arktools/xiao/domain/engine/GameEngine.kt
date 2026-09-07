@@ -1295,7 +1295,7 @@ class GameEngine @Inject constructor(
                 com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY,
                 com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA -> 40
                 com.arktools.xiao.domain.studentlife.LifeAspect.HEALTH,
-                com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY -> 20
+                com.arktools.xiao.domain.studentlife.LifeAspect.PSYCHOLOGY -> 80
             }
             val hardMax = buildingCap + extraPerBuilding * buildingCount.coerceAtLeast(1)
             val synced = maxOf(current, buildingCap)
@@ -3978,7 +3978,7 @@ class GameEngine @Inject constructor(
             }
             if (alumniResult.referralCount > 0) {
                 // 校友推荐的学生在下个月自动入学（加到声誉中吸引更多学生）
-                schoolRepository.addReputation(alumniResult.referralCount.toLong() * 2)
+                schoolRepository.addReputation(alumniResult.referralCount.toLong().coerceAtMost(3L))
             }
             // 校友网络声誉加成
             val alumniReputationBonus = alumniNetwork.getReputationBonus()
@@ -4021,7 +4021,7 @@ class GameEngine @Inject constructor(
                     st.expClubMonthly += clubResult.monthlyExpense
                 }
                 if (clubResult.reputationBonus > 0) {
-                    schoolRepository.addReputation(clubResult.reputationBonus.toLong())
+                    schoolRepository.addReputation(clubResult.reputationBonus.toLong().coerceAtMost(4L))
                 }
                 // 社团满意度加成应用到学生
                 if (clubResult.satisfactionBonus > 0f) {
@@ -4136,7 +4136,7 @@ class GameEngine @Inject constructor(
                 } else {
                     st.employmentResult.reputationBonus.toLong()
                 }
-                schoolRepository.addReputation(repGain)
+                schoolRepository.addReputation(repGain.coerceAtMost(8L))
             }
             st.employmentResult.events.forEach { empEvent ->
                 when (empEvent) {
@@ -4206,8 +4206,8 @@ class GameEngine @Inject constructor(
                 artsInvestmentScore = artsInvestmentScore,
                 legacyBonuses = computeLegacyReputationBonus(school)
             )
-            if (repResult.totalGrowth > 0) {
-                schoolRepository.addReputation(repResult.totalGrowth.toLong())
+            if (repResult.totalGrowth != 0L) {
+                schoolRepository.addReputation(repResult.totalGrowth.coerceIn(-8L, 10L))
             }
             repResult.newMilestones.forEach { milestone ->
                 emitEvent(GameEvent.PositiveEvent(
@@ -4912,7 +4912,7 @@ class GameEngine @Inject constructor(
                 val devNow = policyManager.policies.value.collegeDevelopment
                 val tileEffects = campusTileEffects(devNow.terrainMap)
                 if (tileEffects.reputation > 0) {
-                    schoolRepository.addReputation(tileEffects.reputation)
+                    schoolRepository.addReputation(tileEffects.reputation.coerceAtMost(3L))
                 }
                 val decorSatisfaction = tileEffects.satisfaction.coerceAtMost(3f)
                 if (decorSatisfaction >= 0.2f) {
@@ -4958,7 +4958,7 @@ class GameEngine @Inject constructor(
             // 采纳建议奖励：每采纳一条建议，全校满意度+1，声誉+3
             val resolvedCount = suggestionBoxManager.consumeResolvedCount()
             if (resolvedCount > 0) {
-                val repBonus = resolvedCount * 3L
+                val repBonus = resolvedCount.coerceAtMost(3).toLong()
                 schoolRepository.addReputation(repBonus)
                 // 提升全校学生满意度（每条+1，上限+5）
                 val satBoost = resolvedCount.coerceAtMost(5).toFloat()
@@ -6837,9 +6837,9 @@ class GameEngine @Inject constructor(
         } else 0f
 
         // 声誉必须靠经营换，不能靠“人多就涨”。被动封顶，竞赛/委托/奖学金发放才是冲刺手段。
-        val baseReputationGain = (teachingQuality * 0.05f + totalStudents * 0.012f)
+        val baseReputationGain = (teachingQuality * 0.02f + totalStudents * 0.004f)
             .toLong()
-            .coerceAtMost(12L)
+            .coerceAtMost(3L)
 
         // Semester calendar bonus (graduation, exams, sports, etc.)
         val calendarBonus = SemesterCalendar.getReputationBonus(school.currentMonth)
@@ -6861,7 +6861,9 @@ class GameEngine @Inject constructor(
         // 政策声誉修正（每月额外声誉增减，来自学费/考试/课外活动等政策组合）
         val policyRepModifier = policyManager.getPolicyEffects().reputationModifier
 
-        return ((baseReputationGain + calendarBonus + marketingRepBoost + studentSatisfactionBonus + scholarshipRepBonus + policyRepModifier) * facilityRepMultiplier).toLong()
+        return ((baseReputationGain + calendarBonus + marketingRepBoost + studentSatisfactionBonus + scholarshipRepBonus + policyRepModifier.coerceIn(-4L, 4L)) * facilityRepMultiplier)
+            .toLong()
+            .coerceIn(-6L, 8L)
     }
 
     /** 星级评分：综合声誉、学生满意度、教师质量、学校规模（纯展示，不参与声誉结算）。 */

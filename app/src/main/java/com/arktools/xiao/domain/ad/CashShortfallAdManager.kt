@@ -19,7 +19,7 @@ class CashShortfallAdManager @Inject constructor(
     private val settingsDataStore: SettingsDataStore
 ) {
     companion object {
-        const val DAILY_LIMIT = 5
+        const val DAILY_LIMIT = 8
     }
 
     private val _offer = MutableStateFlow<CashShortfallOffer?>(null)

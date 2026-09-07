@@ -445,7 +445,12 @@ class StudentLifeManager @Inject constructor() {
             val facilities = state.facilities.toMutableMap()
             LifeAspect.entries.forEach { aspect ->
                 val facility = facilities[aspect] ?: return@forEach
-                facilities[aspect] = facility.copy(currentLoad = studentCount)
+                val load = when (aspect) {
+                    LifeAspect.DORMITORY, LifeAspect.CAFETERIA -> studentCount
+                    LifeAspect.HEALTH, LifeAspect.PSYCHOLOGY ->
+                        (studentCount / 8).coerceAtLeast(if (studentCount > 0) 1 else 0)
+                }
+                facilities[aspect] = facility.copy(currentLoad = load)
             }
             state.copy(facilities = facilities)
         }
@@ -505,9 +510,14 @@ class StudentLifeManager @Inject constructor() {
                     events.add(LifeEvent.OvercrowdingAlert(aspect, loadPercent))
                 }
 
+                val load = when (aspect) {
+                    LifeAspect.DORMITORY, LifeAspect.CAFETERIA -> studentCount
+                    LifeAspect.HEALTH, LifeAspect.PSYCHOLOGY ->
+                        (studentCount / 8).coerceAtLeast(if (studentCount > 0) 1 else 0)
+                }
                 facilities[aspect] = facility.copy(
                     maintenanceLevel = newMaintenance,
-                    currentLoad = studentCount
+                    currentLoad = load
                 )
             }
 
@@ -535,13 +545,21 @@ class StudentLifeManager @Inject constructor() {
                 cafe.currentLoad.toFloat() / cafe.capacity
             } else 0f
             val avgMaintenance = facilities.values.map { it.maintenanceLevel }.average().toFloat()
+            val healthLoad = facilities[LifeAspect.HEALTH]?.let { f ->
+                if (f.capacity > 0) f.currentLoad.toFloat() / f.capacity else 2f
+            } ?: 2f
+            val psychLoad = facilities[LifeAspect.PSYCHOLOGY]?.let { f ->
+                if (f.capacity > 0) f.currentLoad.toFloat() / f.capacity else 2f
+            } ?: 2f
             val issue = pickConditionIssue(
                 year = currentYear,
                 month = currentMonth,
                 overall = state.overallSatisfaction,
                 dormLoad = dormLoad,
                 cafeLoad = cafeLoad,
-                avgMaintenance = avgMaintenance
+                avgMaintenance = avgMaintenance,
+                healthLoad = healthLoad,
+                psychLoad = psychLoad
             )
             if (issue != null) {
                 newIssues.add(issue)
@@ -781,7 +799,9 @@ class StudentLifeManager @Inject constructor() {
         overall: Float,
         dormLoad: Float,
         cafeLoad: Float,
-        avgMaintenance: Float
+        avgMaintenance: Float,
+        healthLoad: Float = 2f,
+        psychLoad: Float = 2f
     ): LifeIssue? {
         data class Candidate(
             val aspect: LifeAspect,
@@ -820,17 +840,17 @@ class StudentLifeManager @Inject constructor() {
                 IssueSeverity.LOW, ComplaintAction.CHANGE_MENU, "先有食堂楼，再在学生生活开营养餐或有机菜专项才能结案"
             )
         }
-        if (overall < 45f) {
+        if (psychLoad > 1.1f && overall < 45f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "校园霸凌事件",
-                "整体满意度只有 ${overall.toInt()}，矛盾没人管，出现欺凌投诉。",
-                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开减压工作坊才能结案"
+                "心理辅导站名额不够（负载 ${(psychLoad * 100).toInt()}%），矛盾没人管。",
+                IssueSeverity.CRITICAL, ComplaintAction.OPEN_COUNSELING, "先去校园建/升级心理辅导站，再开减压工作坊才能结案"
             )
-        } else if (overall < 60f) {
+        } else if (psychLoad > 1.1f && overall < 60f) {
             pool += Candidate(
                 LifeAspect.PSYCHOLOGY, "考试压力过大投诉",
-                "满意度 ${overall.toInt()}，学生觉得没人听他们说话。",
-                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "先去校园建心理辅导站，再开减压工作坊才能结案"
+                "心理辅导站已经排满（负载 ${(psychLoad * 100).toInt()}%），学生觉得没人听。",
+                IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "先去校园建/升级心理辅导站，再开减压工作坊才能结案"
             )
         }
         if (avgMaintenance < 40f) {
@@ -840,11 +860,11 @@ class StudentLifeManager @Inject constructor() {
                 IssueSeverity.MEDIUM, ComplaintAction.REPAIR_GYM, "去校园把体育馆修好（楼况到90）才能结案"
             )
         }
-        if (month in listOf(1, 2, 12) && overall < 70f) {
+        if (month in listOf(1, 2, 12) && healthLoad > 1.0f) {
             pool += Candidate(
                 LifeAspect.HEALTH, "流感季节爆发",
-                "冬春季叠加满意度不高，医务室挤满人。",
-                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "先去校园建医务室，再把这栋楼修好值班才能结案"
+                "冬春季接诊位不够（负载 ${(healthLoad * 100).toInt()}%），医务室挤满人。",
+                IssueSeverity.HIGH, ComplaintAction.OPEN_CLINIC, "先去校园建/升级医务室，再把这栋楼修好值班才能结案"
             )
         }
         if (pool.isEmpty()) return null

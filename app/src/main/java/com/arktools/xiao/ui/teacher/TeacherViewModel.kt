@@ -124,6 +124,28 @@ class TeacherViewModel @Inject constructor(
             if (it == TalentSource.ALUMNI_RETURN) "校友返校" else "社会人才"
         } ?: "年度人才池"
 
+    fun teamBuildingByAd() {
+        viewModelScope.safeLaunch {
+            val list = teacherRepository.getTeachers()
+            if (list.isEmpty()) {
+                _errorMessage.value = "还没有教师"
+                return@safeLaunch
+            }
+            var recovered = 0
+            list.forEach { teacher ->
+                if (teacher.fatigue > 0) {
+                    val next = teacher.copy(fatigue = (teacher.fatigue - 35).coerceAtLeast(0))
+                    if (teacherRepository.saveDailyState(teacher, next)) recovered += 1
+                }
+            }
+            _errorMessage.value = if (recovered > 0) {
+                "团建完成，$recovered 位教师疲劳下降"
+            } else {
+                "教师现在都不累"
+            }
+        }
+    }
+
     fun clearError() {
         _errorMessage.value = null
     }

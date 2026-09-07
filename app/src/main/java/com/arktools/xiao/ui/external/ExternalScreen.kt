@@ -160,14 +160,14 @@ class ExternalViewModel @Inject constructor(
                     cost,
                     "外联挖人"
                 )
-                school.reputation += 80
+                school.reputation += 8
                 school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
                 competitorEngine.hurtStrongestRival(moraleDelta = -0.08f, reputationDelta = -120L)
                 audioManager.playCashLose()
-                _state.value = _state.value.copy(message = "挖到对方一名骨干。立刻 +80 声誉，对手士气下降。")
+                _state.value = _state.value.copy(message = "挖到对方一名骨干。立刻 +8 声誉，对手士气下降。")
             }
         }
     }
@@ -187,14 +187,14 @@ class ExternalViewModel @Inject constructor(
                     cost,
                     "外联抢生源"
                 )
-                school.reputation += 40
+                school.reputation += 5
                 school.financialReportJson = gameEngine.financialReportManager.toJson()
                 true
             }
             if (result != null) {
                 competitorEngine.hurtStrongestRival(moraleDelta = -0.05f, studentDelta = -20)
                 audioManager.playCashLose()
-                _state.value = _state.value.copy(message = "对方学区被你砸穿。对手少了生源，本校下季更好招。")
+                _state.value = _state.value.copy(message = "对方学区被你砸穿。对手少了生源，本校下季更好招。声誉 +5。")
             }
         }
     }

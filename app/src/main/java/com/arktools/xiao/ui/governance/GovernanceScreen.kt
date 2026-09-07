@@ -109,7 +109,10 @@ fun GovernanceScreen(
                         color = Color(0xFF182635),
                         modifier = Modifier.padding(horizontal = 10.dp)
                     )
-                    StepButton("+", enabled = true) { viewModel.adjustBudget(line, 1) }
+                    StepButton(
+                        "+",
+                        enabled = plan.totalPoints() < 10 && value < 10
+                    ) { viewModel.adjustBudget(line, 1) }
                 }
             }
         }
@@ -203,7 +206,7 @@ fun GovernanceScreen(
                 Entry("科研课题", com.arktools.xiao.R.drawable.ic_research, 41),
                 Entry("校友与就业", com.arktools.xiao.R.drawable.ic_trophy, 15),
                 Entry("学生生活与投诉", com.arktools.xiao.R.drawable.ic_gift, 21),
-                Entry("大学政策（学费/考试）", com.arktools.xiao.R.drawable.ic_balance, 16),
+                Entry("大学政策（学费/考试/招生）", com.arktools.xiao.R.drawable.ic_balance, 16),
                 Entry("奖助学金", com.arktools.xiao.R.drawable.ic_gift, 29),
                 Entry("学期课表", com.arktools.xiao.R.drawable.ic_core_course, 31),
                 Entry("考试管理", com.arktools.xiao.R.drawable.ic_memo, 32),

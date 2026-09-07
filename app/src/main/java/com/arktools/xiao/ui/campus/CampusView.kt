@@ -1233,6 +1233,7 @@ fun CampusView(
                             viewModel.startPlace(spec)
                             pendingSpec = spec
                         },
+                        onFinishAllByAd = { viewModel.finishAllConstructionByAd() },
                         onBuyFacility = { spec ->
                             viewModel.closeBuildMenu()
                             viewModel.startPlace(spec)
@@ -1403,6 +1404,15 @@ private fun BuildingPanelContent(
                 fontSize = 13.sp,
                 color = Color(0xFFB0413E)
             )
+            val activity = LocalContext.current as? android.app.Activity
+            PanelButton("看广告立即竣工") {
+                if (activity != null && placed != null) {
+                    com.arktools.adsdk.AdHelper.showRewardAd(
+                        activity = activity,
+                        onRewarded = { viewModel.finishConstructionByAd(placed) }
+                    )
+                }
+            }
         }
 
         when (building.kind) {
@@ -1687,13 +1697,17 @@ private fun BuildingPanelContent(
                             OccupancyBar("维护折扣", facility.level * 20, 100)
                         }
                         FacilityType.CLINIC -> {
-                            OccupancyBar("接诊", state.studentCount, 40 + facility.level * 20)
-                            Text("学生生活的健康投诉，必须先建这栋医务室。", fontSize = 12.sp, color = Color(0xFF617386))
+                            val clinicCap = com.arktools.xiao.domain.model.FacilityCapacity.clinicSlots(facility.level)
+                            val clinicLoad = (state.studentCount / 8).coerceAtLeast(if (state.studentCount > 0) 1 else 0)
+                            OccupancyBar("接诊", clinicLoad, clinicCap)
+                            Text("校医值班，不是一人一床。一栋就能覆盖一大批学生。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         FacilityType.COUNSELING -> {
-                            OccupancyBar("辅导名额", state.studentCount, 30 + facility.level * 20)
-                            Text("心理投诉必须先建这栋，再去学生生活开辅导。", fontSize = 12.sp, color = Color(0xFF617386))
+                            val counselCap = com.arktools.xiao.domain.model.FacilityCapacity.counselingSlots(facility.level)
+                            val counselLoad = (state.studentCount / 8).coerceAtLeast(if (state.studentCount > 0) 1 else 0)
+                            OccupancyBar("辅导名额", counselLoad, counselCap)
+                            Text("心理站按值班名额算，不用跟在校人数一对一。", fontSize = 12.sp, color = Color(0xFF617386))
                             PanelButton("学生生活") { onOpenStudentLife() }
                         }
                         else -> {}
@@ -1706,17 +1720,6 @@ private fun BuildingPanelContent(
                             "升级"
                         }
                         PanelButton(panelButtonText) { if (placed?.isConstructing != true) onUpgradeFacility() }
-                        if (placed?.isConstructing == true && placed.constructionDaysLeft > 0) {
-                            val activity = LocalContext.current as? android.app.Activity
-                            PanelButtonSmall("看广告 立即竣工") {
-                                if (activity != null) {
-                                    com.arktools.adsdk.AdHelper.showRewardAd(
-                                        activity = activity,
-                                        onRewarded = { viewModel.finishConstructionByAd(placed) }
-                                    )
-                                }
-                            }
-                        }
                     } else {
                         Text("已达最大等级", fontSize = 13.sp, color = Color(0xFF2E9B78))
                     }
@@ -1762,7 +1765,8 @@ private fun BuildMenuContent(
     state: CampusViewModel.CampusUiState,
     onFoundCollege: (BT.Spec) -> Unit,
     onBuyFacility: (BT.Spec) -> Unit,
-    onPaintTile: (BT.TileKind) -> Unit
+    onPaintTile: (BT.TileKind) -> Unit,
+    onFinishAllByAd: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -1776,6 +1780,24 @@ private fun BuildMenuContent(
             fontSize = 13.sp,
             color = Color(0xFF617386)
         )
+        val constructingCount = state.placed.count { it.isConstructing }
+        if (constructingCount > 0) {
+            val activity = LocalContext.current as? android.app.Activity
+            OutlinedButton(
+                onClick = {
+                    if (activity != null) {
+                        com.arktools.adsdk.AdHelper.showRewardAd(
+                            activity = activity,
+                            onRewarded = onFinishAllByAd
+                        )
+                    }
+                },
+                enabled = activity != null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("看广告一键竣工（${constructingCount}处施工中）")
+            }
+        }
 
         Text("学院", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E96C8))
         BT.COLLEGE_SPECS.forEach { spec ->

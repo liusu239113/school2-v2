@@ -878,21 +878,20 @@ data class BudgetAllocation(
     fun totalPoints(): Int = teachingWeight + researchWeight + campusLifeWeight + societyWeight
 
     fun normalized(): BudgetAllocation {
-        val total = totalPoints().coerceAtLeast(1)
-        if (total == TOTAL_POINTS) {
-            return copy(
-                teachingWeight = teachingWeight.coerceIn(0, TOTAL_POINTS),
-                researchWeight = researchWeight.coerceIn(0, TOTAL_POINTS),
-                campusLifeWeight = campusLifeWeight.coerceIn(0, TOTAL_POINTS),
-                societyWeight = societyWeight.coerceIn(0, TOTAL_POINTS)
-            )
+        val teaching = teachingWeight.coerceIn(0, TOTAL_POINTS)
+        val research = researchWeight.coerceIn(0, TOTAL_POINTS)
+        val campusLife = campusLifeWeight.coerceIn(0, TOTAL_POINTS)
+        val society = societyWeight.coerceIn(0, TOTAL_POINTS)
+        val total = teaching + research + campusLife + society
+        if (total <= TOTAL_POINTS) {
+            return BudgetAllocation(teaching, research, campusLife, society)
         }
-        val teaching = ((teachingWeight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, TOTAL_POINTS)
-        val research = ((researchWeight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, TOTAL_POINTS - teaching)
-        val campusLife = ((campusLifeWeight.toFloat() / total) * TOTAL_POINTS).toInt()
-            .coerceIn(0, TOTAL_POINTS - teaching - research)
-        val society = (TOTAL_POINTS - teaching - research - campusLife).coerceIn(0, TOTAL_POINTS)
-        return BudgetAllocation(teaching, research, campusLife, society)
+        val scale = TOTAL_POINTS.toFloat() / total.toFloat()
+        val t = (teaching * scale).toInt().coerceIn(0, TOTAL_POINTS)
+        val r = (research * scale).toInt().coerceIn(0, TOTAL_POINTS - t)
+        val c = (campusLife * scale).toInt().coerceIn(0, TOTAL_POINTS - t - r)
+        val s = (TOTAL_POINTS - t - r - c).coerceIn(0, TOTAL_POINTS)
+        return BudgetAllocation(t, r, c, s)
     }
 
     fun adjust(line: BudgetLine, delta: Int): BudgetAllocation {
@@ -1122,13 +1121,13 @@ data class CollegeDevelopment(
 
     fun reputationModifier(): Long {
         var bonus = founded.sumOf { it.reputationBonus }
-        if (buildingOps.businessFair) bonus += 6L
-        if (buildingOps.artsShow) bonus += 4L
-        if (buildingOps.conferenceHost) bonus += 8L
-        if (buildingOps.gateReception) bonus += 3L
-        if (buildingOps.intlExchange) bonus += 6L
-        if (buildingOps.hospitalClinic) bonus += 5L
-        return bonus
+        if (buildingOps.businessFair) bonus += 1L
+        if (buildingOps.artsShow) bonus += 1L
+        if (buildingOps.conferenceHost) bonus += 2L
+        if (buildingOps.gateReception) bonus += 1L
+        if (buildingOps.intlExchange) bonus += 1L
+        if (buildingOps.hospitalClinic) bonus += 1L
+        return bonus.coerceAtMost(8L)
     }
 
     fun employmentBonus(): Float {

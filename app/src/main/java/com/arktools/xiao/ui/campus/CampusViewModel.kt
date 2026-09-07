@@ -844,6 +844,34 @@ class CampusViewModel @Inject constructor(
      * 广告激励：施工中的建筑（设施或学院）立即竣工。
      * 设施走 facilities 事务；学院走 constructingColleges+placed 同步。
      */
+    fun finishAllConstructionByAd() {
+        viewModelScope.safeLaunch {
+            var finished = 0
+            schoolRepository.mutateSchool { school ->
+                school.facilities = school.facilities.map { facility ->
+                    if (facility.constructionDaysLeft > 0) {
+                        finished += 1
+                        facility.copy(constructionDaysLeft = 0)
+                    } else facility
+                }.toMutableList()
+                true
+            }
+            val constructingColleges = policyManager.policies.value.collegeDevelopment.constructingColleges.keys.toList()
+            constructingColleges.forEach { key ->
+                if (policyManager.finishCollegeConstruction(key)) finished += 1
+            }
+            schoolRepository.mutateSchool { latest ->
+                latest.policyJson = policyManager.toJson()
+                true
+            }
+            _state.value = _state.value.copy(
+                placed = _state.value.placed.map { it.copy(constructionDaysLeft = 0) },
+                message = if (finished > 0) "看广告加速，${finished} 处施工已竣工" else "当前没有施工中的楼"
+            )
+            if (finished > 0) audioManager.playConstructionDone()
+        }
+    }
+
     fun finishConstructionByAd(placed: BT.PlacedBuilding) {
         viewModelScope.safeLaunch {
             var finished = false

@@ -341,7 +341,7 @@ class AlumniNetwork @Inject constructor() {
     fun getReputationBonus(): Long {
         val executives = _alumni.value.count { it.careerLevel == CareerLevel.EXECUTIVE }
         val seniors = _alumni.value.count { it.careerLevel == CareerLevel.SENIOR }
-        return (executives * 5L + seniors * 2L)
+        return (executives * 1L + seniors / 4L).coerceAtMost(6L)
     }
 
     /**

@@ -199,7 +199,7 @@ class ReputationManager @Inject constructor() {
 
                 // 计算对总声誉的贡献
                 val weight = dimensionWeights[dimension] ?: 0.2f
-                val contribution = (finalGrowth * weight * 10).toLong()
+                val contribution = (finalGrowth * weight * 2).toLong()
                 dim.totalContribution += contribution
                 totalGrowth += contribution
 

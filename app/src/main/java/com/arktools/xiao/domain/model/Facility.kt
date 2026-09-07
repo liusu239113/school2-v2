@@ -49,9 +49,9 @@ object FacilityCapacity {
 
     fun sportsCapacity(level: Int): Int = 200 + (level - 1).coerceAtLeast(0) * 80
 
-    fun clinicSlots(level: Int): Int = 40 + (level - 1).coerceAtLeast(0) * 20
+    fun clinicSlots(level: Int): Int = 160 + (level - 1).coerceAtLeast(0) * 80
 
-    fun counselingSlots(level: Int): Int = 30 + (level - 1).coerceAtLeast(0) * 15
+    fun counselingSlots(level: Int): Int = 120 + (level - 1).coerceAtLeast(0) * 60
 
     fun studioCapacity(level: Int): Int = 20 + (level - 1).coerceAtLeast(0) * 8
 

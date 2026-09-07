@@ -199,11 +199,11 @@ fun SettingsScreen(
                     enabled = activity != null,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("看广告领取办学经费 +8万")
+                    Text("看广告领取办学经费 +25万")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "加载时会弹出全屏转圈，和倍速广告一样。学生生活加床/接诊位也可以看广告免费加。",
+                    "加载时会弹出全屏转圈。缺钱补差价、施工竣工、教师团建都在对应操作里，不单独摆广告按钮。",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )

@@ -72,10 +72,10 @@ enum class SchoolTier(
     ),
     VOCATIONAL_BACHELOR(
         "VOCATIONAL_BACHELOR", "职业本科",
-        "4年制 · 可办人文/工学/商学/艺术 · 理学医学不开 · 就业导向、校企合作更强 · 可升格应用型本科",
+        "4年制 · 可办人文/理学/工学/商学/艺术 · 医学院仍不开 · 就业导向、校企合作更强 · 可升格应用型本科",
         4, GradeLevel.GRADE_4, 400, 480,
         0.85, 1.15, 0.9f, 320.0, 0.95f, "APPLIED",
-        setOf("LIBERAL_ARTS", "ENGINEERING", "BUSINESS", "ARTS")
+        setOf("LIBERAL_ARTS", "SCIENCE", "ENGINEERING", "BUSINESS", "ARTS")
     );
 
     /** 是否存在升格长线 */

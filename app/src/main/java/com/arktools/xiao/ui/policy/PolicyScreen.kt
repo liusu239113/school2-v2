@@ -46,22 +46,35 @@ fun PolicyScreen(
     PixelGameBackground {
         Column(modifier = Modifier.fillMaxSize()) {
         LegacyPageHeader("大学政策")
+        var policyTab by remember { mutableIntStateOf(0) }
+        val tabs = listOf("学费考试", "招生", "学院")
+        TabRow(
+            selectedTabIndex = policyTab,
+            containerColor = Color(0xFF0B1724),
+            contentColor = Color.White
+        ) {
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = policyTab == index,
+                    onClick = { policyTab = index },
+                    text = { Text(title, color = Color.White) }
+                )
+            }
+        }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 效果总览
         item {
             PolicyEffectsSummary(effects)
         }
 
-        // 学费政策
-        item {
+        if (policyTab == 0) item {
             PolicySection(
                 title = "学费定价",
-                description = "影响收入和招生数量"
+                description = "立刻改学费收入和招生人数"
             ) {
                 TuitionLevel.entries.forEach { level ->
                     PolicyOption(
@@ -78,11 +91,10 @@ fun PolicyScreen(
         // 注：招生规模已统一到「治院→教学配置」的教学班容量，不再在政策页重复设置
         // 注：奖学金已统一到"奖学金管理"专属页面，不再在政策页重复设置
 
-        // 考试难度
-        item {
+        if (policyTab == 0) item {
             PolicySection(
                 title = "考试难度",
-                description = "影响学术声誉和退学率"
+                description = "立刻改学术声誉和退学压力"
             ) {
                 ExamDifficulty.entries.forEach { diff ->
                     PolicyOption(
@@ -96,11 +108,10 @@ fun PolicyScreen(
             }
         }
 
-        // 教师薪资
-        item {
+        if (policyTab == 0) item {
             PolicySection(
                 title = "教师薪资",
-                description = "影响教学质量和运营成本"
+                description = "立刻改教学质量、教师满意度和月薪开支"
             ) {
                 TeacherPayPolicy.entries.forEach { policy ->
                     PolicyOption(
@@ -114,11 +125,10 @@ fun PolicyScreen(
             }
         }
 
-        // 课外活动
-        item {
+        if (policyTab == 0) item {
             PolicySection(
                 title = "课外活动",
-                description = "影响学生满意度和声誉"
+                description = "立刻改学生满意度和月声誉"
             ) {
                 ExtracurricularPolicy.entries.forEach { policy ->
                     PolicyOption(
@@ -132,11 +142,10 @@ fun PolicyScreen(
             }
         }
 
-        // 招生策略
-        item {
+        if (policyTab == 1) item {
             PolicySection(
                 title = "招生策略",
-                description = "影响生源质量和数量"
+                description = "立刻改生源质量和招生人数"
             ) {
                 AdmissionPolicy.entries.forEach { policy ->
                     PolicyOption(
@@ -150,60 +159,10 @@ fun PolicyScreen(
             }
         }
 
-        item {
-            PolicySection(
-                title = "年度专项预算",
-                description = "共10点，分到教学、科研、校园生活和社会合作。投入越高，对应线越强，每月专项开支也越高。"
-            ) {
-                val allocation = policies.budgetAllocation
-                Text(
-                    text = "已分配 ${allocation.totalPoints()}/${BudgetAllocation.TOTAL_POINTS} 点 · 每月约 ${"%.1f".format(allocation.monthlyCostWan())} 万",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                BudgetLine.entries.forEach { line ->
-                    val value = when (line) {
-                        BudgetLine.TEACHING -> allocation.teachingWeight
-                        BudgetLine.RESEARCH -> allocation.researchWeight
-                        BudgetLine.CAMPUS_LIFE -> allocation.campusLifeWeight
-                        BudgetLine.SOCIETY -> allocation.societyWeight
-                    }
-                    BudgetLineRow(
-                        line = line,
-                        value = value,
-                        canIncrease = allocation.totalPoints() < BudgetAllocation.TOTAL_POINTS && value < BudgetAllocation.TOTAL_POINTS,
-                        canDecrease = value > 0,
-                        onDecrease = { viewModel.adjustBudget(line, -1) },
-                        onIncrease = { viewModel.adjustBudget(line, 1) }
-                    )
-                }
-            }
-        }
-
-        // 年度办学方针：教学、科研、就业、扩张之间的长期取舍
-        item {
-            PolicySection(
-                title = "年度办学方针",
-                description = "决定本学年把资源压到哪条经营线上"
-            ) {
-                UniversityStrategy.entries.forEach { strategy ->
-                    PolicyOption(
-                        icon = strategy.icon,
-                        name = strategy.displayName,
-                        description = strategy.description + "\n" + strategy.effectSummary,
-                        isSelected = policies.universityStrategy == strategy,
-                        onClick = { viewModel.setUniversityStrategy(strategy) }
-                    )
-                }
-            }
-        }
-
-        // 年度招生定位：招生数量、生源质量和社会责任的取舍
-        item {
+        if (policyTab == 1) item {
             PolicySection(
                 title = "年度招生定位",
-                description = "每年招生季生效，影响规模、生源质量与长期口碑"
+                description = "招生季立刻改规模、生源质量和口碑"
             ) {
                 EnrollmentPlan.entries.forEach { plan ->
                     PolicyOption(
@@ -217,22 +176,10 @@ fun PolicyScreen(
             }
         }
 
-        item {
-            Image(
-                painter = painterResource(id = R.drawable.banner_admission_v2),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        item {
+        if (policyTab == 1) item {
             PolicySection(
                 title = "报考大类计划",
-                description = "共10点，决定9月新生先进入文史、理学、工学还是经管。大二再按学院进入具体专业。"
+                description = "最多10点，减下来的点会空出来。决定9月新生先进入文史、理学、工学还是经管。"
             ) {
                 val plan = policies.admissionTrackPlan
                 Text(
@@ -255,42 +202,10 @@ fun PolicyScreen(
             }
         }
 
-        item {
-            Image(
-                painter = painterResource(id = R.drawable.banner_annual_goal_v2),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        item {
-            PolicySection(
-                title = "本学年目标",
-                description = "6月会按这项考核。达标给声誉和专项拨款，未达标扣声誉。"
-            ) {
-                val campusLevel by viewModel.campusLevel.collectAsState()
-                AnnualGoal.entries.forEach { goal ->
-                    PolicyOption(
-                        icon = goal.icon,
-                        name = goal.displayName,
-                        description = goal.description + "\n" +
-                            goal.requirementSummary(campusLevel) + "\n" +
-                            goal.rewardSummary(campusLevel),
-                        isSelected = policies.collegeDevelopment.annualGoal == goal,
-                        onClick = { viewModel.setAnnualGoal(goal) }
-                    )
-                }
-            }
-        }
-
-        item {
+        if (policyTab == 2) item {
             PolicySection(
                 title = "学院经营",
-                description = "学院建设统一从校园地图选址并施工；本页只查看已竣工学院，并管理其课程与后续项目。"
+                description = "学院在校园地图开工。本页查看已竣工学院，并管理核心课和硕博点。"
             ) {
                 operationMessage?.let { message ->
                     Text(
@@ -416,7 +331,6 @@ fun PolicyScreen(
             }
         }
 
-        // 重置按钮
         item {
             PixelButton(
                 text = "重置为默认政策",
@@ -424,7 +338,7 @@ fun PolicyScreen(
                 style = PixelButtonStyle.CANCEL,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(48.dp))
         }
     }
         }
@@ -544,18 +458,28 @@ private fun BudgetLineRow(
             Text(line.displayName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             Text(line.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onDecrease, enabled = canDecrease) {
-            Text("-", fontWeight = FontWeight.Bold)
-        }
+        PixelButton(
+            text = "−",
+            onClick = onDecrease,
+            enabled = canDecrease,
+            style = PixelButtonStyle.SECONDARY,
+            height = 40.dp,
+            modifier = Modifier.width(48.dp)
+        )
         Text(
             "$value",
-            modifier = Modifier.width(24.dp),
+            modifier = Modifier.width(28.dp),
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleSmall
         )
-        IconButton(onClick = onIncrease, enabled = canIncrease) {
-            Text("+", fontWeight = FontWeight.Bold)
-        }
+        PixelButton(
+            text = "+",
+            onClick = onIncrease,
+            enabled = canIncrease,
+            style = PixelButtonStyle.PRIMARY,
+            height = 40.dp,
+            modifier = Modifier.width(48.dp)
+        )
     }
 }
 
@@ -582,18 +506,28 @@ private fun AdmissionTrackRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        IconButton(onClick = onDecrease, enabled = canDecrease) {
-            Text("-", fontWeight = FontWeight.Bold)
-        }
+        PixelButton(
+            text = "−",
+            onClick = onDecrease,
+            enabled = canDecrease,
+            style = PixelButtonStyle.SECONDARY,
+            height = 40.dp,
+            modifier = Modifier.width(48.dp)
+        )
         Text(
             "$value",
-            modifier = Modifier.width(24.dp),
+            modifier = Modifier.width(28.dp),
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleSmall
         )
-        IconButton(onClick = onIncrease, enabled = canIncrease) {
-            Text("+", fontWeight = FontWeight.Bold)
-        }
+        PixelButton(
+            text = "+",
+            onClick = onIncrease,
+            enabled = canIncrease,
+            style = PixelButtonStyle.PRIMARY,
+            height = 40.dp,
+            modifier = Modifier.width(48.dp)
+        )
     }
 }
 

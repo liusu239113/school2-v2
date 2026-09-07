@@ -14,9 +14,9 @@ import kotlin.random.Random
 // ==================== 数据模型 ====================
 
 enum class SchoolGrade(val displayName: String, val color: Long, val reputationBonus: Int, val fundingBonus: Double) {
-    AAA("AAA级示范校", 0xFFFF8F00, 20, 50.0),
-    AA("AA级优秀校", 0xFF1565C0, 12, 30.0),
-    A("A级达标校", 0xFF388E3C, 5, 15.0),
+    AAA("AAA级示范校", 0xFFFF8F00, 8, 50.0),
+    AA("AA级优秀校", 0xFF1565C0, 5, 30.0),
+    A("A级达标校", 0xFF388E3C, 2, 15.0),
     B("B级合格校", 0xFF9E9E9E, 0, 0.0),
     C("C级待改进", 0xFFF57C00, -5, 0.0),
     D("D级不合格", 0xFFD32F2F, -15, 0.0)

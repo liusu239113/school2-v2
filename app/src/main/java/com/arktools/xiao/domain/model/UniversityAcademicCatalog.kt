@@ -384,31 +384,31 @@ data class AdmissionTrackPlan(
     }
 
     fun normalized(): AdmissionTrackPlan {
-        val total = totalPoints().coerceAtLeast(1)
-        if (total == TOTAL_POINTS) {
-            return copy(
-                liberalWeight = liberalWeight.coerceIn(0, TOTAL_POINTS),
-                scienceWeight = scienceWeight.coerceIn(0, TOTAL_POINTS),
-                engineeringWeight = engineeringWeight.coerceIn(0, TOTAL_POINTS),
-                businessWeight = businessWeight.coerceIn(0, TOTAL_POINTS),
-                artsWeight = artsWeight.coerceIn(0, TOTAL_POINTS),
-                medicineWeight = medicineWeight.coerceIn(0, TOTAL_POINTS)
-            )
+        val liberal = liberalWeight.coerceIn(0, TOTAL_POINTS)
+        val science = scienceWeight.coerceIn(0, TOTAL_POINTS)
+        val engineering = engineeringWeight.coerceIn(0, TOTAL_POINTS)
+        val business = businessWeight.coerceIn(0, TOTAL_POINTS)
+        val arts = artsWeight.coerceIn(0, TOTAL_POINTS)
+        val medicine = medicineWeight.coerceIn(0, TOTAL_POINTS)
+        val total = liberal + science + engineering + business + arts + medicine
+        if (total <= TOTAL_POINTS) {
+            return AdmissionTrackPlan(liberal, science, engineering, business, arts, medicine)
         }
+        val scale = TOTAL_POINTS.toFloat() / total.toFloat()
         var remaining = TOTAL_POINTS
-        fun scale(weight: Int): Int {
-            val v = if (remaining <= 0) 0
-            else ((weight.toFloat() / total) * TOTAL_POINTS).toInt().coerceIn(0, remaining)
+        fun take(weight: Int, last: Boolean): Int {
+            if (last) return remaining.coerceIn(0, TOTAL_POINTS)
+            val v = (weight * scale).toInt().coerceIn(0, remaining)
             remaining -= v
             return v
         }
-        val liberal = scale(liberalWeight)
-        val science = scale(scienceWeight)
-        val engineering = scale(engineeringWeight)
-        val business = scale(businessWeight)
-        val arts = scale(artsWeight)
-        val medicine = scale(medicineWeight).coerceAtLeast(0)
-        return AdmissionTrackPlan(liberal, science, engineering, business, arts, medicine)
+        val l = take(liberal, false)
+        val s = take(science, false)
+        val e = take(engineering, false)
+        val b = take(business, false)
+        val a = take(arts, false)
+        val m = take(medicine, true)
+        return AdmissionTrackPlan(l, s, e, b, a, m)
     }
 
     fun adjust(track: AdmissionTrack, delta: Int): AdmissionTrackPlan {
