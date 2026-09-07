@@ -287,7 +287,16 @@ class CampusViewModel @Inject constructor(
                     currentMonth = school.currentMonth,
                     currentDay = school.currentDay,
                     currentYear = school.currentYear,
-                    dormBeds = com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities),
+                    dormBeds = run {
+                        val buildingBeds = com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities)
+                        val lifeBeds = gameEngine.studentLifeManager.state.value.facilities[
+                            com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY
+                        ]?.capacity ?: 0
+                        val dormCount = school.facilities.count {
+                            it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational
+                        }
+                        maxOf(buildingBeds, lifeBeds).coerceAtMost(buildingBeds + 40 * dormCount.coerceAtLeast(1))
+                    },
                     canteenSeats = com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(
                         school.facilities,
                         dev.buildingOps.extraWindows
@@ -1429,14 +1438,19 @@ class CampusViewModel @Inject constructor(
             val teachers = teacherRepository.getTeachers()
             val teacherCount = teachers.size
             val avgSkill = if (teachers.isNotEmpty()) teachers.map { it.averageSkill }.average() else 0.0
-            val classCount = maxOf(teachingManager.config.totalClasses, gameEngine.classes.size)
+            val realClasses = gameEngine.classes.size
+            val plannedClasses = teachingManager.config.totalClasses
+            val classCount = maxOf(realClasses, plannedClasses)
+            val classroomSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
             val studentCount = studentRepository.getActiveStudentCount()
             val yearsAtLevel = school.currentYear - school.levelUpYear
             val failures = buildList {
                 if (school.cash < req.cashCost) add("资金 ${req.cashCost.toInt()}万")
                 if (school.reputation < req.minReputation) add("声誉 ${req.minReputation}")
                 if (teacherCount < req.minTeachers) add("教师 ${req.minTeachers}人")
-                if (classCount < req.minClasses) add("班级 ${req.minClasses}个")
+                if (classCount < req.minClasses) {
+                    add("班级 ${req.minClasses}个（现在教学班 $realClasses，教室班槽 $classroomSlots。班槽不够去校园再建/升级教室）")
+                }
                 if (studentCount < req.minStudents) add("学生 ${req.minStudents}人")
                 if (yearsAtLevel < req.minYearsAtCurrentLevel) add("运营满 ${req.minYearsAtCurrentLevel}年")
                 if (req.minAverageTeacherSkill > 0 && avgSkill < req.minAverageTeacherSkill)

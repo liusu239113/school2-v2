@@ -81,6 +81,8 @@ class ReportViewModel @Inject constructor(
         return financialReportManager.getExpenseBreakdown()
     }
 
+    fun getLossDiagnosis(): List<String> = financialReportManager.getLossDiagnosis()
+
     // === 数据可视化辅助 ===
 
     /**

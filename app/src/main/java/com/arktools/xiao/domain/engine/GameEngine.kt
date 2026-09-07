@@ -1164,28 +1164,74 @@ class GameEngine @Inject constructor(
         additional: Int
     ): ManagedOperationResult = engineOperationMutex.withLock {
         commitStudentLifeOperationLocked { school ->
-            val cost = studentLifeManager.getExpandCost(
-                aspect,
-                additional
-            ).toDouble()
+            val current = studentLifeManager.state.value.facilities[aspect]?.capacity ?: 0
+            val buildingCap = when (aspect) {
+                com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY ->
+                    com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities)
+                com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
+                    com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(school.facilities)
+                else -> Int.MAX_VALUE
+            }
+            val dormCount = school.facilities.count {
+                it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational
+            }
+            val canteenCount = school.facilities.count {
+                it.type == com.arktools.xiao.domain.model.FacilityType.CANTEEN && it.isOperational
+            }
+            val hardMax = when (aspect) {
+                com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY ->
+                    buildingCap + 40 * dormCount.coerceAtLeast(1)
+                com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
+                    buildingCap + 40 * canteenCount.coerceAtLeast(1)
+                else -> Int.MAX_VALUE
+            }
+            val synced = maxOf(current, buildingCap)
+            val roomLeft = (hardMax - synced).coerceAtLeast(0)
+            if (aspect == com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY && buildingCap <= 0) {
+                return@commitStudentLifeOperationLocked ManagedOperationResult(
+                    false,
+                    "校园还没有宿舍楼。去校园建造菜单先建一栋宿舍，再在楼里加床。"
+                )
+            }
+            if (aspect == com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA && buildingCap <= 0) {
+                return@commitStudentLifeOperationLocked ManagedOperationResult(
+                    false,
+                    "校园还没有食堂。去校园建造菜单先建一栋食堂，再加餐位。"
+                )
+            }
+            if (roomLeft <= 0) {
+                val hint = when (aspect) {
+                    com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY ->
+                        "这几栋宿舍加床已经加满（楼内容量 $buildingCap，加床上限 $hardMax）。要再住人，去校园新建一栋宿舍楼。"
+                    com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA ->
+                        "现有食堂加餐位已经加满（楼内容量 $buildingCap，加位上限 $hardMax）。要再扩容，去校园新建一栋食堂。"
+                    else -> "容量已满，需要新建对应建筑。"
+                }
+                return@commitStudentLifeOperationLocked ManagedOperationResult(false, hint)
+            }
+            val add = additional.coerceAtMost(roomLeft)
+            val cost = studentLifeManager.getExpandCost(aspect, add).toDouble()
             when {
-                additional <= 0 || cost <= 0.0 ->
+                add <= 0 || cost <= 0.0 ->
                     ManagedOperationResult(false, "当前无法扩容")
                 school.cash < cost -> ManagedOperationResult(
                     false,
                     "资金不足，需要 ¥${cost.toLong()}万",
                     cost
                 )
-                !studentLifeManager.applyCapacityExpansion(
-                    aspect,
-                    additional,
-                    cost.toLong()
-                ) -> ManagedOperationResult(false, "设施状态已变化，请重试")
+                !studentLifeManager.applyCapacityExpansion(aspect, add, cost.toLong()) ->
+                    ManagedOperationResult(false, "设施状态已变化，请重试")
                 else -> {
                     school.cash -= cost
+                    val extra = if (add < additional) " 本楼已近上限，还差的去校园再建一栋。" else ""
+                    val feeHint = when (aspect) {
+                        com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY -> "月维护费随床位增加。"
+                        com.arktools.xiao.domain.studentlife.LifeAspect.CAFETERIA -> "月维护费随餐位增加。"
+                        else -> ""
+                    }
                     ManagedOperationResult(
                         true,
-                        "扩容+$additional 人，花费 ¥${cost.toLong()}万",
+                        "扩容+$add，花费 ¥${cost.toLong()}万。$feeHint$extra",
                         cost
                     )
                 }

@@ -217,7 +217,7 @@ private fun LogisticsDesk(
             PixelHardPanel {
                 Text("学生生活", color = PanelInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(
-                    "这页就是宿舍、食堂、校医院/运动馆、心理辅导站。每栋写清管什么、现在挤不挤、该修还是该扩。投诉不在这里结案，去「生活投诉」栏处理。",
+                    "宿舍食堂要先在校园建楼。楼里可以花钱加床/餐位并增加月维护；加满了再去校园建新楼。专项默认关闭，开办才扣月费。",
                     color = PanelMuted,
                     fontSize = 12.sp
                 )
@@ -383,7 +383,7 @@ private fun facilityDesk(aspect: LifeAspect): FacilityDesk = when (aspect) {
     LifeAspect.DORMITORY -> FacilityDesk(
         shortName = "宿舍楼",
         fullName = "学生宿舍楼",
-        duty = "管床位、水电和楼层维护。挤了就加床，坏了就修楼。",
+        duty = "管床位、水电和楼层维护。楼里还能加床，加满了再去校园建新宿舍。专项默认关着，开了每月扣维护费。",
         staffLabel = "宿管",
         maintainLabel = "楼况",
         capacityLabel = "床位",

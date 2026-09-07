@@ -108,7 +108,7 @@ data class SpecialProgram(
     val description: String,
     val monthlyCost: Long,
     val satisfactionBoost: Float,
-    var active: Boolean = true
+    var active: Boolean = false
 )
 
 data class LifeMonthlyResult(

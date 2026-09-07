@@ -161,6 +161,15 @@ private fun FinanceContent(
     ) {
         // 财务健康概览
         item { FinancialHealthCard(finState) }
+        item {
+            PixelHardPanel {
+                Text("为什么会亏", color = TextPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("接到学费、教师薪资、学生生活专项、建造和维护。最大头就是负债原因。", color = TextSecondaryDark, fontSize = 12.sp)
+                viewModel.getLossDiagnosis().forEach { line ->
+                    Text(line, color = TextPrimaryDark, fontSize = 13.sp)
+                }
+            }
+        }
 
         // 本月收支摘要（若当月为空则显示最近一次月报）
         item {

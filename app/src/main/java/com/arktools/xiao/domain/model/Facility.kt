@@ -69,11 +69,13 @@ object FacilityCapacity {
             .sum()
     }
 
-    fun totalBeds(facilities: List<Facility>): Int =
-        facilities.filter { it.type == FacilityType.DORMITORY && it.isOperational }
-            .sumOf { bedsPerDorm(it.level) }
-
     fun extraCanteenSeats(extraWindows: Int): Int = extraWindows.coerceIn(0, 6) * 40
+
+    fun extraBeds(extraBeds: Int): Int = extraBeds.coerceIn(0, 240)
+
+    fun totalBeds(facilities: List<Facility>, extraBeds: Int = 0): Int =
+        facilities.filter { it.type == FacilityType.DORMITORY && it.isOperational }
+            .sumOf { bedsPerDorm(it.level) } + extraBeds(extraBeds)
 
     fun totalCanteenSeats(facilities: List<Facility>, extraWindows: Int = 0): Int =
         facilities.filter { it.type == FacilityType.CANTEEN && it.isOperational }

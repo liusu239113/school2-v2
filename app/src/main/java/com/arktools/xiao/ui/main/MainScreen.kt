@@ -636,6 +636,7 @@ fun MainScreen(
         containerColor = Color(0xCC0B2038),
         topBar = {
             TopAppBar(
+                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xCC0B2038)
                 ),
@@ -991,6 +992,7 @@ private fun SchoolStatusBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        StatusChip("日期", "${school.currentYear}.${school.currentMonth}.${school.currentDay}", Color.White)
         StatusChip("经费", FormatUtils.formatCash(school.cash), Color.White)
         StatusChip("在校", "${studentCount}人", Color(0xFFB8E986))
         StatusChip("声誉", "${school.reputation}", Color.White)

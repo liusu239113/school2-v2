@@ -107,7 +107,10 @@ class DistrictViewModel @Inject constructor(
                 return@safeLaunch
             }
             if (req.minClasses > 0 && classCount < req.minClasses) {
-                _upgradeMessage.value = "教学班不足！需要 ${req.minClasses} 个教学班（当前 ${classCount} 个）。请到「治院 → 教学配置」增加教学班容量。"
+                val realClasses = gameEngine.classes.size
+                val classroomSlots = com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)
+                _upgradeMessage.value =
+                    "教学班不足！需要 ${req.minClasses} 个班（现在教学班 $realClasses，教室班槽 $classroomSlots）。教室不够去校园再建/升级教室，班开出来才算。"
                 return@safeLaunch
             }
             if (req.minStudents > 0 && studentCount < req.minStudents) {
@@ -164,7 +167,14 @@ class DistrictViewModel @Inject constructor(
             conditions.add(UpgradeCondition("教师", "${teacherCount}人", "${req.minTeachers}人", teacherCount >= req.minTeachers))
         }
         if (req.minClasses > 0) {
-            conditions.add(UpgradeCondition("班级", "${classCount}个", "${req.minClasses}个", classCount >= req.minClasses))
+            conditions.add(
+                UpgradeCondition(
+                    "班级",
+                    "${classCount}个(班槽${com.arktools.xiao.domain.model.FacilityCapacity.totalClassSlots(school.facilities)})",
+                    "${req.minClasses}个",
+                    classCount >= req.minClasses
+                )
+            )
         }
         if (req.minStudents > 0) {
             conditions.add(UpgradeCondition("学生", "${studentCount}人", "${req.minStudents}人", studentCount >= req.minStudents))

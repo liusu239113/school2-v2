@@ -172,6 +172,47 @@ class FinancialReportManager @Inject constructor() {
     /**
      * 获取支出构成分析
      */
+    fun getLossDiagnosis(): List<String> {
+        val report = getEffectiveReport()
+        val cash = _state.value.financialHealth.cashReserveMonths
+        val lines = mutableListOf<String>()
+        if (report.totalExpense <= 0 && report.totalIncome <= 0) {
+            return listOf("这个月还没记上账。过完一个月再看明细。")
+        }
+        if (report.netProfit >= 0) {
+            lines.add("本月还没亏。盯住最大头支出，别让专项和建造把利润吃掉。")
+        } else {
+            val loss = -report.netProfit
+            lines.add("本月净亏 ¥${"%.1f".format(loss)}万。")
+        }
+        val expenses = report.expenses.entries.sortedByDescending { it.value }
+        expenses.take(3).forEach { (cat, amount) ->
+            val hint = when (cat) {
+                ExpenseCategory.LIFE_SERVICE -> "学生生活：食堂/宿舍专项和加床加餐位。专项能停就停。"
+                ExpenseCategory.FACILITY_MAINTENANCE -> "设施维护：宿舍食堂教室月维护。楼多了就会涨。"
+                ExpenseCategory.UTILITIES -> "水电物业：建筑运行成本。"
+                ExpenseCategory.EXPANSION -> "校区建设：刚建楼会一次性砸钱。"
+                ExpenseCategory.TEACHER_SALARY -> "教师薪资：人多了每个月都扣。"
+                ExpenseCategory.TEACHING_OPERATION -> "教学运营：班数和课时。"
+                ExpenseCategory.ACTIVITY_COST -> "活动经费：社团、会议、节日。"
+                ExpenseCategory.MARKETING -> "招生宣传：广告一直开着就会烧。"
+                ExpenseCategory.RESEARCH_FUNDING -> "科研投入。"
+                ExpenseCategory.TRAINING_COST -> "培训和就业项目。"
+                ExpenseCategory.EQUIPMENT -> "设备采购。"
+                ExpenseCategory.OTHER_EXPENSE -> "其他支出：事件罚款或临时项。"
+            }
+            lines.add("${cat.displayName} ¥${"%.1f".format(amount)}万 · $hint")
+        }
+        val tuition = report.incomes[IncomeCategory.TUITION] ?: 0.0
+        if (tuition > 0 && report.totalExpense > tuition * 1.2) {
+            lines.add("支出已经明显高于学费。先停学生生活专项，或放慢建造。")
+        }
+        if (cash < 1f) {
+            lines.add("现金储备不到一个月开支，优先停专项、缓建楼。")
+        }
+        return lines
+    }
+
     fun getExpenseBreakdown(): List<CategoryBreakdown> {
         val report = getEffectiveReport()
         val total = report.totalExpense.coerceAtLeast(1.0)
