@@ -847,11 +847,11 @@ private fun DetailRow(label: String, value: String) {
 @Composable
 private fun FiveAttributeBars(attributes: StudentAttributes) {
     val items = listOf(
-        Triple("🧠 智力", attributes.intelligence),
-        Triple("💪 体力", attributes.physical),
-        Triple("🤝 社交", attributes.social),
-        Triple("🎨 创造力", attributes.creativity),
-        Triple("⭐ 品德", attributes.morality)
+        "🧠 智力" to attributes.intelligence,
+        "💪 体力" to attributes.physical,
+        "🤝 社交" to attributes.social,
+        "🎨 创造力" to attributes.creativity,
+        "⭐ 品德" to attributes.morality
     )
     items.forEach { (label, value) ->
         Row(
