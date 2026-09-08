@@ -1478,26 +1478,12 @@ private fun AppointmentPickers(viewModel: CampusViewModel) {
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "六个职位随便点。推荐按这个岗位的属性排，点任命立刻生效。",
-                            fontSize = 12.sp,
-                            color = Color(0xFF617386)
-                        )
-                        Text(
-                            "一键任命空缺",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF14648C),
-                            modifier = Modifier
-                                .clickable { viewModel.autoAppointOfficers(classId) }
-                                .padding(vertical = 4.dp, horizontal = 8.dp)
-                        )
-                    }
+                    Text(
+                        "六个职位随便点。推荐按这个岗位的属性排，点任命立刻生效。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF617386)
+                    )
+                    PanelButton("一键任命空缺") { viewModel.autoAppointOfficers(classId) }
                     ClassOfficerRole.entries.forEach { role ->
                         val holder = row?.officers?.get(role)
                         val effect = when (role) {
