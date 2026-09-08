@@ -173,6 +173,11 @@ fun PolicyScreen(
                         onClick = { viewModel.setEnrollmentPlan(plan) }
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+                ReservedBedsStepper(
+                    reservedBeds = policies.reservedDormBeds,
+                    onChange = { viewModel.setReservedDormBeds(it) }
+                )
             }
         }
 
@@ -524,6 +529,50 @@ private fun AdmissionTrackRow(
             text = "+",
             onClick = onIncrease,
             enabled = canIncrease,
+            style = PixelButtonStyle.PRIMARY,
+            height = 40.dp,
+            modifier = Modifier.width(48.dp)
+        )
+    }
+}
+
+@Composable
+private fun ReservedBedsStepper(
+    reservedBeds: Int,
+    onChange: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("预留宿舍空位", fontWeight = FontWeight.SemiBold)
+            Text(
+                "招生时保留这些床位不招满，避免新生把宿舍占满引发差评",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        PixelButton(
+            text = "−5",
+            onClick = { onChange(reservedBeds - 5) },
+            enabled = reservedBeds > 0,
+            style = PixelButtonStyle.SECONDARY,
+            height = 40.dp,
+            modifier = Modifier.width(48.dp)
+        )
+        Text(
+            "$reservedBeds",
+            modifier = Modifier.width(40.dp),
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall
+        )
+        PixelButton(
+            text = "+5",
+            onClick = { onChange(reservedBeds + 5) },
+            enabled = reservedBeds < 500,
             style = PixelButtonStyle.PRIMARY,
             height = 40.dp,
             modifier = Modifier.width(48.dp)

@@ -52,6 +52,7 @@ class ResearchViewModel @Inject constructor(
         val completedChains: List<String> = emptyList(),
         val completedRounds: Map<String, Int> = emptyMap(),
         val qualityBonus: Float = 0f,
+        val paperCount: Int = 0,
         val message: String? = null
     )
 
@@ -73,7 +74,8 @@ class ResearchViewModel @Inject constructor(
             programs = manager.snapshotState().programs,
             completedChains = manager.snapshotState().completedChains,
             completedRounds = manager.definitions().associate { it.id to manager.completedRoundCount(it.id) },
-            qualityBonus = manager.qualityBonus()
+            qualityBonus = manager.qualityBonus(),
+            paperCount = manager.totalPapers()
         )
     }
 

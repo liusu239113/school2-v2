@@ -308,10 +308,16 @@ object UniversityAcademicCatalog {
     ): AdmissionTrack {
         val scored = AdmissionTrack.entries.map { track ->
             val planWeight = weights.weightOf(track).coerceAtLeast(0)
-            val collegeBonus = if (founded.contains(track.college)) 2 else 0
-            track to (planWeight + collegeBonus).coerceAtLeast(1)
+            // 招生计划为 0 的赛道不招生：不能因已建学院加成或下限 1 而“复活”成 0 名额。
+            if (planWeight <= 0) {
+                track to 0
+            } else {
+                val collegeBonus = if (founded.contains(track.college)) 2 else 0
+                track to (planWeight + collegeBonus)
+            }
         }
         val total = scored.sumOf { it.second }
+        if (total <= 0) return AdmissionTrack.LIBERAL
         var roll = random.nextInt(total)
         scored.forEach { (track, weight) ->
             if (roll < weight) return track

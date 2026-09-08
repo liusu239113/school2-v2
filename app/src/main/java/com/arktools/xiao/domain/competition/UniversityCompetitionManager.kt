@@ -117,7 +117,9 @@ class UniversityCompetitionManager @Inject constructor() {
         if (state.active.any { it.trackName == entry.track.displayName && it.tier == entry.tier.name }) {
             return null
         }
-        val resolveAbs = year * 12 + month + 2
+        // month 为 1 起：先转 0 起绝对月 = year*12 + (month-1)，+2 表示 2 个月后结算，再转回 1 起。
+        // 旧写法 `year*12 + month + 2` 再 `%12` 会在 10 月报名时得到 0 月，导致永不解算、无法再次报名。
+        val resolveAbs = year * 12 + (month - 1) + 2
         val comp = CompetitionState(
             id = "COMP_${year}_${month}_${entry.track.name}_${entry.tier.name}",
             name = "${entry.tier.displayName}·${entry.track.displayName}学科竞赛",
@@ -129,7 +131,7 @@ class UniversityCompetitionManager @Inject constructor() {
             registerYear = year,
             registerMonth = month,
             resolveYear = resolveAbs / 12,
-            resolveMonth = resolveAbs % 12
+            resolveMonth = resolveAbs % 12 + 1
         )
         state = state.copy(active = state.active + comp)
         return comp
@@ -147,7 +149,9 @@ class UniversityCompetitionManager @Inject constructor() {
         rivalEdge: Float = 0f,
         rivalName: String = ""
     ): List<Pair<CompetitionState, Boolean>> {
-        val due = state.active.filter { it.resolveYear == year && it.resolveMonth == month }
+        // 到期或已过期都结算：兜底历史存档里 resolveMonth=0 的“卡死”竞赛，避免永远无法再报名。
+        val nowAbs = year * 12 + month
+        val due = state.active.filter { it.resolveYear * 12 + it.resolveMonth <= nowAbs }
         if (due.isEmpty()) return emptyList()
         val results = mutableListOf<Pair<CompetitionState, Boolean>>()
         due.forEach { comp ->

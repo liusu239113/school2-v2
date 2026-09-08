@@ -625,6 +625,54 @@ class GameEngine @Inject constructor(
         )
     }
 
+    /** 一键参赛：报名当前所有可报、且尚未报名的竞赛。 */
+    suspend fun registerAllUniversityCompetitions(): ManagedOperationResult = engineOperationMutex.withLock {
+        if (!managerStatesReadyForSave || "policyJson" in managerRestoreFailedFields) {
+            return@withLock ManagedOperationResult(false, "政策状态尚未安全恢复，请稍后重试")
+        }
+        val school = schoolRepository.getSchool() ?: return@withLock ManagedOperationResult(false, "学校存档不可用")
+        val founded = policyManager.policies.value.collegeDevelopment.founded
+        val catalog = policyManager.competitionManager.getCatalog(school.campusLevel, founded)
+        val active = policyManager.competitionManager.snapshotState().active
+        val pending = catalog.filter { entry ->
+            active.none { it.trackName == entry.track.displayName && it.tier == entry.tier.name }
+        }
+        if (pending.isEmpty()) {
+            return@withLock ManagedOperationResult(false, "没有可报名的竞赛（已全部报名或暂无赛事）")
+        }
+        val totalFee = pending.sumOf { it.entryFee }
+        if (school.cash < totalFee) {
+            return@withLock ManagedOperationResult(false, "资金不足，一键报名需 ${totalFee.toInt()}万")
+        }
+        val snapshot = policyManager.toJson()
+        val committed = schoolRepository.mutateSchool { s ->
+            if (s.cash < totalFee) return@mutateSchool false
+            pending.forEach { entry ->
+                val comp = policyManager.competitionManager.register(entry, s.currentYear, s.currentMonth)
+                if (comp != null) {
+                    s.cash -= entry.entryFee
+                    financialReportManager.recordExpense(
+                        com.arktools.xiao.domain.finance.ExpenseCategory.ACTIVITY_COST,
+                        entry.entryFee,
+                        "竞赛报名 · ${entry.tier.displayName}·${entry.track.displayName}"
+                    )
+                }
+            }
+            s.policyJson = policyManager.toJson()
+            s.financialReportJson = protectedManagerJson(
+                "financialReportJson",
+                s.financialReportJson,
+                financialReportManager::toJson
+            )
+            true
+        }
+        if (committed == null) {
+            policyManager.competitionManager.restoreFromJson(snapshot)
+            return@withLock ManagedOperationResult(false, "一键报名失败，请重试")
+        }
+        ManagedOperationResult(true, "已一键报名 ${pending.size} 项竞赛，共 ${totalFee.toInt()}万，2个月后结算", totalFee)
+    }
+
     /**
      * 开设专业核心课：学院成立后每门25万，最多3门，
      * 提升该学院学生掌握度成长与毕业表现。
@@ -2764,9 +2812,13 @@ class GameEngine @Inject constructor(
                             tierName = student.universityTier?.displayName ?: "未录取"
                         )
                     },
-                universityDistribution = cohort.groupingBy {
-                    it.universityTier?.displayName ?: "未录取"
-                }.eachCount()
+                universityDistribution = cohort
+                    .filter { it.universityTier != null && it.universityTier != UniversityTier.NONE }
+                    .groupingBy { it.universityTier!!.displayName }
+                    .eachCount(),
+                directEmploymentCount = cohort.count {
+                    it.universityTier == null || it.universityTier == UniversityTier.NONE
+                }
             )
             // 历史学生已在旧版本完成结算，只补总结展示，不能重复发放毕业奖励。
             alumniNetwork.completeGraduationSettlement(year, 0.0, 0L)
@@ -5164,6 +5216,12 @@ class GameEngine @Inject constructor(
                     }
                     if (chainRep > 0) schoolRepository.addReputation(chainRep)
                 }
+                // 论文考核：课题阶段产出的论文转化为教师科研成长（科研点 + 学分）
+                val newPapers = policyManager.researchChainManager.consumePendingPapers()
+                if (newPapers > 0) {
+                    teacherDevelopmentManager.addCreditsToAll(newPapers)
+                    teacherDevelopmentManager.addResearchToAll(newPapers * 2)
+                }
                 val snapshots = st.cachedTeachersForMonth.map {
                     com.arktools.xiao.domain.teacherdev.TeacherStoryManager.TeacherSnapshot(
                         id = it.id,
@@ -7461,10 +7519,11 @@ class GameEngine @Inject constructor(
         val existingGradeOneCount = studentRepository.getGradeStudentCount(GradeLevel.GRADE_1)
         val dormBeds = FacilityCapacity.totalBeds(school.facilities)
         val existingStudents = studentRepository.getActiveStudentCount()
+        val reservedBeds = policyManager.policies.value.reservedDormBeds.coerceAtLeast(0)
         val bedHeadroom = if (dormBeds <= 0) {
             0
         } else {
-            (dormBeds - existingStudents).coerceAtLeast(0)
+            (dormBeds - existingStudents - reservedBeds).coerceAtLeast(0)
         }
         val capacityCap = if (dormBeds <= 0) {
             0
@@ -8144,6 +8203,14 @@ class GameEngine @Inject constructor(
                                         ?.displayName ?: "未录取"
                                 )
                         }
+                    // 深造去向只统计读研毕业生；未深造的计入「直接就业」
+                    val tierDistribution = graduationCohort
+                        .filter { it.universityTier != null && it.universityTier != UniversityTier.NONE }
+                        .groupingBy { it.universityTier!!.displayName }
+                        .eachCount()
+                    val directEmployment = graduationCohort.count {
+                        it.universityTier == null || it.universityTier == UniversityTier.NONE
+                    }
                     alumniNetwork.recordGraduationBatch(
                         year = graduationYear,
                         totalStudents = cohortStats.totalStudents,
@@ -8153,9 +8220,8 @@ class GameEngine @Inject constructor(
                         key985Count = cohortStats.key985Count,
                         qingbeiCount = cohortStats.qingbeiCount,
                         topStudents = topStudents,
-                        universityDistribution = graduationCohort.groupingBy {
-                            it.universityTier?.displayName ?: "未录取"
-                        }.eachCount()
+                        universityDistribution = tierDistribution,
+                        directEmploymentCount = directEmployment
                     )
 
                     val cohortComplete = activeStudents.none { student ->

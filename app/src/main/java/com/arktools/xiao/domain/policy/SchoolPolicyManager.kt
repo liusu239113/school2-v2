@@ -69,6 +69,10 @@ class SchoolPolicyManager @Inject constructor(
         _policies.value = _policies.value.copy(enrollmentPlan = plan)
     }
 
+    fun setReservedDormBeds(beds: Int) {
+        _policies.value = _policies.value.copy(reservedDormBeds = beds.coerceIn(0, 500))
+    }
+
     fun setUniversityStrategy(strategy: UniversityStrategy) {
         _policies.value = _policies.value.copy(universityStrategy = strategy)
     }
@@ -559,6 +563,7 @@ class SchoolPolicyManager @Inject constructor(
                 admissionPolicy = p.admissionPolicy.name,
                 enrollmentPlan = p.enrollmentPlan.name,
                 universityStrategy = p.universityStrategy.name,
+                reservedDormBeds = p.reservedDormBeds,
                 teachingWeight = p.budgetAllocation.teachingWeight,
                 researchWeight = p.budgetAllocation.researchWeight,
                 campusLifeWeight = p.budgetAllocation.campusLifeWeight,
@@ -612,6 +617,7 @@ class SchoolPolicyManager @Inject constructor(
                 admissionPolicy = try { AdmissionPolicy.valueOf(data.admissionPolicy) } catch (_: Exception) { AdmissionPolicy.BALANCED },
                 enrollmentPlan = try { EnrollmentPlan.valueOf(data.enrollmentPlan) } catch (_: Exception) { EnrollmentPlan.BALANCED },
                 universityStrategy = try { UniversityStrategy.valueOf(data.universityStrategy) } catch (_: Exception) { UniversityStrategy.BALANCED },
+                reservedDormBeds = data.reservedDormBeds.coerceIn(0, 500),
                 budgetAllocation = BudgetAllocation(
                     teachingWeight = data.teachingWeight,
                     researchWeight = data.researchWeight,
@@ -682,7 +688,9 @@ data class SchoolPolicies(
     val budgetAllocation: BudgetAllocation = BudgetAllocation(),
     val collegeDevelopment: CollegeDevelopment = CollegeDevelopment(),
     val admissionTrackPlan: com.arktools.xiao.domain.model.AdmissionTrackPlan =
-        com.arktools.xiao.domain.model.AdmissionTrackPlan()
+        com.arktools.xiao.domain.model.AdmissionTrackPlan(),
+    /** 预留宿舍空位：招生时保留这些床位不招满，避免新生把宿舍占满引发差评 */
+    val reservedDormBeds: Int = 0
 )
 
 /**
@@ -985,6 +993,7 @@ data class PolicyPersistData(
     val admissionPolicy: String = "BALANCED",
     val enrollmentPlan: String = "BALANCED",
     val universityStrategy: String = "BALANCED",
+    val reservedDormBeds: Int = 0,
     val teachingWeight: Int = 3,
     val researchWeight: Int = 2,
     val campusLifeWeight: Int = 3,

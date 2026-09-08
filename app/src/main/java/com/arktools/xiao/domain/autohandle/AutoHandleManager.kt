@@ -108,7 +108,11 @@ class AutoHandleManager @Inject constructor() {
             AutoStrategy.AUTO_APPROVE -> {
                 // 自动批准：选第一个选项（通常是同意/批准）
                 if (event.choices.isNotEmpty()) {
-                    AutoHandleResult.AutoChoice(choiceIndex = 0)
+                    // 活动审批按「默认规模」选择（简朴/标准/隆重/盛大），其它事件仍选第一项
+                    val idx = if (event.title.contains("活动审批")) {
+                        cfg.activityDefaultScale.coerceIn(0, (event.choices.size - 2).coerceAtLeast(0))
+                    } else 0
+                    AutoHandleResult.AutoChoice(choiceIndex = idx)
                 } else null
             }
             AutoStrategy.AUTO_REJECT -> {

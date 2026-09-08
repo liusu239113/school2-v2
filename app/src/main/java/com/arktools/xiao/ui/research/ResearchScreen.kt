@@ -799,6 +799,13 @@ private fun ResearchChainSection(viewModel: com.arktools.xiao.ui.research.Resear
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "论文 ${chainUi.paperCount} 篇",
+                    fontSize = 11.sp,
+                    color = Color(0xFF1565C0),
+                    fontWeight = FontWeight.SemiBold
+                )
             }
             chainUi.definitions.forEach { def ->
                 val program = chainUi.programs[def.id]

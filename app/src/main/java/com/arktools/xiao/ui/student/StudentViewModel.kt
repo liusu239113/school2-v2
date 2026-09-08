@@ -10,6 +10,8 @@ import com.arktools.xiao.domain.model.StudentStatus
 import com.arktools.xiao.domain.model.Teacher
 import com.arktools.xiao.domain.exam.ExamManager
 import com.arktools.xiao.domain.exam.StudentScore
+import com.arktools.xiao.domain.alumni.AlumniNetwork
+import com.arktools.xiao.domain.alumni.Alumnus
 import com.arktools.xiao.domain.repository.CourseRepository
 import com.arktools.xiao.domain.model.schoolTier
 import com.arktools.xiao.domain.repository.SchoolRepository
@@ -69,7 +71,8 @@ class StudentViewModel @Inject constructor(
     private val examManager: ExamManager,
     private val gameEngine: GameEngine,
     private val teacherRepository: TeacherRepository,
-    private val schoolRepository: SchoolRepository
+    private val schoolRepository: SchoolRepository,
+    private val alumniNetwork: AlumniNetwork
 ) : ViewModel() {
 
     // ===== 学生管理状态 =====
@@ -167,6 +170,10 @@ class StudentViewModel @Inject constructor(
     fun clearSelectedStudent() {
         _uiState.value = _uiState.value.copy(selectedStudent = null)
     }
+
+    /** 按学生 id 查校友（毕业去向），用于学生档案展示毕业后发展 */
+    fun getAlumnus(studentId: String): Alumnus? =
+        alumniNetwork.alumni.value.firstOrNull { it.id == studentId }
 
     fun setFilter(filter: StudentFilterStatus) {
         _uiState.value = _uiState.value.copy(filterStatus = filter)

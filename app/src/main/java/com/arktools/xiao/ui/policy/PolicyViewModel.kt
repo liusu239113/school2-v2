@@ -101,6 +101,10 @@ class PolicyViewModel @Inject constructor(
         persistPolicies()
         announceEffects()
     }
+    fun setReservedDormBeds(beds: Int) {
+        policyManager.setReservedDormBeds(beds)
+        persistPolicies()
+    }
     fun setUniversityStrategy(strategy: UniversityStrategy) {
         policyManager.setUniversityStrategy(strategy)
         persistPolicies()

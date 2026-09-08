@@ -77,7 +77,10 @@ object CampusBuildTypes {
         PAVILION(3.0, 3, "凉亭", R.drawable.deco_pavilion, 0.06, 0.08f, 2L),
         PARCEL(1.5, 2, "快递驿站", R.drawable.deco_parcel, 0.03, 0.06f),
         FITNESS(1.2, 2, "健身角", R.drawable.deco_fitness, 0.04, 0.06f),
-        FOUNTAIN(2.0, 3, "喷泉", R.drawable.deco_fountain, 0.10, 0.08f, 3L)
+        FOUNTAIN(2.0, 3, "喷泉", R.drawable.deco_fountain, 0.10, 0.08f, 3L);
+
+        /** 地面瓦片（水泥路/广场砖），可与装饰叠放；其余为装饰/障碍物 */
+        val isGround: Boolean get() = this == ROAD || this == PLAZA
     }
 
     /** 建筑规格 */

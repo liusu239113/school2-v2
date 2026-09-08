@@ -27,13 +27,16 @@ data class AutoHandleConfig(
     val teacherRaiseStrategy: AutoStrategy = AutoStrategy.MANUAL,
 
     /** 教师续约请求 */
-    val teacherRenewalStrategy: AutoStrategy = AutoStrategy.MANUAL,
+    val teacherRenewalStrategy: AutoStrategy = AutoStrategy.AUTO_APPROVE,
 
     /** 教师离职请求 */
     val teacherResignStrategy: AutoStrategy = AutoStrategy.MANUAL,
 
     /** 活动审批（季节活动申请） */
     val activityApprovalStrategy: AutoStrategy = AutoStrategy.MANUAL,
+
+    /** 活动审批默认规模：0=简朴 1=标准 2=隆重 3=盛大（自动批准时按此规模举办） */
+    val activityDefaultScale: Int = 1,
 
     /** 社团审批（学生社团申请） */
     val clubApprovalStrategy: AutoStrategy = AutoStrategy.MANUAL,

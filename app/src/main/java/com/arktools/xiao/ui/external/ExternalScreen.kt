@@ -141,6 +141,17 @@ class ExternalViewModel @Inject constructor(
         }
     }
 
+    fun registerAllCompetitions() {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.registerAllUniversityCompetitions()
+            _state.value = _state.value.copy(
+                message = result.message,
+                active = policyManager.competitionManager.snapshotState().active
+            )
+            if (result.success) audioManager.playCashLose()
+        }
+    }
+
     fun consumeMessage() {
         _state.value = _state.value.copy(message = null)
     }
@@ -495,6 +506,24 @@ fun ExternalScreen(
                         color = Color(0xFF617386)
                     )
                 } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "可报名 ${state.catalog.count { entry -> state.active.none { it.trackName == entry.track.displayName && it.tier == entry.tier.name } }} 项",
+                            fontSize = 12.sp,
+                            color = Color(0xFF617386)
+                        )
+                        Text(
+                            "一键参赛",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E96C8),
+                            modifier = Modifier.clickable { viewModel.registerAllCompetitions() }
+                        )
+                    }
                     state.active.forEach { comp ->
                         Text(
                             "已报名：${comp.name}（${comp.resolveMonth}月结算）",

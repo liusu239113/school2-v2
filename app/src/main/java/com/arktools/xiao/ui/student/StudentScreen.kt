@@ -318,7 +318,8 @@ private fun StudentManageContent(viewModel: StudentViewModel) {
                         student.gradeLevel,
                         student.courseId
                     ),
-                latestScores = viewModel.getStudentLatestScores(student.id)
+                latestScores = viewModel.getStudentLatestScores(student.id),
+                alumnus = viewModel.getAlumnus(student.id)
             )
         }
     }
@@ -667,7 +668,8 @@ private fun TraitChip(trait: StudentTrait) {
 private fun StudentDetailSheet(
     student: Student,
     courseName: String,
-    latestScores: List<com.arktools.xiao.domain.exam.StudentScore> = emptyList()
+    latestScores: List<com.arktools.xiao.domain.exam.StudentScore> = emptyList(),
+    alumnus: com.arktools.xiao.domain.alumni.Alumnus? = null
 ) {
     Column(
         modifier = Modifier
@@ -697,6 +699,10 @@ private fun StudentDetailSheet(
         Spacer(modifier = Modifier.height(4.dp))
         Text(text = "${student.gradeLevel.displayName} · $courseName", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+        Spacer(modifier = Modifier.height(4.dp))
+        DetailRow("家庭背景", student.backgroundTier.displayName)
+        DetailRow("综合评级", student.attributeGrade.displayName)
+
         if (student.traits.isNotEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(text = "学生特质", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -708,6 +714,11 @@ private fun StudentDetailSheet(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "五维属性", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(6.dp))
+        FiveAttributeBars(student.attributes)
+
+        Spacer(modifier = Modifier.height(16.dp))
         Text(text = "学习属性", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(6.dp))
         DetailRow("天赋", String.format("%.0f%%", student.talent * 100))
@@ -717,10 +728,27 @@ private fun StudentDetailSheet(
         if (student.academicScore > 0f) { DetailRow("学业成绩", "${student.academicScore.toInt()}分") }
 
         Spacer(modifier = Modifier.height(12.dp))
+        Text(text = "生活状态", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(6.dp))
+        DetailRow("健康", student.healthStatus.displayName)
+        DetailRow("饮食质量", "${student.mealQuality.toInt()}/100")
+        DetailRow("住宿满意度", "${student.dormSatisfaction.toInt()}/100")
+        DetailRow("运动量", "${student.exerciseLevel.toInt()}/100")
+
+        Spacer(modifier = Modifier.height(12.dp))
         Text(text = "时间线", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(6.dp))
         DetailRow("入学时间", "${student.enrollYear}年${student.enrollMonth}月")
         if (student.graduateYear != null) { DetailRow("毕业时间", "${student.graduateYear}年${student.graduateMonth}月") }
+
+        if (student.gaoKaoScore > 0f || student.admittedUniversity != null || student.universityTier != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = "毕业去向", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(6.dp))
+            if (student.gaoKaoScore > 0f) { DetailRow("毕业评估分", "${student.gaoKaoScore.toInt()}/750") }
+            if (student.admittedUniversity != null) { DetailRow("录取大学", student.admittedUniversity!!) }
+            if (student.universityTier != null) { DetailRow("录取层次", student.universityTier!!.displayName) }
+        }
 
         if (latestScores.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -752,6 +780,16 @@ private fun StudentDetailSheet(
                     }
                 }
             }
+        }
+
+        alumnus?.let { alum ->
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "毕业后发展", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(6.dp))
+            DetailRow("所在行业", "${alum.career.icon} ${alum.career.displayName}")
+            DetailRow("当前职位", alum.careerLevel.displayName)
+            DetailRow("毕业时长", "${alum.monthsSinceGraduation} 个月")
+            DetailRow("发展潜力", String.format("%.0f%%", alum.successPotential * 100))
         }
 
         student.review?.let { review ->
@@ -803,6 +841,46 @@ private fun DetailRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun FiveAttributeBars(attributes: StudentAttributes) {
+    val items = listOf(
+        Triple("🧠 智力", attributes.intelligence),
+        Triple("💪 体力", attributes.physical),
+        Triple("🤝 社交", attributes.social),
+        Triple("🎨 创造力", attributes.creativity),
+        Triple("⭐ 品德", attributes.morality)
+    )
+    items.forEach { (label, value) ->
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(72.dp)
+            )
+            LinearProgressIndicator(
+                progress = { (value / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = when {
+                    value >= 80f -> AccentGreen
+                    value >= 60f -> AccentOrange
+                    else -> AccentRed
+                },
+                trackColor = Color(0x33182635)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "${value.toInt()}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 

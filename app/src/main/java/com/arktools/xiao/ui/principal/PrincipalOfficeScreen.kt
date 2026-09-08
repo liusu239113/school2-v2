@@ -1343,6 +1343,33 @@ private fun AutoHandleConfigSection(
                                 strategy = config.activityApprovalStrategy,
                                 onChanged = { onConfigChanged(config.copy(activityApprovalStrategy = it)) }
                             )
+                            if (config.activityApprovalStrategy == AutoStrategy.AUTO_APPROVE) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "默认规模",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF78909C),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    listOf("简朴", "标准", "隆重", "盛大").forEachIndexed { idx, label ->
+                                        val selected = config.activityDefaultScale == idx
+                                        Text(
+                                            label,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (selected) Color(0xFF4CAF50) else Color(0xFF78909C),
+                                            modifier = Modifier
+                                                .clickable { onConfigChanged(config.copy(activityDefaultScale = idx)) }
+                                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
                             StrategyRow(
                                 label = "社团审批",
                                 icon = "🏫",

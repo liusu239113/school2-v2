@@ -420,53 +420,34 @@ class TeacherViewModel @Inject constructor(
 
     fun batchTrainAll() {
         viewModelScope.safeLaunch {
-            val allTeachers = _teachers.value
-            if (allTeachers.isEmpty()) {
+            val profiles = teacherDevManager.state.value.teacherProfiles
+            if (profiles.isEmpty()) {
                 _errorMessage.value = "没有教师可培训"
                 return@safeLaunch
             }
+            val program = teacherDevManager.getAvailablePrograms().firstOrNull()
+            if (program == null) {
+                _errorMessage.value = "没有可用的培训课程"
+                return@safeLaunch
+            }
 
-            var successCount = 0
-            var failCount = 0
-            var totalCost = 0.0
-
-            for (teacher in allTeachers) {
-                val result = teacherRepository.performPaidTraining(teacher.id)
-                when (result.status) {
-                    PaidTrainingStatus.SUCCESS -> {
-                        totalCost += result.cost
-                        successCount++
-                    }
-                    PaidTrainingStatus.NO_EFFECT -> {
-                        totalCost += result.cost
-                        failCount++
-                    }
-                    PaidTrainingStatus.INSUFFICIENT_FUNDS -> {
-                        _batchTrainResult.value = BatchTrainResult(
-                            totalCount = successCount + failCount,
-                            successCount = successCount,
-                            failCount = failCount,
-                            totalCost = totalCost,
-                            insufficientFunds = true
-                        )
-                        return@safeLaunch
-                    }
-                    PaidTrainingStatus.TEACHER_UNAVAILABLE -> {
-                        continue
-                    }
-                    PaidTrainingStatus.SCHOOL_UNAVAILABLE -> {
-                        _errorMessage.value = "学校存档不可用，请重试"
-                        return@safeLaunch
-                    }
+            var scheduled = 0
+            var skipped = 0
+            for (profile in profiles) {
+                if (profile.isOnTraining) {
+                    skipped++
+                    continue
                 }
+                val result = gameEngine.startTeacherDevelopmentTraining(profile.teacherId, program)
+                if (result.success) scheduled++ else skipped++
             }
 
             audioManager.playLevelUp()
             _batchTrainResult.value = BatchTrainResult(
-                totalCount = allTeachers.size,
-                successCount = successCount,
-                failCount = failCount,
-                totalCost = totalCost
+                totalCount = profiles.size,
+                successCount = scheduled,
+                failCount = skipped,
+                totalCost = 0.0
             )
         }
     }

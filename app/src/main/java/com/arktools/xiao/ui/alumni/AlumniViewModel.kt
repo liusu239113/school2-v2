@@ -8,7 +8,9 @@ import com.arktools.xiao.domain.employment.EmploymentMarketState
 import com.arktools.xiao.domain.employment.GraduateEmployment
 import com.arktools.xiao.domain.employment.GraduateSuperviseAction
 import com.arktools.xiao.domain.engine.GameEngine
+import com.arktools.xiao.domain.model.Student
 import com.arktools.xiao.domain.repository.SchoolRepository
+import com.arktools.xiao.domain.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -20,7 +22,8 @@ class AlumniViewModel @Inject constructor(
     private val alumniNetwork: AlumniNetwork,
     private val schoolRepository: SchoolRepository,
     private val employmentMarket: EmploymentMarket,
-    private val gameEngine: GameEngine
+    private val gameEngine: GameEngine,
+    private val studentRepository: StudentRepository
 ) : ViewModel() {
 
     val alumni: StateFlow<List<Alumnus>> = alumniNetwork.alumni
@@ -43,6 +46,22 @@ class AlumniViewModel @Inject constructor(
     val employmentState: StateFlow<EmploymentMarketState> = employmentMarket.state
 
     fun getGraduatesForDisplay() = employmentMarket.getGraduatesForDisplay()
+
+    private val _graduatedStudents = MutableStateFlow<List<Student>>(emptyList())
+
+    init {
+        viewModelScope.safeLaunch {
+            _graduatedStudents.value = studentRepository.getGraduatedStudents()
+        }
+    }
+
+    /** 毕业生档案：按 studentId 找回在校时的完整学生记录 */
+    fun getGraduateStudent(studentId: String?): Student? =
+        studentId?.let { id -> _graduatedStudents.value.firstOrNull { it.id == id } }
+
+    /** 毕业生档案：按 studentId 找回校友职业发展记录 */
+    fun getGraduateAlumnus(studentId: String?): Alumnus? =
+        studentId?.let { id -> alumniNetwork.alumni.value.firstOrNull { it.id == id } }
 
     fun setFilter(career: CareerPath?) {
         _selectedFilter.value = career

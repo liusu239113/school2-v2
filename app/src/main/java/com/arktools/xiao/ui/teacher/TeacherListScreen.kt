@@ -150,16 +150,15 @@ private fun TeacherTeamContent(
         return "学业导师·$names · $students 人 · 在标准教室授课"
     }
 
-    // 一键培训确认弹窗（先显示预算预估）
+    // 一键安排培训确认弹窗
     if (showBatchTrainConfirm) {
-        val estimatedCost = teachers.sumOf { GameBalanceConfig.getTrainingCost(it.averageSkill) }
         PixelAlertDialog(
             onDismissRequest = { showBatchTrainConfirm = false },
-            title = "一键培训预算",
+            title = "一键安排培训",
             text = buildString {
-                append("将培训全部 ${teachers.size} 名教师\n")
-                append("预计总花费：约 ${"%.1f".format(estimatedCost)} 万\n\n")
-                append("（费用按各教师技能水平计算，资金不足时会自动停止）")
+                append("将为 ${teachers.size} 名教师安排基础培训课程\n")
+                append("（已在培训中的教师会跳过，名额满后自动停止）\n\n")
+                append("结业后每位教师将获得学分与技能提升")
             },
             confirmText = "开始培训",
             dismissText = "取消",
@@ -171,19 +170,15 @@ private fun TeacherTeamContent(
         )
     }
 
-    // 一键培训结果弹窗
+    // 一键安排培训结果弹窗
     batchTrainResult?.let { result ->
         PixelAlertDialog(
             onDismissRequest = { viewModel.clearBatchTrainResult() },
-            title = "一键培训完成",
+            title = "一键安排培训完成",
             text = buildString {
-                append("培训人数：${result.totalCount}\n")
-                append("成功：${result.successCount} 人\n")
-                append("未达预期：${result.failCount} 人\n")
-                append("总花费：${"%.1f".format(result.totalCost)} 万")
-                if (result.insufficientFunds) {
-                    append("\n\n⚠️ 资金不足，部分教师未培训")
-                }
+                append("已安排培训：${result.successCount} 人\n")
+                append("跳过：${result.failCount} 人\n")
+                append("（跳过原因：已在培训中或培训名额已满）")
             },
             confirmText = "确定",
             onConfirm = { viewModel.clearBatchTrainResult() }

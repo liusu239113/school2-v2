@@ -939,7 +939,8 @@ class EmploymentMarket @Inject constructor() {
                 employer = record.universityName,
                 salaryTier = record.salaryTier,
                 monthsToEmployment = record.monthsInUniversity,
-                feedbackScore = record.feedbackScore
+                feedbackScore = record.feedbackScore,
+                studentId = record.studentId
             )
         }
     }
@@ -1049,7 +1050,8 @@ data class GraduateEmployment(
     var employer: String? = null,
     var salaryTier: SalaryTier? = null,
     var monthsToEmployment: Int = 0,
-    var feedbackScore: Int = 0
+    var feedbackScore: Int = 0,
+    val studentId: String? = null
 )
 
 enum class EmployerTier(val displayName: String, val salaryTier: SalaryTier) {

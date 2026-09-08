@@ -356,18 +356,18 @@ object StudentSatisfactionCalculator {
 }
 
 /**
- * 大学录取等级
+ * 深造去向等级（毕业生读研录取层次，非高考）
  */
 enum class UniversityTier(val displayName: String, val minScore: Float, val reputationBonus: Long) {
     QINGBEI("清华/北大", 700f, 50L),
     TOP_985("顶尖名校深造", 650f, 20L),
     NORMAL_985("重点高校深造", 620f, 10L),
-    TOP_211("重点211", 580f, 5L),
-    NORMAL_211("211", 540f, 3L),
-    FIRST_TIER("一本", 500f, 1L),
-    SECOND_TIER("二本", 430f, 0L),
-    JUNIOR_COLLEGE("专科", 350f, -2L),
-    NONE("未上线", 0f, -5L);
+    TOP_211("重点211深造", 580f, 5L),
+    NORMAL_211("211深造", 540f, 3L),
+    FIRST_TIER("一本院校深造", 500f, 1L),
+    SECOND_TIER("二本院校深造", 430f, 0L),
+    JUNIOR_COLLEGE("专科院校深造", 350f, -2L),
+    NONE("未深造（就业）", 0f, -5L);
 
     companion object {
         fun fromScore(score: Float): UniversityTier {

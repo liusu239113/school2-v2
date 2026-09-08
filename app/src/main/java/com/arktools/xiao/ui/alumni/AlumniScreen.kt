@@ -688,12 +688,12 @@ private fun GraduationBatchCard(summary: com.arktools.xiao.domain.alumni.Graduat
                 }
             }
 
-            // 大学层次分布
-            if (summary.universityDistribution.isNotEmpty()) {
+            // 毕业去向分布（深造读研 + 直接就业）
+            if (summary.universityDistribution.isNotEmpty() || summary.directEmploymentCount > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("录取分布", style = MaterialTheme.typography.labelMedium,
+                Text("深造去向（读研）", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(6.dp))
                 val sorted = summary.universityDistribution.entries
@@ -710,6 +710,16 @@ private fun GraduationBatchCard(summary: com.arktools.xiao.domain.alumni.Graduat
                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                         ) {
                             Text("$tier ${count}人",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (summary.directEmploymentCount > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF757575).copy(alpha = 0.2f)
+                        ) {
+                            Text("直接就业 ${summary.directEmploymentCount}人",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.bodySmall)
                         }
@@ -761,6 +771,17 @@ private fun GradStatItem(label: String, value: String) {
 // ========== 就业市场 Tab 内容 ==========
 
 @Composable
+private fun ArchiveRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun EmploymentContent(viewModel: AlumniViewModel) {
     val state by viewModel.employmentState.collectAsState()
     val superviseMessage by viewModel.superviseMessage.collectAsState()
@@ -776,13 +797,43 @@ private fun EmploymentContent(viewModel: AlumniViewModel) {
         )
     }
     selectedGraduate?.let { grad ->
+        val student = viewModel.getGraduateStudent(grad.studentId)
+        val alumnus = viewModel.getGraduateAlumnus(grad.studentId)
         PixelAlertDialog(
             onDismissRequest = { selectedGraduate = null },
-            title = "${grad.studentName} · ${grad.graduateYear}届",
-            text = "${grad.status.displayName}\n${grad.employer ?: "暂无单位"} · ${grad.salaryTier?.displayName ?: "未定薪资"}",
+            title = "${grad.studentName} · ${grad.graduateYear}届档案",
+            text = "${grad.status.displayName} · ${grad.salaryTier?.displayName ?: "未定薪资"}",
             confirmText = "关闭",
             onConfirm = { selectedGraduate = null },
             content = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    if (student != null) {
+                        ArchiveRow("入学", "${student.enrollYear}年${student.enrollMonth}月 · ${student.backgroundTier.displayName}")
+                        ArchiveRow("综合评级", student.attributeGrade.displayName)
+                        ArchiveRow("智力", "${student.attributes.intelligence.toInt()}")
+                        ArchiveRow("体力", "${student.attributes.physical.toInt()}")
+                        ArchiveRow("社交", "${student.attributes.social.toInt()}")
+                        ArchiveRow("创造力", "${student.attributes.creativity.toInt()}")
+                        ArchiveRow("品德", "${student.attributes.morality.toInt()}")
+                        if (student.gaoKaoScore > 0f) ArchiveRow("毕业评估分", "${student.gaoKaoScore.toInt()}/750")
+                        student.universityTier?.let { ArchiveRow("录取层次", it.displayName) }
+                        student.admittedUniversity?.let { ArchiveRow("录取大学", it) }
+                    }
+                    grad.industry?.let { ArchiveRow("行业", it.displayName) }
+                    ArchiveRow("单位", grad.employer ?: "暂无单位")
+                    ArchiveRow("对母校评价", "${if (grad.feedbackScore >= 0) "+" else ""}${grad.feedbackScore}")
+                    alumnus?.let { alum ->
+                        ArchiveRow("校友职业", "${alum.career.icon} ${alum.career.displayName} · ${alum.careerLevel.displayName}")
+                        ArchiveRow("毕业时长", "${alum.monthsSinceGraduation} 个月")
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     PixelButton(
                         text = "推荐就业 2万",

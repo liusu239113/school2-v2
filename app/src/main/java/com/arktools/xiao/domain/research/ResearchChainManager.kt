@@ -24,7 +24,8 @@ class ResearchChainManager @Inject constructor() {
         val startFeeWan: Double,
         val rewardCashWan: Double,
         val rewardReputation: Long,
-        val rewardQuality: Float
+        val rewardQuality: Float,
+        val rewardPapers: Int = 1
     )
 
     @Serializable
@@ -47,7 +48,8 @@ class ResearchChainManager @Inject constructor() {
     data class ManagerState(
         val programs: Map<String, ChainProgress> = emptyMap(),
         val completedChains: List<String> = emptyList(),
-        val completedRounds: Map<String, Int> = emptyMap()
+        val completedRounds: Map<String, Int> = emptyMap(),
+        val paperCount: Int = 0
     )
 
     data class StageCompletion(
@@ -68,11 +70,19 @@ class ResearchChainManager @Inject constructor() {
     /** 阶段完成产生的待入账奖励（月结时统一计入收入报表） */
     private var pendingCashWan = 0.0
     private var pendingReputation = 0L
+    private var pendingPapers = 0
 
     fun consumePendingRewards(): Pair<Double, Long> {
         val result = pendingCashWan to pendingReputation
         pendingCashWan = 0.0
         pendingReputation = 0L
+        return result
+    }
+
+    /** 本周期新产出的论文数（用于论文考核与教师科研成长） */
+    fun consumePendingPapers(): Int {
+        val result = pendingPapers
+        pendingPapers = 0
         return result
     }
 
@@ -133,6 +143,7 @@ class ResearchChainManager @Inject constructor() {
         if (state.programs.isEmpty()) return emptyList()
         val completions = mutableListOf<StageCompletion>()
         val updated = mutableMapOf<String, ChainProgress>()
+        var papers = 0
         state.programs.forEach { (chainId, progress) ->
             val def = DEFS.firstOrNull { it.id == chainId } ?: return@forEach
             val rawStage = def.stages.getOrNull(progress.stageIndex) ?: return@forEach
@@ -142,6 +153,8 @@ class ResearchChainManager @Inject constructor() {
             if (days >= stage.requiredDays) {
                 pendingCashWan += stage.rewardCashWan
                 pendingReputation += stage.rewardReputation
+                papers += stage.rewardPapers
+                pendingPapers += stage.rewardPapers
                 val isLast = progress.stageIndex >= def.stages.lastIndex
                 completions.add(
                     StageCompletion(def, progress.stageIndex, stage, isLast)
@@ -168,7 +181,8 @@ class ResearchChainManager @Inject constructor() {
         state = state.copy(
             programs = updated,
             completedChains = (state.completedChains + newCompleted).distinct(),
-            completedRounds = rounds
+            completedRounds = rounds,
+            paperCount = state.paperCount + papers
         )
         return completions
     }
@@ -224,8 +238,14 @@ class ResearchChainManager @Inject constructor() {
     /** 是否至少结题过一轮（用于校园 Lv6 升级门槛） */
     fun anyCompletedRound(): Boolean = completedRoundCountAll() > 0
 
+    /** 累计发表论文数（阶段完成产出，用于论文考核与教师科研成长） */
+    fun totalPapers(): Int = state.paperCount
+
     companion object {
-        val CHAIN_UNLOCK_LEVEL = mapOf("TEACHING" to 1, "APPLIED" to 2, "INDUSTRY" to 3)
+        val CHAIN_UNLOCK_LEVEL = mapOf(
+            "TEACHING" to 1, "APPLIED" to 2, "INDUSTRY" to 3,
+            "FUNDAMENTAL" to 3, "INNOVATION" to 4
+        )
 
         fun scaledStage(stage: ChainStage, roundIndex: Int): ChainStage {
             val bump = 1.0 + roundIndex * 0.35
@@ -262,6 +282,22 @@ class ResearchChainManager @Inject constructor() {
                     ChainStage("校企联合实验室", "共建首个联合平台", 50, 40.0, 60.0, 40L, 0.01f),
                     ChainStage("现代产业学院", "行业订单式培养", 75, 70.0, 120.0, 80L, 0.01f),
                     ChainStage("国家级平台申报", "冲击国家级平台", 100, 120.0, 220.0, 160L, 0.02f)
+                )
+            ),
+            ChainDef(
+                "FUNDAMENTAL", "基础研究链", "原创理论与基础科学探索，产出高水平论文，冲击重大突破。",
+                listOf(
+                    ChainStage("原创理论探索", "在基础前沿提出原创方向", 40, 25.0, 20.0, 30L, 0.01f, 2),
+                    ChainStage("高水平论文发表", "在权威期刊发表研究成果", 60, 45.0, 50.0, 70L, 0.02f, 3),
+                    ChainStage("重大科学突破", "冲击领域重大突破", 90, 100.0, 150.0, 200L, 0.03f, 5)
+                )
+            ),
+            ChainDef(
+                "INNOVATION", "前沿创新链", "面向未来技术的前沿攻关与颠覆性创新。",
+                listOf(
+                    ChainStage("前沿方向预研", "研判未来技术趋势", 45, 30.0, 30.0, 40L, 0.01f, 2),
+                    ChainStage("关键技术攻关", "攻克卡脖子关键技术", 70, 60.0, 90.0, 100L, 0.02f, 3),
+                    ChainStage("颠覆性成果落地", "产出颠覆性创新成果", 100, 130.0, 220.0, 260L, 0.04f, 6)
                 )
             )
         )

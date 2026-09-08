@@ -68,6 +68,7 @@ class CampusViewModel @Inject constructor(
         val facilities: List<Facility> = emptyList(),
         val placed: List<BT.PlacedBuilding> = emptyList(),
         val terrain: Map<Long, BT.TileKind> = emptyMap(),
+        val decor: Map<Long, BT.TileKind> = emptyMap(),
         val tutorialDone: Boolean = false,
         val maxFacilities: Int = 5,
         val selected: CampusBuilding? = null,
@@ -237,12 +238,11 @@ class CampusViewModel @Inject constructor(
                 }
                 val students = cachedActiveStudents
                 val teachers = cachedTeachers
-                val terrain = BT.decodeTerrain(dev.terrainMap)
-                val decorKinds = setOf(
-                    "FLOWERBED", "TREE", "BENCH", "STATUE", "LANTERN",
-                    "CHERRY_TREE", "MEMORIAL", "SCHOOL_SIGN", "FOUNTAIN",
-                    "GINKGO", "BAMBOO", "LAMP", "PAVILION", "PARCEL", "FITNESS"
-                )
+                val terrainCells = BT.decodeTerrain(dev.terrainMap)
+                val groundMap = terrainCells.filter { tileKindOf(it.kind).isGround }
+                    .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) }
+                val decorMap = terrainCells.filter { !tileKindOf(it.kind).isGround }
+                    .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) }
                 val bonuses = FacilityBonusCalculator.calculate(school.facilities)
                 val liveFestival = gameEngine.seasonalActivityManager.getActiveActivities()
                     .maxByOrNull { if (it.phase == com.arktools.xiao.domain.seasonal.ActivityPhase.ACTIVE) 1 else 0 }
@@ -271,7 +271,8 @@ class CampusViewModel @Inject constructor(
                             else -> b
                         }
                     },
-                    terrain = terrain.associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
+                    terrain = groundMap,
+                    decor = decorMap,
                     tutorialDone = dev.tutorialDone,
                     studentCount = students.size,
                     teacherCount = teachers.count { it.isWorking },
@@ -287,7 +288,7 @@ class CampusViewModel @Inject constructor(
                     employmentRate = gameEngine.employmentMarket.state.value.stats.employmentRate,
                     clubCount = gameEngine.clubManager.clubs.value.size,
                     scholarshipRecipientCount = gameEngine.scholarshipManager.state.value.recipients.size,
-                    decorCount = terrain.count { it.kind in decorKinds },
+                    decorCount = decorMap.size,
                     avgIntelligence = if (students.isNotEmpty()) {
                         students.map { it.attributes.intelligence }.average().toFloat()
                     } else 0f,
@@ -367,6 +368,10 @@ class CampusViewModel @Inject constructor(
                         }
                     },
                     terrain = BT.decodeTerrain(dev.terrainMap)
+                        .filter { tileKindOf(it.kind).isGround }
+                        .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
+                    decor = BT.decodeTerrain(dev.terrainMap)
+                        .filter { !tileKindOf(it.kind).isGround }
                         .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) },
                     tutorialDone = dev.tutorialDone,
                     buildingOps = dev.buildingOps,
@@ -689,6 +694,43 @@ class CampusViewModel @Inject constructor(
         }
     }
 
+    fun autoAppointOfficers(classId: String) {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            if (gameEngine.classes.none { it.id == classId }) return@safeLaunch
+            val students = studentRepository.getStudentsByClass(classId)
+            val dev = policyManager.policies.value.collegeDevelopment
+            val all = ClassOfficers.decode(dev.classOfficersJson).toMutableMap()
+            val roles = all[classId].orEmpty().toMutableMap()
+
+            var appointed = 0
+            for (role in ClassOfficerRole.entries) {
+                if (roles[role] != null) continue
+                val best = students
+                    .filter { s -> roles.values.none { it.studentId == s.id } }
+                    .filter { role.qualification(it).eligible }
+                    .maxByOrNull { role.qualification(it).score }
+                if (best != null) {
+                    roles[role] = ClassOfficer(best.id, best.name)
+                    appointed++
+                }
+            }
+            if (appointed == 0) {
+                _officerMessage.value = "暂无符合任职条件的空缺岗位"
+                return@safeLaunch
+            }
+            all[classId] = roles
+            policyManager.replaceCollegeDevelopment(dev.copy(classOfficersJson = ClassOfficers.encode(all)))
+            schoolRepository.mutateSchool { school -> school.policyJson = policyManager.toJson(); true }
+            _classRows.value = _classRows.value.map { row ->
+                if (row.classId != classId) row else row.copy(officers = roles.mapValues { it.value.name })
+            }
+            _officerMessage.value = "已一键任命 $appointed 名班委"
+            gameEngine.notifyClassesChanged()
+            rebuildClassRows()
+        }
+    }
+
     fun openOfficerBoard(classId: String) {
         audioManager.playButtonClick()
         _managingOfficersClass.value = classId
@@ -739,7 +781,7 @@ class CampusViewModel @Inject constructor(
             message = msg ?: st.message
         )
         if (finishedName != null) audioManager.playConstructionDone()
-        updateLayoutSuspend(nextPlaced, st.terrain)
+        updateLayoutSuspend(nextPlaced, st.terrain, st.decor)
     }
 
     private fun collegeTypeForBuildingKey(key: String): CollegeType? = when (key) {
@@ -905,11 +947,13 @@ class CampusViewModel @Inject constructor(
 
     private suspend fun persistLayoutResult(
         placed: List<BT.PlacedBuilding>,
-        terrain: Map<Long, BT.TileKind>
+        terrain: Map<Long, BT.TileKind>,
+        decor: Map<Long, BT.TileKind> = emptyMap()
     ): Boolean {
         return schoolRepository.mutateSchool { school ->
             val dev = policyManager.policies.value.collegeDevelopment
-            val cellList = terrain.map { (k, kind) -> BT.TerrainCell((k % 1000L).toInt(), (k / 1000L).toInt(), kind.name) }
+            val cellList = terrain.map { (k, kind) -> BT.TerrainCell((k % 1000L).toInt(), (k / 1000L).toInt(), kind.name) } +
+                decor.map { (k, kind) -> BT.TerrainCell((k % 1000L).toInt(), (k / 1000L).toInt(), kind.name) }
             val updated = dev.copy(
                 placedBuildings = BT.encodeBuildings(placed),
                 terrainMap = BT.encodeTerrain(cellList)
@@ -922,16 +966,18 @@ class CampusViewModel @Inject constructor(
 
     private suspend fun persistLayout(
         placed: List<BT.PlacedBuilding>,
-        terrain: Map<Long, BT.TileKind>
+        terrain: Map<Long, BT.TileKind>,
+        decor: Map<Long, BT.TileKind> = emptyMap()
     ) {
-        persistLayoutResult(placed, terrain)
+        persistLayoutResult(placed, terrain, decor)
     }
 
     private fun updateLayoutSuspend(
         placed: List<BT.PlacedBuilding>,
-        terrain: Map<Long, BT.TileKind>
+        terrain: Map<Long, BT.TileKind>,
+        decor: Map<Long, BT.TileKind> = emptyMap()
     ) {
-        viewModelScope.safeLaunch { persistLayout(placed, terrain) }
+        viewModelScope.safeLaunch { persistLayout(placed, terrain, decor) }
     }
 
     /**
@@ -1013,10 +1059,10 @@ class CampusViewModel @Inject constructor(
         val st = _state.value
         if (!st.affiliatedHospital) return
         if (st.placed.any { it.key == "HOSPITAL" }) return
-        val spot = firstFree(BT.HOSPITAL, st.placed, st.terrain, st.campusLevel) ?: return
+        val spot = firstFree(BT.HOSPITAL, st.placed, st.terrain + st.decor, st.campusLevel) ?: return
         val newPlaced = st.placed + BT.PlacedBuilding("HOSPITAL", spot.first, spot.second)
         val snapshot = policyManager.toJson()
-        if (!persistLayoutResult(newPlaced, st.terrain)) {
+        if (!persistLayoutResult(newPlaced, st.terrain, st.decor)) {
             policyManager.restoreFromJson(snapshot)
             return
         }
@@ -1091,12 +1137,12 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val before = _state.value
             val spot = if (at != null && canPlaceAt(
-                    spec, at.first, at.second, before.placed, before.terrain, before.campusLevel
+                    spec, at.first, at.second, before.placed, before.terrain + before.decor, before.campusLevel
                 ) == null
             ) {
                 at
             } else {
-                firstFree(spec, before.placed, before.terrain, before.campusLevel)
+                firstFree(spec, before.placed, before.terrain + before.decor, before.campusLevel)
             }
             if (spot == null) {
                 _state.value = before.copy(message = "${spec.displayName}没有合法空位，未扣款。请先清理道路或扩建校园")
@@ -1133,8 +1179,8 @@ class CampusViewModel @Inject constructor(
                 return@safeLaunch
             }
             val spot = at?.takeIf {
-                canPlaceAt(spec, it.first, it.second, before.placed, before.terrain, before.campusLevel) == null
-            } ?: firstFree(spec, before.placed, before.terrain, before.campusLevel)
+                canPlaceAt(spec, it.first, it.second, before.placed, before.terrain + before.decor, before.campusLevel) == null
+            } ?: firstFree(spec, before.placed, before.terrain + before.decor, before.campusLevel)
             if (spot == null) {
                 _state.value = before.copy(message = "附属医院没有合法空位，未扣款")
                 return@safeLaunch
@@ -1157,12 +1203,12 @@ class CampusViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             val before = _state.value
             val spot = if (at != null && canPlaceAt(
-                    spec, at.first, at.second, before.placed, before.terrain, before.campusLevel
+                    spec, at.first, at.second, before.placed, before.terrain + before.decor, before.campusLevel
                 ) == null
             ) {
                 at
             } else {
-                firstFree(spec, before.placed, before.terrain, before.campusLevel)
+                firstFree(spec, before.placed, before.terrain + before.decor, before.campusLevel)
             }
             if (spot == null) {
                 _state.value = before.copy(message = "${spec.displayName}没有合法空位，未扣款。请先清理道路或扩建校园")
@@ -1277,6 +1323,60 @@ class CampusViewModel @Inject constructor(
         _state.value = _state.value.copy(message = null)
     }
 
+    /** 批量铺装：拖动建路时一次铺多格，单笔扣费、单次保存。 */
+    fun paintTiles(cells: List<Pair<Int, Int>>) {
+        val tile = pendingTile ?: return
+        if (cells.isEmpty()) return
+        val st = _state.value
+        val isGround = tile.isGround
+        val valid = cells
+            .filter { (x, y) ->
+                BT.inUnlockedArea(x, y, st.campusLevel) &&
+                    !st.placed.any { b ->
+                        val spec = BT.specByKey(b.key) ?: return@any false
+                        BT.occupies(b, spec, x, y)
+                    } &&
+                    (if (isGround) st.terrain[y * 1000L + x] else st.decor[y * 1000L + x]) != tile
+            }
+            .distinct()
+        if (valid.isEmpty()) return
+        val totalCost = tile.costWan * valid.size
+        if (st.cash < totalCost) {
+            cashShortfallAdManager.offerIfShort(totalCost, st.cash, "铺设${tile.displayName}")
+            _state.value = _state.value.copy(message = "资金不足！需要 ${totalCost.toInt()} 万")
+            audioManager.playEventNegative()
+            return
+        }
+        viewModelScope.safeLaunch {
+            val result = schoolRepository.mutateSchool { school ->
+                if (school.cash < totalCost) return@mutateSchool false
+                school.cash -= totalCost
+                gameEngine.financialReportManager.recordExpense(
+                    com.arktools.xiao.domain.finance.ExpenseCategory.EXPANSION,
+                    totalCost,
+                    "铺设${tile.displayName}×${valid.size}"
+                )
+                school.financialReportJson = gameEngine.financialReportManager.toJson()
+                true
+            }
+            if (result != null) {
+                audioManager.playBuildFacility()
+                var newTerrain = st.terrain
+                var newDecor = st.decor
+                valid.forEach { (x, y) ->
+                    val k = y * 1000L + x
+                    if (isGround) newTerrain = newTerrain + (k to tile) else newDecor = newDecor + (k to tile)
+                }
+                _state.value = _state.value.copy(
+                    terrain = newTerrain,
+                    decor = newDecor,
+                    message = "${tile.displayName}已铺设 ${valid.size} 格"
+                )
+                updateLayoutSuspend(st.placed, newTerrain, newDecor)
+            }
+        }
+    }
+
     fun startMove(placed: BT.PlacedBuilding) {
         val spec = BT.specByKey(placed.key) ?: return
         if (spec.key == BT.HOSPITAL.key) {
@@ -1346,7 +1446,7 @@ class CampusViewModel @Inject constructor(
                     selected = null, selectedPlaced = null,
                     message = "${spec.displayName}已拆除，返还 ${"%.1f".format(refund)} 万"
                 )
-                updateLayoutSuspend(newPlaced, st.terrain)
+                updateLayoutSuspend(newPlaced, st.terrain, st.decor)
             }
         }
     }
@@ -1368,7 +1468,7 @@ class CampusViewModel @Inject constructor(
                     val specOld = old?.let { BT.specByKey(it.key) }
                     if (old != null && specOld != null) {
                         val others = st.placed.filter { it != old }
-                        val err = canPlaceAt(spec, x, y, others, st.terrain, st.campusLevel, old.facilityId.ifBlank { old.key })
+                        val err = canPlaceAt(spec, x, y, others, st.terrain + st.decor, st.campusLevel, old.facilityId.ifBlank { old.key })
                         if (err != null) {
                             _state.value = _state.value.copy(message = err)
                             audioManager.playEventNegative()
@@ -1376,7 +1476,7 @@ class CampusViewModel @Inject constructor(
                         }
                         val moved = old.copy(x = x, y = y)
                         val newPlaced = others + moved
-                        val persisted = persistLayoutResult(newPlaced, st.terrain)
+                        val persisted = persistLayoutResult(newPlaced, st.terrain, st.decor)
                         if (!persisted) {
                             _state.value = _state.value.copy(message = "地图保存失败，搬移未生效")
                             moveId = null
@@ -1396,7 +1496,7 @@ class CampusViewModel @Inject constructor(
                 pendingSpec = null
                 return
             }
-            val err = canPlaceAt(spec, x, y, st.placed, st.terrain, st.campusLevel)
+            val err = canPlaceAt(spec, x, y, st.placed, st.terrain + st.decor, st.campusLevel)
             if (err != null) {
                 _state.value = _state.value.copy(message = err)
                 audioManager.playEventNegative()
@@ -1410,22 +1510,25 @@ class CampusViewModel @Inject constructor(
             pendingSpec = null
             return
         }
-        // 铺瓦/装扮：点一次铺一块就退出；点已有同类格子拆除
+        // 铺瓦/装扮：地面（路/广场砖）与装饰分层，可叠放；点已有同类格子拆除
         pendingTile?.let { tile ->
             if (!BT.inUnlockedArea(x, y, st.campusLevel)) {
                 _state.value = _state.value.copy(message = "该区域尚未解锁")
                 return
             }
             val key = y * 1000L + x
-            val existing = st.terrain[key]
+            val isGround = tile.isGround
+            val existing = if (isGround) st.terrain[key] else st.decor[key]
             if (existing == tile) {
-                val newTerrain = st.terrain - key
+                val newTerrain = if (isGround) st.terrain - key else st.terrain
+                val newDecor = if (isGround) st.decor else st.decor - key
                 pendingTile = null
                 _state.value = _state.value.copy(
                     terrain = newTerrain,
+                    decor = newDecor,
                     message = "已拆除${tile.displayName}"
                 )
-                updateLayoutSuspend(st.placed, newTerrain)
+                updateLayoutSuspend(st.placed, newTerrain, newDecor)
                 return
             }
             if (st.placed.any { b ->
@@ -1456,13 +1559,15 @@ class CampusViewModel @Inject constructor(
                 }
                 if (result != null) {
                     audioManager.playBuildFacility()
-                    val newTerrain = st.terrain + (key to tile)
+                    val newTerrain = if (isGround) st.terrain + (key to tile) else st.terrain
+                    val newDecor = if (isGround) st.decor else st.decor + (key to tile)
                     pendingTile = null
                     _state.value = _state.value.copy(
                         terrain = newTerrain,
+                        decor = newDecor,
                         message = "${tile.displayName}已铺设"
                     )
-                    updateLayoutSuspend(st.placed, newTerrain)
+                    updateLayoutSuspend(st.placed, newTerrain, newDecor)
                 }
             }
             return
@@ -1481,8 +1586,9 @@ class CampusViewModel @Inject constructor(
             viewModelSelect(b, spec, facility, displayKind)
             return
         }
-        // 查看道路/装扮：展示效果并提供拆除
-        st.terrain[y * 1000L + x]?.let { tile ->
+        // 查看道路/装扮：展示效果并提供拆除（装饰叠在路面之上，优先展示装饰）
+        val viewKey = y * 1000L + x
+        (st.decor[viewKey] ?: st.terrain[viewKey])?.let { tile ->
             audioManager.playCardOpen()
             _state.value = st.copy(
                 selectedTile = tile,
@@ -1503,7 +1609,9 @@ class CampusViewModel @Inject constructor(
         if (tile == null || pos == null) return
         viewModelScope.safeLaunch {
             val key = pos.second * 1000L + pos.first
-            val newTerrain = st.terrain - key
+            val isGround = tile.isGround
+            val newTerrain = if (isGround) st.terrain - key else st.terrain
+            val newDecor = if (isGround) st.decor else st.decor - key
             val refund = tile.costWan * 0.5
             val persisted = if (refund > 0.0) {
                 schoolRepository.mutateSchool { school ->
@@ -1523,11 +1631,12 @@ class CampusViewModel @Inject constructor(
             }
             _state.value = st.copy(
                 terrain = newTerrain,
+                decor = newDecor,
                 selectedTile = null,
                 selectedTilePos = null,
                 message = "已拆除${tile.displayName}，返还 ${"%.1f".format(refund)} 万"
             )
-            persistLayout(st.placed, newTerrain)
+            persistLayout(st.placed, newTerrain, newDecor)
         }
     }
 

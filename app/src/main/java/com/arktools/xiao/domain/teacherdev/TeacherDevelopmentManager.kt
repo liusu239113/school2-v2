@@ -308,6 +308,18 @@ class TeacherDevelopmentManager @Inject constructor() {
         }
     }
 
+    /** 给所有教师增加科研点（论文产出、课题结题等科研投入来源） */
+    fun addResearchToAll(points: Int) {
+        if (points <= 0) return
+        _state.update { state ->
+            state.copy(
+                teacherProfiles = state.teacherProfiles.map { profile ->
+                    profile.copy(researchPoints = profile.researchPoints + points)
+                }
+            )
+        }
+    }
+
     /**
      * 安排教师参加培训
      */

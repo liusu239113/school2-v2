@@ -190,7 +190,8 @@ class AlumniNetwork @Inject constructor() {
         key985Count: Int,
         qingbeiCount: Int,
         topStudents: List<GraduationTopStudent>,
-        universityDistribution: Map<String, Int>
+        universityDistribution: Map<String, Int>,
+        directEmploymentCount: Int = 0
     ) {
         val existing = _graduationSummaries.value.firstOrNull {
             it.year == year
@@ -205,6 +206,7 @@ class AlumniNetwork @Inject constructor() {
             qingbeiCount = qingbeiCount,
             topStudents = topStudents.take(5),
             universityDistribution = universityDistribution,
+            directEmploymentCount = directEmploymentCount,
             settlementCompleted = if (existing == null) {
                 false
             } else {
@@ -779,7 +781,8 @@ data class GraduationBatchSummary(
     val key985Count: Int,                       // 985录取人数
     val qingbeiCount: Int,                      // 清北录取人数
     val topStudents: List<GraduationTopStudent> = emptyList(), // 优秀毕业生（前5名）
-    val universityDistribution: Map<String, Int> = emptyMap(), // 大学层次分布
+    val universityDistribution: Map<String, Int> = emptyMap(), // 深造层次分布（仅读研毕业生）
+    val directEmploymentCount: Int = 0, // 直接就业人数（未深造）
     // null 表示旧版本记录，历史奖励状态不可证明，必须按已结算处理。
     val settlementCompleted: Boolean? = null,
     val settledCashBonus: Double = 0.0,

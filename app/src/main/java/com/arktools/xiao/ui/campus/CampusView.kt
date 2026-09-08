@@ -109,6 +109,7 @@ fun CampusView(
     val cellNow = rememberUpdatedState(cell)
     val placementNow = rememberUpdatedState(inPlacementMode)
     val pendingSpecNow = rememberUpdatedState(pendingSpec)
+    val pendingTileNow = rememberUpdatedState(pendingTile)
     val campusLevelNow = rememberUpdatedState(state.campusLevel)
 
     // 幽灵位置合法性：与 ViewModel.canPlaceAt 同规则（边界/解锁区/地形/重叠/搬移豁免）
@@ -120,8 +121,8 @@ fun CampusView(
             val cy2 = cy + dy
             if (cx2 < 0 || cy2 < 0 || cx2 >= BT.GRID_W || cy2 >= BT.GRID_H) return false
             if (!BT.inUnlockedArea(cx2, cy2, state.campusLevel)) return false
-            val t = state.terrain[cy2 * 1000L + cx2]
-            if (t != null) return false
+            val k2 = cy2 * 1000L + cx2
+            if (state.terrain[k2] != null || state.decor[k2] != null) return false
             val blocked = state.placed.any { p ->
                 if (ignoreId != null && (p.facilityId == ignoreId || p.key == ignoreId)) return@any false
                 // 与 canPlaceAt 一致：行政楼重建可落回原位
@@ -190,6 +191,9 @@ fun CampusView(
     }
     val pathTile = remember(R.drawable.tile_path) {
         BitmapFactory.decodeResource(context.resources, R.drawable.tile_path).asImageBitmap()
+    }
+    val plazaTile = remember(R.drawable.tile_plaza) {
+        BitmapFactory.decodeResource(context.resources, R.drawable.tile_plaza).asImageBitmap()
     }
     // 楼名标签画笔（世界坐标系内绘制，避免 Compose 元素跟随拖动时漂移）
     val labelTextPaint = remember(density) {
@@ -273,10 +277,12 @@ fun CampusView(
         val walkerPaint = remember {
             android.graphics.Paint().apply { isFilterBitmap = false }
         }
-        val walkableSet = remember(state.placed, state.terrain, state.campusLevel) {
+        val walkableSet = remember(state.placed, state.terrain, state.decor, state.campusLevel) {
             buildWalkableSet(state)
         }
         var walkers by remember { mutableStateOf(emptyList<Walker>()) }
+        var showWalkers by remember { mutableStateOf(true) }
+        var lastPaintCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
 
         // 升级校园后新解锁地块的高亮提示（金色边框渐隐 9 秒）
         var unlockFlashUntil by remember { mutableStateOf(0L) }
@@ -350,6 +356,7 @@ fun CampusView(
                 .pointerInput(inPlacementMode) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        lastPaintCell = null
                         var totalDrag = Offset.Zero
                         var dragged = false
                         var lastCentroid = down.position
@@ -398,8 +405,24 @@ fun CampusView(
                                     totalDrag += delta
                                     if (totalDrag.getDistance() > 8f) {
                                         dragged = true
-                                        camera = Offset(camera.x + delta.x, camera.y + delta.y)
-                                        clampCamera()
+                                        if (pendingTileNow.value != null) {
+                                            val liveCell = cellNow.value
+                                            val liveCam = cameraNow.value
+                                            if (liveCell > 0f) {
+                                                val cx = kotlin.math.floor((centroid.x - liveCam.x) / liveCell).toInt().coerceIn(0, BT.GRID_W - 1)
+                                                val cy = kotlin.math.floor((centroid.y - liveCam.y) / liveCell).toInt().coerceIn(0, BT.GRID_H - 1)
+                                                val prev = lastPaintCell
+                                                if (prev == null) {
+                                                    lastPaintCell = cx to cy
+                                                } else if (prev.first != cx || prev.second != cy) {
+                                                    viewModel.paintTiles(bresenhamLine(prev.first, prev.second, cx, cy))
+                                                    lastPaintCell = cx to cy
+                                                }
+                                            }
+                                        } else {
+                                            camera = Offset(camera.x + delta.x, camera.y + delta.y)
+                                            clampCamera()
+                                        }
                                     }
                                 }
                             }
@@ -461,58 +484,66 @@ fun CampusView(
                     drawLine(gridLine, Offset(minCx * cell, cy * cell), Offset((maxCx + 1) * cell, cy * cell), 1f)
                 }
 
-                // 地形瓦片
+                // 地面瓦片（水泥路/广场砖）
                 state.terrain.forEach { (key, kind) ->
                     val tx = (key % 1000L).toInt() * cell
                     val ty = (key / 1000L).toInt() * cell
-                    when (kind) {
-                        BT.TileKind.ROAD -> drawImage(
-                            image = pathTile,
+                    val image = when (kind) {
+                        BT.TileKind.ROAD -> pathTile
+                        BT.TileKind.PLAZA -> plazaTile
+                        else -> null
+                    }
+                    if (image != null) {
+                        drawImage(
+                            image = image,
                             srcOffset = IntOffset.Zero,
-                            srcSize = IntSize(pathTile.width, pathTile.height),
+                            srcSize = IntSize(image.width, image.height),
                             dstOffset = IntOffset(tx.toInt(), ty.toInt()),
                             dstSize = IntSize(cell.toInt(), cell.toInt()),
                             filterQuality = FilterQuality.None
                         )
-                        else -> {
-                            val deco = bitmaps[kind.drawableRes]
-                            if (deco != null) {
-                                val aspect = deco.width.toFloat() / deco.height.toFloat().coerceAtLeast(1f)
-                                var dw = cell * when (kind) {
-                                    BT.TileKind.TREE -> 0.95f
-                                    BT.TileKind.STATUE -> 0.72f
-                                    BT.TileKind.LANTERN -> 0.62f
-                                    BT.TileKind.BENCH -> 0.92f
-                                    BT.TileKind.FLOWERBED -> 0.92f
-                                    BT.TileKind.CHERRY_TREE -> 0.95f
-                                    BT.TileKind.GINKGO -> 0.95f
-                                    BT.TileKind.BAMBOO -> 0.8f
-                                    BT.TileKind.LAMP -> 0.6f
-                                    BT.TileKind.MEMORIAL -> 0.78f
-                                    BT.TileKind.SCHOOL_SIGN -> 0.9f
-                                    BT.TileKind.PAVILION -> 1.0f
-                                    BT.TileKind.PARCEL -> 0.85f
-                                    BT.TileKind.FITNESS -> 0.88f
-                                    BT.TileKind.FOUNTAIN -> 1.0f
-                                    else -> 0.88f
-                                }
-                                var dh = dw / aspect
-                                if (dh > cell) {
-                                    dh = cell
-                                    dw = dh * aspect
-                                }
-                                val dx = tx + (cell - dw) / 2f
-                                val dy = ty + (cell - dh)
-                                drawImage(
-                                    image = deco,
-                                    srcOffset = IntOffset.Zero,
-                                    srcSize = IntSize(deco.width, deco.height),
-                                    dstOffset = IntOffset(dx.toInt(), dy.toInt()),
-                                    dstSize = IntSize(dw.toInt().coerceAtLeast(1), dh.toInt().coerceAtLeast(1)),
-                                    filterQuality = FilterQuality.None
-                                )
-                            }
+                    }
+                }
+                // 装饰瓦片（叠放在地面上）
+                state.decor.forEach { (key, kind) ->
+                    val tx = (key % 1000L).toInt() * cell
+                    val ty = (key / 1000L).toInt() * cell
+                    val deco = bitmaps[kind.drawableRes]
+                    if (deco != null) {
+                        val aspect = deco.width.toFloat() / deco.height.toFloat().coerceAtLeast(1f)
+                        var dw = cell * when (kind) {
+                            BT.TileKind.TREE -> 0.95f
+                            BT.TileKind.STATUE -> 0.72f
+                            BT.TileKind.LANTERN -> 0.62f
+                            BT.TileKind.BENCH -> 0.92f
+                            BT.TileKind.FLOWERBED -> 0.92f
+                            BT.TileKind.CHERRY_TREE -> 0.95f
+                            BT.TileKind.GINKGO -> 0.95f
+                            BT.TileKind.BAMBOO -> 0.8f
+                            BT.TileKind.LAMP -> 0.6f
+                            BT.TileKind.MEMORIAL -> 0.78f
+                            BT.TileKind.SCHOOL_SIGN -> 0.9f
+                            BT.TileKind.PAVILION -> 1.0f
+                            BT.TileKind.PARCEL -> 0.85f
+                            BT.TileKind.FITNESS -> 0.88f
+                            BT.TileKind.FOUNTAIN -> 1.0f
+                            else -> 0.88f
                         }
+                        var dh = dw / aspect
+                        if (dh > cell) {
+                            dh = cell
+                            dw = dh * aspect
+                        }
+                        val dx = tx + (cell - dw) / 2f
+                        val dy = ty + (cell - dh)
+                        drawImage(
+                            image = deco,
+                            srcOffset = IntOffset.Zero,
+                            srcSize = IntSize(deco.width, deco.height),
+                            dstOffset = IntOffset(dx.toInt(), dy.toInt()),
+                            dstSize = IntSize(dw.toInt().coerceAtLeast(1), dh.toInt().coerceAtLeast(1)),
+                            filterQuality = FilterQuality.None
+                        )
                     }
                 }
 
@@ -652,7 +683,7 @@ fun CampusView(
                 val viewR = -camera.x + screenW + cell
                 val viewT = -camera.y - cell
                 val viewB = -camera.y + screenH + cell
-                walkers.forEach { w ->
+                if (showWalkers) walkers.forEach { w ->
                     val wx = w.fx * cell
                     val wy = w.fy * cell
                     if (wx < viewL || wx > viewR || wy < viewT || wy > viewB) return@forEach
@@ -808,6 +839,19 @@ fun CampusView(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.End
         ) {
+            Box(
+                modifier = Modifier
+                    .background(if (showWalkers) Color(0xCC0B2038) else Color(0xCC14648C))
+                    .clickable { showWalkers = !showWalkers }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    if (showWalkers) "隐藏小人" else "显示小人",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(
                     modifier = Modifier
@@ -853,9 +897,9 @@ fun CampusView(
 
         // 模式提示 + 操作结果：纵向堆叠在同一容器内，永不互相遮挡
         val modeHint = when {
-            pendingSpec != null -> "摆放模式：拖动/点击选择位置，绿框可放、红框不可放；点「建在这里」确认。点此取消"
-            pendingTile != null -> "铺装模式：拖动/点击选格，点「铺设」确认（${pendingTile?.costWan}万/格）。点此取消"
-            moveTarget != null -> "搬移模式：拖动选择新位置，点「搬到这里」确认。点此取消"
+            pendingSpec != null -> "摆放模式：拖动/点击选择位置，绿框可放、红框不可放；点「建在这里」确认"
+            pendingTile != null -> "铺装模式：拖动连线批量铺设，点格后按「铺设」单格铺（${pendingTile?.costWan}万/格）"
+            moveTarget != null -> "搬移模式：拖动选择新位置，点「搬到这里」确认"
             else -> null
         }
         val officerMessage by viewModel.officerMessage.collectAsState()
@@ -873,14 +917,7 @@ fun CampusView(
                         fontSize = 13.sp,
                         modifier = Modifier
                             .background(Color(0xCC0B2038))
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                            .clickable {
-                                pendingSpec = null
-                                pendingTile = null
-                                moveTarget = null
-                                ghost = null
-                                viewModel.cancelPlacement()
-                            },
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1158,6 +1195,26 @@ fun CampusView(
 
 // ===== 行走学生小人 =====
 
+/** 两点之间的格子连线（Bresenham），拖动建路时按此批量铺装。 */
+private fun bresenhamLine(x0: Int, y0: Int, x1: Int, y1: Int): List<Pair<Int, Int>> {
+    val points = mutableListOf<Pair<Int, Int>>()
+    var x = x0
+    var y = y0
+    val dx = kotlin.math.abs(x1 - x0)
+    val dy = -kotlin.math.abs(y1 - y0)
+    val sx = if (x0 < x1) 1 else -1
+    val sy = if (y0 < y1) 1 else -1
+    var err = dx + dy
+    while (true) {
+        points.add(x to y)
+        if (x == x1 && y == y1) break
+        val e2 = 2 * err
+        if (e2 >= dy) { err += dy; x += sx }
+        if (e2 <= dx) { err += dx; y += sy }
+    }
+    return points
+}
+
 /** 在校园地图上散步的小人：格子级移动，永不进入建筑/装饰/水域。 */
 private data class Walker(
     val role: Int,
@@ -1207,7 +1264,8 @@ private fun buildWalkableSet(state: CampusViewModel.CampusUiState): Set<Long> {
         val k = walkableKey(x, y)
         if (k in blocked) continue
         val tile = state.terrain[k]
-        if (k !in doorKeys && tile != null && tile != BT.TileKind.ROAD && tile != BT.TileKind.PLAZA) continue
+        val deco = state.decor[k]
+        if (k !in doorKeys && (deco != null || (tile != null && tile != BT.TileKind.ROAD && tile != BT.TileKind.PLAZA))) continue
         set += k
     }
     return set
@@ -1420,11 +1478,26 @@ private fun AppointmentPickers(viewModel: CampusViewModel) {
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        "六个职位随便点。推荐按这个岗位的属性排，点任命立刻生效。",
-                        fontSize = 12.sp,
-                        color = Color(0xFF617386)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "六个职位随便点。推荐按这个岗位的属性排，点任命立刻生效。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF617386)
+                        )
+                        Text(
+                            "一键任命空缺",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF14648C),
+                            modifier = Modifier
+                                .clickable { viewModel.autoAppointOfficers(classId) }
+                                .padding(vertical = 4.dp, horizontal = 8.dp)
+                        )
+                    }
                     ClassOfficerRole.entries.forEach { role ->
                         val holder = row?.officers?.get(role)
                         val effect = when (role) {
