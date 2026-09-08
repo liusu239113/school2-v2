@@ -52,9 +52,6 @@ class TimetableViewModel @Inject constructor(
             _uiState.value = TimetableUiState()
             return
         }
-        // 确保所有班级都有课表（兜底懒生成，防止错过学期初时机）
-        viewModelScope.safeLaunch { gameEngine.ensureTimetablesGenerated() }
-
         val selectedId = _uiState.value.selectedClassId ?: classes.firstOrNull()?.id
         _uiState.value = _uiState.value.copy(
             classes = classes,
@@ -65,6 +62,16 @@ class TimetableViewModel @Inject constructor(
             selectedSlot = null,
             swapHint = null
         )
+        // 确保所有班级都有课表（兜底懒生成），生成完再刷新当前课表，避免部分班级课表为空
+        viewModelScope.safeLaunch {
+            gameEngine.ensureTimetablesGenerated()
+            val id = _uiState.value.selectedClassId
+            if (id != null) {
+                _uiState.value = _uiState.value.copy(
+                    currentTimetable = gameEngine.timetableManager.getAllTimetables()[id]
+                )
+            }
+        }
     }
 
     fun selectClass(classId: String) {

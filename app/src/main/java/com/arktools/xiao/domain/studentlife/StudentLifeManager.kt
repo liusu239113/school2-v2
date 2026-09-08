@@ -148,16 +148,16 @@ class StudentLifeManager @Inject constructor() {
         _state.update { state ->
             val facilities = state.facilities.toMutableMap()
             facilities[LifeAspect.DORMITORY]?.let { dorm ->
-                facilities[LifeAspect.DORMITORY] = dorm.copy(capacity = dormBeds.coerceAtLeast(0))
+                facilities[LifeAspect.DORMITORY] = dorm.copy(capacity = maxOf(dorm.capacity, dormBeds.coerceAtLeast(0)))
             }
             facilities[LifeAspect.CAFETERIA]?.let { cafe ->
-                facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = canteenSeats.coerceAtLeast(0))
+                facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = maxOf(cafe.capacity, canteenSeats.coerceAtLeast(0)))
             }
             facilities[LifeAspect.HEALTH]?.let { health ->
-                facilities[LifeAspect.HEALTH] = health.copy(capacity = clinicSlots.coerceAtLeast(0))
+                facilities[LifeAspect.HEALTH] = health.copy(capacity = maxOf(health.capacity, clinicSlots.coerceAtLeast(0)))
             }
             facilities[LifeAspect.PSYCHOLOGY]?.let { psych ->
-                facilities[LifeAspect.PSYCHOLOGY] = psych.copy(capacity = counselingSlots.coerceAtLeast(0))
+                facilities[LifeAspect.PSYCHOLOGY] = psych.copy(capacity = maxOf(psych.capacity, counselingSlots.coerceAtLeast(0)))
             }
             state.copy(facilities = facilities)
         }

@@ -7644,6 +7644,10 @@ class GameEngine @Inject constructor(
             val plannedClasses = _classes.value
                 .map { it.copy() }
                 .toMutableList()
+            // 班级数按实际招生人数计算，避免教室容量大但报到少时「一个班3人建5个班」
+            val actualNormalClassCount = if (ClassTier.NORMAL.maxSize <= 0) 1
+            else (newStudents.size + ClassTier.NORMAL.maxSize - 1) / ClassTier.NORMAL.maxSize
+            val actualGradeDistribution = mapOf(ClassTier.NORMAL to actualNormalClassCount.coerceAtLeast(1))
             val assignments = classManager.assignNewStudents(
                 unassignedStudents = newStudents,
                 existingClasses = plannedClasses,
@@ -7651,7 +7655,7 @@ class GameEngine @Inject constructor(
                 schoolId = school.id,
                 currentYear = school.currentYear,
                 currentMonth = school.currentMonth,
-                gradeDistribution = gradeDistribution
+                gradeDistribution = actualGradeDistribution
             )
             if (assignments.size != newStudents.size) {
                 android.util.Log.e(
