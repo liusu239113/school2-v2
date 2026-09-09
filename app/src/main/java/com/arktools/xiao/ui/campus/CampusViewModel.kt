@@ -69,6 +69,7 @@ class CampusViewModel @Inject constructor(
         val placed: List<BT.PlacedBuilding> = emptyList(),
         val terrain: Map<Long, BT.TileKind> = emptyMap(),
         val decor: Map<Long, BT.TileKind> = emptyMap(),
+        val showWalkers: Boolean = true,
         val tutorialDone: Boolean = false,
         val maxFacilities: Int = 5,
         val selected: CampusBuilding? = null,
@@ -1321,6 +1322,11 @@ class CampusViewModel @Inject constructor(
         pendingTile = null
         moveId = null
         _state.value = _state.value.copy(message = null)
+    }
+
+    /** 切换是否显示校园小人的开关（保持在 ViewModel 状态，切页不丢失） */
+    fun toggleWalkers() {
+        _state.value = _state.value.copy(showWalkers = !_state.value.showWalkers)
     }
 
     /** 批量铺装：拖动建路时一次铺多格，单笔扣费、单次保存。 */

@@ -182,7 +182,8 @@ class SchoolRepositoryImpl @Inject constructor(
         withSchoolLock {
             inWriteTransaction {
                 val school = schoolDao.getSchoolCore()?.let { loadSchool(it) } ?: return@inWriteTransaction
-                school.reputation += amount
+                // 声誉获取降速：全局增益减半，避免二级学校过早碾压排名学校
+                school.reputation += kotlin.math.roundToLong(amount * 0.5)
                 persistSchool(school)
             }
         }

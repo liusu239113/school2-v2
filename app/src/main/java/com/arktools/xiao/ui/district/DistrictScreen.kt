@@ -318,7 +318,11 @@ private fun ExpansionContent(viewModel: DistrictViewModel) {
                 )
             }
             items(constructing) { zone ->
-                ConstructionZoneCard(zone, onInvest = { viewModel.investInZone(zone.id, zone.totalCostWan / 4.0) })
+                ConstructionZoneCard(
+                    zone,
+                    onInvest = { viewModel.investInZone(zone.id, zone.totalCostWan / 4.0) },
+                    onCancel = { viewModel.cancelConstruction(zone.id) }
+                )
             }
         }
 
@@ -983,7 +987,7 @@ private fun CampusLevelCard(state: CampusExpansionState, onUpgrade: () -> Unit) 
 }
 
 @Composable
-private fun ConstructionZoneCard(zone: CampusZone, onInvest: () -> Unit) {
+private fun ConstructionZoneCard(zone: CampusZone, onInvest: () -> Unit, onCancel: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -1055,11 +1059,19 @@ private fun ConstructionZoneCard(zone: CampusZone, onInvest: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                OutlinedButton(
-                    onClick = onInvest,
-                    enabled = zone.remainingCostWan > 0
-                ) {
-                    Text("追加投资", fontSize = 12.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = onInvest,
+                        enabled = zone.remainingCostWan > 0
+                    ) {
+                        Text("追加投资", fontSize = 12.sp)
+                    }
+                    OutlinedButton(
+                        onClick = onCancel,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F))
+                    ) {
+                        Text("取消工程", fontSize = 12.sp)
+                    }
                 }
             }
         }

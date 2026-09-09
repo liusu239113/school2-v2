@@ -1643,6 +1643,23 @@ class GameEngine @Inject constructor(
         }
     }
 
+    suspend fun cancelCampusZoneConstruction(
+        zoneId: String
+    ): ManagedOperationResult = engineOperationMutex.withLock {
+        commitExpansionOperationLocked { school ->
+            val refund = campusExpansionManager.cancelConstruction(zoneId)
+            if (refund <= 0.0) {
+                ManagedOperationResult(false, "该工程已竣工或不存在，无法取消")
+            } else {
+                school.cash += refund
+                ManagedOperationResult(
+                    true,
+                    "已取消扩建工程，返还 ${String.format("%.1f", refund)} 万元"
+                )
+            }
+        }
+    }
+
     suspend fun repairCampusZone(
         zoneId: String
     ): ManagedOperationResult = engineOperationMutex.withLock {
@@ -7517,7 +7534,17 @@ class GameEngine @Inject constructor(
                 * school.schoolTier().enrollmentMultiplier * school.schoolOwnership().enrollmentMultiplier
                 + employmentBonus).toInt()
         val existingGradeOneCount = studentRepository.getGradeStudentCount(GradeLevel.GRADE_1)
-        val dormBeds = FacilityCapacity.totalBeds(school.facilities)
+        // 床位 = 楼内基础床位 + 加床（生活服务扩容），与校园面板口径一致，避免“显示360招生却按240卡”
+        val dormBeds = run {
+            val buildingBeds = FacilityCapacity.totalBeds(school.facilities)
+            val lifeBeds = studentLifeManager.state.value.facilities[
+                com.arktools.xiao.domain.studentlife.LifeAspect.DORMITORY
+            ]?.capacity ?: 0
+            val dormCount = school.facilities.count {
+                it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational
+            }
+            maxOf(buildingBeds, lifeBeds).coerceAtMost(buildingBeds + 40 * dormCount.coerceAtLeast(1))
+        }
         val existingStudents = studentRepository.getActiveStudentCount()
         val reservedBeds = policyManager.policies.value.reservedDormBeds.coerceAtLeast(0)
         val bedHeadroom = if (dormBeds <= 0) {

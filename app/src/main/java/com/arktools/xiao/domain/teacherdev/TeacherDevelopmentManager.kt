@@ -942,11 +942,11 @@ enum class TeacherTitle(
     val requiredCredits: Int
 ) {
     PROBATION("试用期", 0.8f, 0, 0f, 0),
-    JUNIOR("初级教师", 1.0f, 6, 50f, 5),
-    INTERMEDIATE("中级教师", 1.3f, 12, 65f, 15),
-    SENIOR("高级教师", 1.7f, 24, 75f, 30),
-    MASTER("特级教师", 2.2f, 36, 85f, 50),
-    DISTINGUISHED("名师", 3.0f, 48, 92f, 80)
+    JUNIOR("助教", 1.0f, 6, 50f, 5),
+    INTERMEDIATE("讲师", 1.3f, 12, 65f, 15),
+    SENIOR("副教授", 1.7f, 24, 75f, 30),
+    MASTER("教授", 2.2f, 36, 85f, 50),
+    DISTINGUISHED("讲席教授", 3.0f, 48, 92f, 80)
 }
 
 enum class TurnoverRisk(val displayName: String, val color: Long) {

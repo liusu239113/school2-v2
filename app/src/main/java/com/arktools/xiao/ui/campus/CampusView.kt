@@ -281,7 +281,6 @@ fun CampusView(
             buildWalkableSet(state)
         }
         var walkers by remember { mutableStateOf(emptyList<Walker>()) }
-        var showWalkers by remember { mutableStateOf(true) }
         var lastPaintCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
 
         // 升级校园后新解锁地块的高亮提示（金色边框渐隐 9 秒）
@@ -683,7 +682,7 @@ fun CampusView(
                 val viewR = -camera.x + screenW + cell
                 val viewT = -camera.y - cell
                 val viewB = -camera.y + screenH + cell
-                if (showWalkers) walkers.forEach { w ->
+                if (state.showWalkers) walkers.forEach { w ->
                     val wx = w.fx * cell
                     val wy = w.fy * cell
                     if (wx < viewL || wx > viewR || wy < viewT || wy > viewB) return@forEach
@@ -841,12 +840,12 @@ fun CampusView(
         ) {
             Box(
                 modifier = Modifier
-                    .background(if (showWalkers) Color(0xCC0B2038) else Color(0xCC14648C))
-                    .clickable { showWalkers = !showWalkers }
+                    .background(if (state.showWalkers) Color(0xCC0B2038) else Color(0xCC14648C))
+                    .clickable { viewModel.toggleWalkers() }
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Text(
-                    if (showWalkers) "隐藏小人" else "显示小人",
+                    if (state.showWalkers) "隐藏小人" else "显示小人",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp

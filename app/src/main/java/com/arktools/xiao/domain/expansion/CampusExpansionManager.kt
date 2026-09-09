@@ -208,6 +208,24 @@ class CampusExpansionManager @Inject constructor() {
         return acceptedAmount
     }
 
+    /** 取消在建工程：返还已投入资金的 50%，移除该区片。已竣工不可取消。 */
+    fun cancelConstruction(zoneId: String): Double {
+        var refund = 0.0
+        _state.update { state ->
+            val zone = state.zones.find { it.id == zoneId }
+            if (zone == null || zone.isCompleted) {
+                state
+            } else {
+                refund = zone.totalInvested * 0.5
+                state.copy(
+                    zones = state.zones.filter { it.id != zoneId },
+                    constructingZones = (state.constructingZones - 1).coerceAtLeast(0)
+                )
+            }
+        }
+        return refund
+    }
+
     /**
      * 升级校区等级
      * @return 升级费用（万元），0表示已满级

@@ -248,6 +248,13 @@ class DistrictViewModel @Inject constructor(
         }
     }
 
+    fun cancelConstruction(zoneId: String) {
+        viewModelScope.safeLaunch {
+            val result = gameEngine.cancelCampusZoneConstruction(zoneId)
+            _upgradeMessage.value = result.message
+        }
+    }
+
     fun repairZone(zoneId: String) {
         viewModelScope.safeLaunch {
             val result = gameEngine.repairCampusZone(zoneId)
