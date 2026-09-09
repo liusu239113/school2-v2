@@ -1741,7 +1741,7 @@ class CampusViewModel @Inject constructor(
                 (oldRect.x1 - oldRect.x0) * (oldRect.y1 - oldRect.y0)
             val landText = if (newCells > 0) " 新开用地 +$newCells 格（金色高亮区域）" else ""
             _state.value = _state.value.copy(
-                message = "校园升级成功！当前 Lv.$newLevel（赠送1间教室）$landText$unlockText"
+                message = "校园升级成功！当前 Lv.$newLevel（自动增加1间教室的教学班槽）$landText$unlockText"
             )
         }
     }

@@ -141,7 +141,7 @@ class DistrictViewModel @Inject constructor(
                 ""
             }
             audioManager.playLevelUp()
-            _upgradeMessage.value = "校园升级成功！当前 Lv.$newLevel（赠送1间教室）$unlockText"
+            _upgradeMessage.value = "校园升级成功！当前 Lv.$newLevel（自动增加1间教室的教学班槽）$unlockText"
         }
     }
 

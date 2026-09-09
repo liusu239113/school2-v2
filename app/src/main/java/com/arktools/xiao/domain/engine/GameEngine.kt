@@ -2830,11 +2830,11 @@ class GameEngine @Inject constructor(
                         )
                     },
                 universityDistribution = cohort
-                    .filter { it.universityTier != null && it.universityTier != UniversityTier.NONE }
+                    .filter { it.universityTier != null && it.universityTier!!.ordinal <= UniversityTier.FIRST_TIER.ordinal }
                     .groupingBy { it.universityTier!!.displayName }
                     .eachCount(),
                 directEmploymentCount = cohort.count {
-                    it.universityTier == null || it.universityTier == UniversityTier.NONE
+                    it.universityTier == null || it.universityTier!!.ordinal > UniversityTier.FIRST_TIER.ordinal
                 }
             )
             // 历史学生已在旧版本完成结算，只补总结展示，不能重复发放毕业奖励。
@@ -3527,6 +3527,20 @@ class GameEngine @Inject constructor(
         }
 
         schoolRepository.advanceDay()
+
+        // 设施施工每日推进（原仅在校园页 tickConstruction 递减，切到其他页会卡住施工进度）
+        runCatching {
+            schoolRepository.mutateSchool { school ->
+                school.facilities.forEach { f ->
+                    if (f.constructionDaysLeft > 0) {
+                        f.constructionDaysLeft = (f.constructionDaysLeft - 1).coerceAtLeast(0)
+                    }
+                }
+                true
+            }
+        }.onFailure {
+            android.util.Log.w("GameEngine", "Facility construction daily advance failed", it)
+        }
 
         // 学院施工由引擎每日推进，竣工前不进入 founded，因此不提供招生、科研和就业加成。
         // 剩余天数按截止日（游戏日序号）重算，对中途状态回滚免疫。
@@ -8236,11 +8250,11 @@ class GameEngine @Inject constructor(
                         }
                     // 深造去向只统计读研毕业生；未深造的计入「直接就业」
                     val tierDistribution = graduationCohort
-                        .filter { it.universityTier != null && it.universityTier != UniversityTier.NONE }
+                        .filter { it.universityTier != null && it.universityTier!!.ordinal <= UniversityTier.FIRST_TIER.ordinal }
                         .groupingBy { it.universityTier!!.displayName }
                         .eachCount()
                     val directEmployment = graduationCohort.count {
-                        it.universityTier == null || it.universityTier == UniversityTier.NONE
+                        it.universityTier == null || it.universityTier!!.ordinal > UniversityTier.FIRST_TIER.ordinal
                     }
                     alumniNetwork.recordGraduationBatch(
                         year = graduationYear,

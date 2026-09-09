@@ -374,10 +374,11 @@ class EmploymentMarket @Inject constructor() {
         satisfaction: Float,
         courseId: String = ""
     ): Boolean {
-        val status = if (universityTier == UniversityTier.NONE) {
-            GraduateStatus.NOT_ADMITTED
-        } else {
+        // 读研（清北/985/211/一本）→ 读研深造中；直接就业（二本/专科/未上线）→ 未升学就业
+        val status = if (universityTier.ordinal <= UniversityTier.FIRST_TIER.ordinal) {
             GraduateStatus.IN_UNIVERSITY
+        } else {
+            GraduateStatus.NOT_ADMITTED
         }
 
         val graduate = GraduateRecord(

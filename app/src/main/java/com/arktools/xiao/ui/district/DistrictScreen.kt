@@ -720,7 +720,7 @@ private fun DistrictCard(
                 } else {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "已解锁 · 暂无学生",
+                        text = "已解锁 · 尚未招生（9月招生季按学校声誉通过本学区招生）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
