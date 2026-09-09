@@ -23,20 +23,21 @@ enum class CampusZoneType(
     val baseCapacity: Int,
     val baseCostWan: Double,   // 单位：万元，与全系统统一（v2.9: 大幅提高建造费用）
     val buildMonths: Int,
-    val description: String
+    val description: String,
+    val reputationReward: Long = 0L   // 竣工时的一次性声誉
 ) {
     // 区片开发是宏观土地承载：决定全校招生总容量上限；
     // 具体的床位、餐位、班槽等服务容量由校园地图上的单体建筑提供。
-    TEACHING_BUILDING("教学区开发", "🏫", 200, 200.0, 6, "成片开发教学承载区，扩大全校招生总容量"),
-    LABORATORY("科研实验区", "🔬", 80, 350.0, 8, "规划科研实验承载区，扩大全校招生总容量"),
-    DORMITORY("生活区开发", "🏠", 300, 150.0, 5, "成片开发生活承载区，扩大全校招生总容量"),
-    LIBRARY("文献信息区", "📚", 150, 280.0, 7, "规划文献信息承载区，扩大全校招生总容量"),
-    SPORTS_CENTER("体育运动区", "🏟️", 500, 500.0, 10, "成片开发体育承载区，扩大全校招生总容量"),
-    CAFETERIA("餐饮服务区", "🍽️", 400, 120.0, 4, "规划餐饮服务承载区，扩大全校招生总容量"),
-    ARTS_CENTER("艺术展演区", "🎭", 120, 300.0, 7, "规划艺术展演承载区，扩大全校招生总容量"),
-    RESEARCH_CENTER("重点科研基地", "🧪", 60, 600.0, 12, "高端科研基地，显著扩大全校招生总容量"),
-    ADMIN_BUILDING("行政服务区", "🏢", 50, 100.0, 4, "行政办公与接待承载区"),
-    GARDEN("生态景观区", "🌳", 0, 80.0, 3, "美化校园环境，提升满意度")
+    TEACHING_BUILDING("教学区开发", "🏫", 200, 200.0, 6, "成片开发教学承载区，扩大全校招生总容量", 50L),
+    LABORATORY("科研实验区", "🔬", 80, 350.0, 8, "规划科研实验承载区，扩大全校招生总容量", 80L),
+    DORMITORY("生活区开发", "🏠", 300, 150.0, 5, "成片开发生活承载区，扩大全校招生总容量", 40L),
+    LIBRARY("文献信息区", "📚", 150, 280.0, 7, "规划文献信息承载区，扩大全校招生总容量", 60L),
+    SPORTS_CENTER("体育运动区", "🏟️", 500, 500.0, 10, "成片开发体育承载区，扩大全校招生总容量", 70L),
+    CAFETERIA("餐饮服务区", "🍽️", 400, 120.0, 4, "规划餐饮服务承载区，扩大全校招生总容量", 40L),
+    ARTS_CENTER("艺术展演区", "🎭", 120, 300.0, 7, "规划艺术展演承载区，扩大全校招生总容量", 80L),
+    RESEARCH_CENTER("重点科研基地", "🧪", 60, 600.0, 12, "高端科研基地，显著扩大全校招生总容量", 150L),
+    ADMIN_BUILDING("行政服务区", "🏢", 50, 100.0, 4, "行政办公与接待承载区", 60L),
+    GARDEN("生态景观区", "🌳", 0, 80.0, 3, "美化校园环境，提升满意度", 30L)
 }
 
 enum class ConstructionPhase(val displayName: String, val progressPercent: Float) {
@@ -112,7 +113,8 @@ data class ExpansionMonthlyResult(
     val newCompletions: List<CampusZone> = emptyList(),
     val phaseAdvances: List<Pair<String, ConstructionPhase>> = emptyList(),
     val events: List<ExpansionEvent> = emptyList(),
-    val capacityGain: Int = 0
+    val capacityGain: Int = 0,
+    val reputationGain: Long = 0L
 )
 
 data class CampusExpansionSnapshot(
@@ -258,6 +260,7 @@ class CampusExpansionManager @Inject constructor() {
         val events = mutableListOf<ExpansionEvent>()
         var maintenanceCost = 0.0
         var capacityGain = 0
+        var reputationGain = 0L
 
         _state.update { state ->
             val zones = state.zones.map { zone ->
@@ -310,6 +313,7 @@ class CampusExpansionManager @Inject constructor() {
                     val updatedZone = if (newPhase == ConstructionPhase.COMPLETED) {
                         val capacity = zone.expectedCapacity
                         capacityGain += capacity
+                        reputationGain += zone.type.reputationReward
                         completions.add(zone.copy(
                             phase = newPhase,
                             progress = 100f,
@@ -319,7 +323,8 @@ class CampusExpansionManager @Inject constructor() {
                         ))
                         events.add(ExpansionEvent(
                             title = "${zone.name}竣工",
-                            message = "${zone.name}建设完成！新增容纳量${capacity}人",
+                            message = "${zone.name}建设完成！新增容纳量${capacity}人" +
+                                (if (zone.type.reputationReward > 0) "，声誉+${zone.type.reputationReward}" else ""),
                             year = currentYear,
                             month = currentMonth,
                             isPositive = true
@@ -365,7 +370,8 @@ class CampusExpansionManager @Inject constructor() {
             newCompletions = completions,
             phaseAdvances = phaseAdvances,
             events = events,
-            capacityGain = capacityGain
+            capacityGain = capacityGain,
+            reputationGain = reputationGain
         )
     }
 

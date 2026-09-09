@@ -4454,6 +4454,9 @@ class GameEngine @Inject constructor(
                     latest.cash = (
                         latest.cash - expansionResult.maintenanceCost
                     ).coerceAtLeast(-100.0)
+                    if (expansionResult.reputationGain > 0) {
+                        latest.reputation += (expansionResult.reputationGain / 2)
+                    }
                     committedExpansionResult = expansionResult
                     ManagedOperationResult(
                         true,
@@ -7649,8 +7652,11 @@ class GameEngine @Inject constructor(
                 welfareBackground != null && Random.nextFloat() < 0.55f
             ) welfareBackground else BackgroundTier.randomByProbability()
             val initialAttributes = StudentAttributes.generateForNewStudent(background)
-            // 生源质量：招生政策定位 × 办学层次（专科生源基础较弱、本科标准）
-            val combinedQuality = qualityFactor * school.schoolTier().studentQualityFactor
+            // 生源质量：招生政策定位 × 办学层次 × 学区加成（越高端的学区越能吸引优质生源）
+            val districtQualityBonus = com.arktools.xiao.domain.model.DistrictType.entries
+                .filter { GameBalanceConfig.isDistrictUnlocked(it, school.campusLevel, school.reputation) }
+                .maxOfOrNull { it.studentQualityBonus } ?: 0f
+            val combinedQuality = qualityFactor * school.schoolTier().studentQualityFactor * (1f + districtQualityBonus)
             val qualityAttributes = initialAttributes.applyDelta(
                 dIntelligence = (combinedQuality - 1f) * 20f,
                 dPhysical = (combinedQuality - 1f) * 10f,

@@ -275,14 +275,15 @@ enum class CourseType(val displayName: String, val baseCostMultiplier: Double) {
 enum class DistrictType(
     val displayName: String, val commissionRate: Double, val baseExposure: Double,
     val reputationThreshold: Long, val maxConcurrentCourses: Int,
-    val requiredSchoolLevel: Int, val description: String
+    val requiredSchoolLevel: Int, val description: String,
+    val studentQualityBonus: Float = 0f
 ) {
-    LOCAL("本地学区", 0.10, 1.0, 0L, 3, 1, "本地"),
-    CROSS_DISTRICT("跨区学区", 0.15, 1.8, 500L, 4, 3, "跨区"),
-    ONLINE_PLATFORM("线上平台", 0.25, 2.5, 1200L, 5, 4, "线上"),
-    INTERNATIONAL("国际学区", 0.20, 3.5, 5000L, 4, 5, "国际"),
-    ELITE_ALLIANCE("精英联盟", 0.18, 5.0, 15000L, 6, 6, "顶尖名校合作联盟"),
-    GLOBAL_NETWORK("全球教育网", 0.22, 8.0, 50000L, 8, 6, "全球化教育协作网络")
+    LOCAL("本地学区", 0.10, 1.0, 0L, 3, 1, "本地", 0f),
+    CROSS_DISTRICT("跨区学区", 0.15, 1.8, 500L, 4, 3, "跨区", 0.04f),
+    ONLINE_PLATFORM("线上平台", 0.25, 2.5, 1200L, 5, 4, "线上", 0.07f),
+    INTERNATIONAL("国际学区", 0.20, 3.5, 5000L, 4, 5, "国际", 0.10f),
+    ELITE_ALLIANCE("精英联盟", 0.18, 5.0, 15000L, 6, 6, "顶尖名校合作联盟", 0.15f),
+    GLOBAL_NETWORK("全球教育网", 0.22, 8.0, 50000L, 8, 6, "全球化教育协作网络", 0.20f)
 }
 
 /** @deprecated 兼容旧代码 */

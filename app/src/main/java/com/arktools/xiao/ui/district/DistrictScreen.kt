@@ -789,6 +789,7 @@ private fun DistrictCard(
                 Text("基础曝光: ×${district.baseExposure}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                 Text("基础抽成: ${(district.commissionRate * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                 Text("基础并发: ${district.maxConcurrentCourses}门", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                Text("生源质量: +${(district.studentQualityBonus * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = if (district.studentQualityBonus > 0f) AccentGreen else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
             }
         }
     }
