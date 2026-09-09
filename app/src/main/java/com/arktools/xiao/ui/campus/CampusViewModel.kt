@@ -1728,6 +1728,25 @@ class CampusViewModel @Inject constructor(
                 return@safeLaunch
             }
             schoolRepository.upgradeCampus()
+            // 赠送的教室真正放到地图上（否则只有容量、看不到建筑）
+            val upgradedSchool = schoolRepository.getSchool()
+            val stNow = _state.value
+            val placedFacilityIds = stNow.placed.mapNotNull { it.facilityId }.toSet()
+            val gifted = upgradedSchool?.facilities?.firstOrNull {
+                it.type == com.arktools.xiao.domain.model.FacilityType.CLASSROOM &&
+                    it.id !in placedFacilityIds
+            }
+            val giftSpec = BT.specByKey("F_CLASSROOM")
+            if (gifted != null && giftSpec != null) {
+                val spot = firstFree(giftSpec, stNow.placed, stNow.terrain + stNow.decor, stNow.campusLevel)
+                if (spot != null) {
+                    val newPlaced = stNow.placed + BT.PlacedBuilding(
+                        giftSpec.key, spot.first, spot.second, 1, gifted.id, 0
+                    )
+                    persistLayout(newPlaced, stNow.terrain, stNow.decor)
+                    _state.value = _state.value.copy(placed = newPlaced)
+                }
+            }
             gameEngine.notifyFactionDecision(SchoolDecision.EXPAND_CAMPUS)
             audioManager.playLevelUp()
             val newLevel = schoolRepository.getSchool()?.campusLevel ?: school.campusLevel
@@ -1741,7 +1760,7 @@ class CampusViewModel @Inject constructor(
                 (oldRect.x1 - oldRect.x0) * (oldRect.y1 - oldRect.y0)
             val landText = if (newCells > 0) " 新开用地 +$newCells 格（金色高亮区域）" else ""
             _state.value = _state.value.copy(
-                message = "校园升级成功！当前 Lv.$newLevel（自动增加1间教室的教学班槽）$landText$unlockText"
+                message = "校园升级成功！当前 Lv.$newLevel（赠送1间教室，已在地图落成）$landText$unlockText"
             )
         }
     }
