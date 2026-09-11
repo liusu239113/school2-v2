@@ -64,6 +64,18 @@ class StudentRepositoryImpl @Inject constructor(
         return studentDao.getGraduatedStudents(schoolId).map { it.toDomain() }
     }
 
+    override suspend fun getGraduatedStudentsByYear(year: Int): List<Student> {
+        val schoolId = settingsDataStore.getSchoolId()
+        if (schoolId.isBlank() || year <= 0) return emptyList()
+        return studentDao.getGraduatedStudentsByYear(schoolId, year).map { it.toDomain() }
+    }
+
+    override suspend fun getGraduatedStudentsMissingYear(): List<Student> {
+        val schoolId = settingsDataStore.getSchoolId()
+        if (schoolId.isBlank()) return emptyList()
+        return studentDao.getGraduatedStudentsMissingYear(schoolId).map { it.toDomain() }
+    }
+
     override suspend fun getActiveStudentCount(): Int {
         val schoolId = settingsDataStore.getSchoolId()
         return studentDao.getActiveStudentCount(schoolId)

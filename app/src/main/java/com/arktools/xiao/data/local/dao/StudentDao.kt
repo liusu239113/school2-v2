@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import com.arktools.xiao.data.local.entity.StudentEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -39,6 +40,18 @@ interface StudentDao {
 
     @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'GRADUATED'")
     suspend fun getGraduatedStudents(schoolId: String): List<StudentEntity>
+
+    @Query(
+        "SELECT * FROM students WHERE schoolId = :schoolId " +
+            "AND status = 'GRADUATED' AND graduateYear = :year"
+    )
+    suspend fun getGraduatedStudentsByYear(schoolId: String, year: Int): List<StudentEntity>
+
+    @Query(
+        "SELECT * FROM students WHERE schoolId = :schoolId " +
+            "AND status = 'GRADUATED' AND graduateYear IS NULL"
+    )
+    suspend fun getGraduatedStudentsMissingYear(schoolId: String): List<StudentEntity>
 
     @Query(
         "SELECT * FROM students WHERE schoolId = :schoolId " +
@@ -126,6 +139,9 @@ interface StudentDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertStudent(student: StudentEntity)
 
+    @Update
+    suspend fun updateStudents(students: List<StudentEntity>)
+
     @Query(
         "UPDATE students SET status = :status, " +
             "intelligence = :intelligence, physical = :physical, " +
@@ -171,37 +187,12 @@ interface StudentDao {
         schoolId: String,
         students: List<StudentEntity>
     ): Set<String> {
-        val updatedIds = mutableSetOf<String>()
-        for (student in students) {
-            if (
-                student.schoolId == schoolId &&
-                applyDailyProgress(
-                    schoolId = schoolId,
-                    studentId = student.id,
-                    status = student.status,
-                    intelligence = student.intelligence,
-                    physical = student.physical,
-                    social = student.social,
-                    creativity = student.creativity,
-                    morality = student.morality,
-                    healthStatus = student.healthStatus,
-                    mealQuality = student.mealQuality,
-                    dormSatisfaction = student.dormSatisfaction,
-                    exerciseLevel = student.exerciseLevel,
-                    consecutiveSickDays = student.consecutiveSickDays,
-                    semesterMastery = student.semesterMastery,
-                    satisfaction = student.satisfaction,
-                    graduateYear = student.graduateYear,
-                    graduateMonth = student.graduateMonth,
-                    reviewRating = student.reviewRating,
-                    reviewComment = student.reviewComment,
-                    reviewReputationImpact = student.reviewReputationImpact
-                ) == 1
-            ) {
-                updatedIds.add(student.id)
-            }
+        val owned = students.filter { it.schoolId == schoolId }
+        if (owned.isEmpty()) return emptySet()
+        owned.chunked(400).forEach { chunk ->
+            updateStudents(chunk)
         }
-        return updatedIds
+        return owned.mapTo(mutableSetOf()) { it.id }
     }
 
     @Query(

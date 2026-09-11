@@ -179,6 +179,64 @@ class AlumniNetwork @Inject constructor() {
     }
 
     /**
+     * 6 月应届批量登记：整届只截断一次、只重算一次统计。
+     */
+    fun registerGraduates(students: List<Student>): Int {
+        if (students.isEmpty()) return 0
+        val existingIds = _alumni.value.mapTo(mutableSetOf()) { it.id }
+        val newcomers = students.filter { it.id !in existingIds }.map { student ->
+            val career = assignCareerBasedOnStudent(student)
+            val successPotential = calculateSuccessPotential(student)
+            val initialCareerLevel = when (student.universityTier) {
+                UniversityTier.QINGBEI -> CareerLevel.MIDDLE
+                UniversityTier.TOP_985 -> CareerLevel.JUNIOR
+                UniversityTier.NORMAL_985, UniversityTier.TOP_211 -> CareerLevel.JUNIOR
+                else -> CareerLevel.ENTRY
+            }
+            val tierDonationBonus = when (student.universityTier) {
+                UniversityTier.QINGBEI -> 0.2f
+                UniversityTier.TOP_985 -> 0.1f
+                UniversityTier.NORMAL_985, UniversityTier.TOP_211 -> 0.05f
+                else -> 0f
+            }
+            Alumnus(
+                id = student.id,
+                name = student.name,
+                graduationRating = (student.review?.rating?.toFloat()) ?: 3f,
+                career = career,
+                careerLevel = initialCareerLevel,
+                successPotential = successPotential,
+                satisfaction = student.satisfaction,
+                donationWillingness = (calculateDonationWillingness(student) + tierDonationBonus).coerceAtMost(1.0f),
+                monthsSinceGraduation = 0,
+                universityTier = student.universityTier
+            )
+        }
+        if (newcomers.isEmpty()) return 0
+
+        _alumni.update { current ->
+            val updated = current + newcomers
+            if (updated.size > MAX_TRACKED_ALUMNI) {
+                updated.sortedByDescending {
+                    it.careerLevel.ordinal * 100 + (MAX_TRACKED_ALUMNI - it.monthsSinceGraduation)
+                }.take(MAX_TRACKED_ALUMNI)
+            } else {
+                updated
+            }
+        }
+        _industryConnections.update { connections ->
+            val next = connections.toMutableMap()
+            newcomers.forEach { alumnus ->
+                next[alumnus.career] = (next[alumnus.career] ?: 0) + 1
+            }
+            next
+        }
+        updateStats()
+        checkNetworkLevelUp(1)
+        return newcomers.size
+    }
+
+    /**
      * 记录一届毕业生总结（由 conductGaoKao 调用）
      */
     fun recordGraduationBatch(

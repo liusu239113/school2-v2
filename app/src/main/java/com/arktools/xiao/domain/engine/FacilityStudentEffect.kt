@@ -33,199 +33,198 @@ object FacilityStudentEffect {
      * @return 修改后的学生 (copy)
      */
     fun applyDailyEffects(student: Student, facilities: List<Facility>): Student {
-        if (facilities.isEmpty()) return student
+        return applyDailyEffects(student, compileCampusEffects(facilities))
+    }
 
+    /**
+     * 先把全校楼况压成一次校园效果，再作用到每个学生。
+     * 避免后期几千学生 × 几十栋楼的双重循环把 6 月 tick 卡死。
+     */
+    fun compileCampusEffects(facilities: List<Facility>): CampusEffects {
+        val operational = facilities.filter { it.isOperational }
+        if (operational.isEmpty()) return CampusEffects.EMPTY
+
+        var dIntelligence = 0f
+        var dPhysical = 0f
+        var dSocial = 0f
+        var dCreativity = 0f
+        var dMorality = 0f
+        var mealGain = 0f
+        var dormGain = 0f
+        var exerciseGain = 0f
+        var canteenSickChance = 0f
+        var sportsFatigueHeal = 0f
+        var dormFatigueHeal = 0f
+        var dormSickHeal = 0f
+        var clinicSickHeal = 0f
+        var counselingFatigueHeal = 0f
+        val types = mutableSetOf<FacilityType>()
+        val typeIndex = mutableMapOf<FacilityType, Int>()
+
+        operational.sortedByDescending { it.level }.forEach { facility ->
+            types += facility.type
+            val index = typeIndex[facility.type] ?: 0
+            typeIndex[facility.type] = index + 1
+            val power = facility.level * BASE_POWER_PER_LEVEL
+            val conditionFactor = facility.condition / 100f
+            val effectivePower = power * conditionFactor * FacilityCapacity.diminishing(index)
+            when (facility.type) {
+                FacilityType.CONFERENCE_CENTER -> {
+                    dSocial += effectivePower * 0.10f
+                    dMorality += effectivePower * 0.05f
+                }
+                FacilityType.EMPLOYMENT_CENTER -> {
+                    dSocial += effectivePower * 0.12f
+                }
+                FacilityType.INCUBATOR -> {
+                    dSocial += effectivePower * 0.08f
+                    dMorality += effectivePower * 0.04f
+                }
+                FacilityType.INTERNATIONAL_CENTER -> {
+                    dSocial += effectivePower * 0.08f
+                    dCreativity += effectivePower * 0.06f
+                }
+                FacilityType.LOGISTICS_CENTER -> Unit
+                FacilityType.CANTEEN -> {
+                    mealGain += effectivePower * CANTEEN_MEAL_QUALITY_GAIN
+                    dPhysical += effectivePower * CANTEEN_PHYSICAL_GAIN
+                    dSocial += effectivePower * CANTEEN_SOCIAL_GAIN
+                    if (facility.condition < 40f) {
+                        canteenSickChance += CANTEEN_SICK_PROBABILITY
+                    }
+                }
+                FacilityType.SPORTS_FIELD -> {
+                    exerciseGain += effectivePower * SPORTS_EXERCISE_GAIN
+                    dPhysical += effectivePower * SPORTS_PHYSICAL_GAIN
+                    sportsFatigueHeal += effectivePower * 0.1f
+                }
+                FacilityType.DORMITORY -> {
+                    dormGain += effectivePower * DORM_SATISFACTION_GAIN
+                    dPhysical += effectivePower * DORM_PHYSICAL_GAIN
+                    dormFatigueHeal += effectivePower * 0.15f
+                    if (facility.level >= 2) {
+                        dormSickHeal += effectivePower * 0.05f
+                    }
+                }
+                FacilityType.LIBRARY -> {
+                    dIntelligence += effectivePower * LIBRARY_INTELLIGENCE_GAIN
+                    dMorality += effectivePower * LIBRARY_MORALITY_GAIN
+                }
+                FacilityType.ART_STUDIO -> {
+                    dCreativity += effectivePower * ART_CREATIVITY_GAIN
+                }
+                FacilityType.MULTIMEDIA_ROOM -> {
+                    dIntelligence += effectivePower * MULTIMEDIA_INTELLIGENCE_GAIN
+                }
+                FacilityType.LABORATORY -> {
+                    dIntelligence += effectivePower * LAB_INTELLIGENCE_GAIN
+                    dCreativity += effectivePower * LAB_CREATIVITY_GAIN
+                }
+                FacilityType.COMPUTER_LAB -> {
+                    dIntelligence += effectivePower * COMPUTER_INTELLIGENCE_GAIN
+                    dCreativity += effectivePower * COMPUTER_CREATIVITY_GAIN
+                }
+                FacilityType.GARDEN -> {
+                    dSocial += effectivePower * GARDEN_SOCIAL_GAIN
+                    dMorality += effectivePower * GARDEN_MORALITY_GAIN
+                }
+                FacilityType.AUDITORIUM -> {
+                    dSocial += effectivePower * AUDITORIUM_SOCIAL_GAIN
+                    dCreativity += effectivePower * AUDITORIUM_CREATIVITY_GAIN
+                }
+                FacilityType.CLASSROOM -> {
+                    dIntelligence += effectivePower * CLASSROOM_INTELLIGENCE_GAIN
+                }
+                FacilityType.GATE -> {
+                    dMorality += effectivePower * GATE_MORALITY_GAIN
+                }
+                FacilityType.CLINIC -> {
+                    clinicSickHeal += effectivePower * 0.18f
+                    dPhysical += effectivePower * 0.08f
+                }
+                FacilityType.COUNSELING -> {
+                    counselingFatigueHeal += effectivePower * 0.12f
+                    dMorality += effectivePower * 0.08f
+                    dSocial += effectivePower * 0.04f
+                }
+            }
+        }
+
+        if (FacilityType.SPORTS_FIELD \!in types) {
+            dPhysical -= NATURAL_PHYSICAL_DECAY
+        }
+        if (FacilityType.GARDEN \!in types && FacilityType.AUDITORIUM \!in types) {
+            dSocial -= NATURAL_SOCIAL_DECAY
+        }
+
+        return CampusEffects(
+            dIntelligence = dIntelligence,
+            dPhysical = dPhysical,
+            dSocial = dSocial,
+            dCreativity = dCreativity,
+            dMorality = dMorality,
+            mealGain = mealGain,
+            dormGain = dormGain,
+            exerciseGain = exerciseGain,
+            canteenSickChance = canteenSickChance.coerceAtMost(0.08f),
+            sportsFatigueHeal = sportsFatigueHeal.coerceAtMost(0.6f),
+            dormFatigueHeal = dormFatigueHeal.coerceAtMost(0.6f),
+            dormSickHeal = dormSickHeal.coerceAtMost(0.4f),
+            clinicSickHeal = clinicSickHeal.coerceAtMost(0.6f),
+            counselingFatigueHeal = counselingFatigueHeal.coerceAtMost(0.5f)
+        )
+    }
+
+    fun applyDailyEffects(student: Student, campus: CampusEffects): Student {
         var attrs = student.attributes
         var health = student.healthStatus
         var mealQ = student.mealQuality
         var dormSat = student.dormSatisfaction
         var exercise = student.exerciseLevel
         var sickDays = student.consecutiveSickDays
-
-        // 计算特质修正系数
         val traitMods = calculateTraitModifiers(student.traits)
 
-        val operational = facilities.filter { it.isOperational }
-        val typeIndex = mutableMapOf<FacilityType, Int>()
-        operational.sortedByDescending { it.level }.forEach { facility ->
-            val index = typeIndex[facility.type] ?: 0
-            typeIndex[facility.type] = index + 1
-            val power = facility.level * BASE_POWER_PER_LEVEL
-            val conditionFactor = facility.condition / 100f  // 设施状态折损
+        mealQ = (mealQ + campus.mealGain).coerceAtMost(100f)
+        dormSat = (dormSat + campus.dormGain).coerceAtMost(100f)
+        exercise = (exercise + campus.exerciseGain).coerceAtMost(100f)
+        attrs = attrs.applyDelta(
+            dIntelligence = campus.dIntelligence * traitMods.intelligenceMod,
+            dPhysical = campus.dPhysical * traitMods.physicalMod,
+            dSocial = campus.dSocial * traitMods.socialMod,
+            dCreativity = campus.dCreativity * traitMods.creativityMod,
+            dMorality = campus.dMorality * traitMods.moralityMod
+        )
 
-            val effectivePower = power * conditionFactor * FacilityCapacity.diminishing(index)
-
-            when (facility.type) {
-                FacilityType.CONFERENCE_CENTER -> {
-                    // 会议中心: 学术讲座与志愿接待 → 社交/品德小幅成长
-                    attrs = attrs.applyDelta(
-                        dSocial = effectivePower * 0.10f * traitMods.socialMod,
-                        dMorality = effectivePower * 0.05f * traitMods.moralityMod
-                    )
-                }
-                FacilityType.EMPLOYMENT_CENTER -> {
-                    // 就业指导中心: 职业规划辅导 → 社交成长
-                    attrs = attrs.applyDelta(
-                        dSocial = effectivePower * 0.12f * traitMods.socialMod
-                    )
-                }
-                FacilityType.INCUBATOR -> {
-                    // 校企合作中心: 创业实践与实习项目 → 社交/品德成长
-                    attrs = attrs.applyDelta(
-                        dSocial = effectivePower * 0.08f * traitMods.socialMod,
-                        dMorality = effectivePower * 0.04f * traitMods.moralityMod
-                    )
-                }
-                FacilityType.INTERNATIONAL_CENTER -> {
-                    // 国际交流中心: 跨文化活动与语言角 → 社交/创造力成长
-                    attrs = attrs.applyDelta(
-                        dSocial = effectivePower * 0.08f * traitMods.socialMod,
-                        dCreativity = effectivePower * 0.06f * traitMods.creativityMod
-                    )
-                }
-                FacilityType.LOGISTICS_CENTER -> {
-                    // 后勤保障中心: 面向运营而非学生个体，无直接成长效果
-                }
-                FacilityType.CANTEEN -> {
-                    // 食堂: 体力恢复 + 社交（吃饭聊天） + 饮食质量
-                    mealQ = (mealQ + effectivePower * CANTEEN_MEAL_QUALITY_GAIN).coerceAtMost(100f)
-                    attrs = attrs.applyDelta(
-                        dPhysical = effectivePower * CANTEEN_PHYSICAL_GAIN * traitMods.physicalMod,
-                        dSocial = effectivePower * CANTEEN_SOCIAL_GAIN * traitMods.socialMod
-                    )
-                    // 食堂差(condition<40) → 学生可能生病
-                    if (facility.condition < 40f && Random.nextFloat() < CANTEEN_SICK_PROBABILITY) {
-                        if (health == HealthStatus.HEALTHY) {
-                            health = HealthStatus.SICK
-                            sickDays = 0
-                        }
-                    }
-                }
-
-                FacilityType.SPORTS_FIELD -> {
-                    // 运动场: 体力大幅提升 + 运动量
-                    exercise = (exercise + effectivePower * SPORTS_EXERCISE_GAIN).coerceAtMost(100f)
-                    attrs = attrs.applyDelta(
-                        dPhysical = effectivePower * SPORTS_PHYSICAL_GAIN * traitMods.physicalMod
-                    )
-                    // 运动可以帮助从疲劳恢复
-                    if (health == HealthStatus.FATIGUED && Random.nextFloat() < effectivePower * 0.1f) {
-                        health = HealthStatus.HEALTHY
-                    }
-                }
-
-                FacilityType.DORMITORY -> {
-                    // 宿舍: 住宿满意度 + 体力恢复 + 疲劳恢复
-                    dormSat = (dormSat + effectivePower * DORM_SATISFACTION_GAIN).coerceAtMost(100f)
-                    attrs = attrs.applyDelta(
-                        dPhysical = effectivePower * DORM_PHYSICAL_GAIN * traitMods.physicalMod
-                    )
-                    // 好宿舍加速生病/疲劳恢复
-                    if (health == HealthStatus.FATIGUED && Random.nextFloat() < effectivePower * 0.15f) {
-                        health = HealthStatus.HEALTHY
-                    }
-                    if (health == HealthStatus.SICK && facility.level >= 2 && Random.nextFloat() < effectivePower * 0.05f) {
-                        health = HealthStatus.HEALTHY
-                        sickDays = 0
-                    }
-                }
-
-                FacilityType.LIBRARY -> {
-                    // 图书馆: 智力 + 品德
-                    attrs = attrs.applyDelta(
-                        dIntelligence = effectivePower * LIBRARY_INTELLIGENCE_GAIN * traitMods.intelligenceMod,
-                        dMorality = effectivePower * LIBRARY_MORALITY_GAIN * traitMods.moralityMod
-                    )
-                }
-
-                FacilityType.ART_STUDIO -> {
-                    // 艺术工作室: 创造力大幅提升
-                    attrs = attrs.applyDelta(
-                        dCreativity = effectivePower * ART_CREATIVITY_GAIN * traitMods.creativityMod
-                    )
-                }
-
-                FacilityType.MULTIMEDIA_ROOM -> {
-                    // 多媒体教室: 智力提升（辅助教学）
-                    attrs = attrs.applyDelta(
-                        dIntelligence = effectivePower * MULTIMEDIA_INTELLIGENCE_GAIN * traitMods.intelligenceMod
-                    )
-                }
-
-                FacilityType.LABORATORY -> {
-                    // 实验室: 智力 + 创造力（实验探索）
-                    attrs = attrs.applyDelta(
-                        dIntelligence = effectivePower * LAB_INTELLIGENCE_GAIN * traitMods.intelligenceMod,
-                        dCreativity = effectivePower * LAB_CREATIVITY_GAIN * traitMods.creativityMod
-                    )
-                }
-
-                FacilityType.COMPUTER_LAB -> {
-                    // 计算机房: 智力 + 创造力
-                    attrs = attrs.applyDelta(
-                        dIntelligence = effectivePower * COMPUTER_INTELLIGENCE_GAIN * traitMods.intelligenceMod,
-                        dCreativity = effectivePower * COMPUTER_CREATIVITY_GAIN * traitMods.creativityMod
-                    )
-                }
-
-                FacilityType.GARDEN -> {
-                    // 花园: 社交 + 品德（环境熏陶）
-                    attrs = attrs.applyDelta(
-                        dSocial = effectivePower * GARDEN_SOCIAL_GAIN * traitMods.socialMod,
-                        dMorality = effectivePower * GARDEN_MORALITY_GAIN * traitMods.moralityMod
-                    )
-                }
-
-                FacilityType.AUDITORIUM -> {
-                    // 大礼堂: 社交 + 创造力（活动/演出参与）
-                    attrs = attrs.applyDelta(
-                        dSocial = effectivePower * AUDITORIUM_SOCIAL_GAIN * traitMods.socialMod,
-                        dCreativity = effectivePower * AUDITORIUM_CREATIVITY_GAIN * traitMods.creativityMod
-                    )
-                }
-
-                FacilityType.CLASSROOM -> {
-                    // 教室: 基础智力维持（有教室才能上课）
-                    attrs = attrs.applyDelta(
-                        dIntelligence = effectivePower * CLASSROOM_INTELLIGENCE_GAIN * traitMods.intelligenceMod
-                    )
-                }
-
-                FacilityType.GATE -> {
-                    // 校门: 品德微量提升（仪式感）
-                    attrs = attrs.applyDelta(
-                        dMorality = effectivePower * GATE_MORALITY_GAIN * traitMods.moralityMod
-                    )
-                }
-
-                FacilityType.CLINIC -> {
-                    if (health == HealthStatus.SICK && Random.nextFloat() < effectivePower * 0.18f) {
-                        health = HealthStatus.HEALTHY
-                        sickDays = 0
-                    }
-                    attrs = attrs.applyDelta(
-                        dPhysical = effectivePower * 0.08f * traitMods.physicalMod
-                    )
-                }
-
-                FacilityType.COUNSELING -> {
-                    if (health == HealthStatus.FATIGUED && Random.nextFloat() < effectivePower * 0.12f) {
-                        health = HealthStatus.HEALTHY
-                    }
-                    attrs = attrs.applyDelta(
-                        dMorality = effectivePower * 0.08f * traitMods.moralityMod,
-                        dSocial = effectivePower * 0.04f * traitMods.socialMod
-                    )
-                }
+        if (health == HealthStatus.HEALTHY &&
+            campus.canteenSickChance > 0f &&
+            Random.nextFloat() < campus.canteenSickChance
+        ) {
+            health = HealthStatus.SICK
+            sickDays = 0
+        }
+        if (health == HealthStatus.FATIGUED) {
+            val fatigueHeal = campus.sportsFatigueHeal +
+                campus.dormFatigueHeal +
+                campus.counselingFatigueHeal
+            if (fatigueHeal > 0f && Random.nextFloat() < fatigueHeal) {
+                health = HealthStatus.HEALTHY
+            }
+        }
+        if (health == HealthStatus.SICK) {
+            val sickHeal = campus.clinicSickHeal + campus.dormSickHeal
+            if (sickHeal > 0f && Random.nextFloat() < sickHeal) {
+                health = HealthStatus.HEALTHY
+                sickDays = 0
             }
         }
 
-        // 自然衰减（没有对应设施的维度会缓慢下降）
-        attrs = applyNaturalDecay(attrs, facilities)
-
-        // 健康状态自然流转
-        val (newHealth, newSickDays) = updateHealthState(health, sickDays, attrs, mealQ, exercise)
-
+        val (newHealth, newSickDays) = updateHealthState(
+            health,
+            sickDays,
+            attrs,
+            mealQ,
+            exercise
+        )
         return student.copy(
             attributes = attrs,
             healthStatus = newHealth,
@@ -236,32 +235,28 @@ object FacilityStudentEffect {
         )
     }
 
-    /**
-     * 自然衰减: 缺少对应设施时维度缓慢下降
-     */
-    private fun applyNaturalDecay(attrs: StudentAttributes, facilities: List<Facility>): StudentAttributes {
-        val operational = facilities.filter { it.isOperational }.map { it.type }.toSet()
-
-        var dPhysical = 0f
-        var dSocial = 0f
-
-        // 没有运动场且没有体育课 → 体力每日微降
-        if (FacilityType.SPORTS_FIELD !in operational) {
-            dPhysical -= NATURAL_PHYSICAL_DECAY
-        }
-        // 极其孤立（无花园无大礼堂）→ 社交微降
-        if (FacilityType.GARDEN !in operational && FacilityType.AUDITORIUM !in operational) {
-            dSocial -= NATURAL_SOCIAL_DECAY
-        }
-
-        return if (dPhysical != 0f || dSocial != 0f) {
-            attrs.applyDelta(dPhysical = dPhysical, dSocial = dSocial)
-        } else {
-            attrs
+    data class CampusEffects(
+        val dIntelligence: Float = 0f,
+        val dPhysical: Float = 0f,
+        val dSocial: Float = 0f,
+        val dCreativity: Float = 0f,
+        val dMorality: Float = 0f,
+        val mealGain: Float = 0f,
+        val dormGain: Float = 0f,
+        val exerciseGain: Float = 0f,
+        val canteenSickChance: Float = 0f,
+        val sportsFatigueHeal: Float = 0f,
+        val dormFatigueHeal: Float = 0f,
+        val dormSickHeal: Float = 0f,
+        val clinicSickHeal: Float = 0f,
+        val counselingFatigueHeal: Float = 0f
+    ) {
+        companion object {
+            val EMPTY = CampusEffects()
         }
     }
 
-    /**
+        /**
      * 健康状态自然流转
      */
     private fun updateHealthState(

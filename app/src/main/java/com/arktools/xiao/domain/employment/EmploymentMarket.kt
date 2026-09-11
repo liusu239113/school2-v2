@@ -60,6 +60,18 @@ enum class SalaryTier(val displayName: String, val minSalary: Int, val maxSalary
     EXECUTIVE("高管", 40000, 80000)
 }
 
+data class StudentGraduationInput(
+    val studentId: String? = null,
+    val name: String,
+    val year: Int,
+    val month: Int,
+    val gaoKaoScore: Float,
+    val universityTier: UniversityTier,
+    val universityName: String?,
+    val satisfaction: Float,
+    val courseId: String = ""
+)
+
 data class GraduateRecord(
     val studentName: String,
     val graduateYear: Int,
@@ -424,6 +436,50 @@ class EmploymentMarket @Inject constructor() {
                     employers = generateEmployers(updatedGraduates)
                 )
                 if (_state.compareAndSet(state, updatedState)) return true
+            }
+        }
+    }
+
+    /**
+     * 6 月应届批量登记：整届只去重一次、只算一次统计和企业列表。
+     * 单人 registerGraduate 会在每个人身上重跑 calculateStats + generateEmployers，后期会把日期卡死。
+     */
+    fun registerGraduates(
+        students: List<StudentGraduationInput>
+    ): Int {
+        if (students.isEmpty()) return 0
+        val incoming = students.map { input ->
+            val status = if (input.universityTier.ordinal <= UniversityTier.FIRST_TIER.ordinal) {
+                GraduateStatus.IN_UNIVERSITY
+            } else {
+                GraduateStatus.NOT_ADMITTED
+            }
+            GraduateRecord(
+                studentId = input.studentId,
+                studentName = input.name,
+                graduateYear = input.year,
+                graduateMonth = input.month,
+                gaoKaoScore = input.gaoKaoScore,
+                universityTier = input.universityTier,
+                universityName = input.universityName,
+                satisfaction = input.satisfaction,
+                status = status,
+                feedbackScore = if (input.universityTier == UniversityTier.NONE) -2 else 0,
+                courseId = input.courseId
+            )
+        }
+        while (true) {
+            val state = _state.value
+            val merged = deduplicateGraduates(state.graduates + incoming)
+            if (merged == state.graduates) return 0
+            val added = merged.size - state.graduates.size
+            val updatedState = state.copy(
+                graduates = merged,
+                stats = calculateStats(merged),
+                employers = generateEmployers(merged)
+            )
+            if (_state.compareAndSet(state, updatedState)) {
+                return added.coerceAtLeast(0)
             }
         }
     }

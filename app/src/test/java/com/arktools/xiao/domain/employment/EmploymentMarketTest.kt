@@ -139,4 +139,27 @@ class EmploymentMarketTest {
         assertEquals(GraduateStatus.IN_UNIVERSITY, graduate.status)
         assertEquals(12, graduate.monthsInUniversity)
     }
+
+    @Test
+    fun registerGraduatesIsIdempotentAndCountsOnce() {
+        val market = EmploymentMarket()
+        val batch = (1..40).map { index ->
+            StudentGraduationInput(
+                studentId = "grad-$index",
+                name = "毕业生$index",
+                year = 2026,
+                month = 6,
+                gaoKaoScore = 600f + index,
+                universityTier = UniversityTier.FIRST_TIER,
+                universityName = "普通本科",
+                satisfaction = 70f,
+                courseId = "SCIENCE"
+            )
+        }
+        val first = market.registerGraduates(batch)
+        val second = market.registerGraduates(batch)
+        assertEquals(40, first)
+        assertEquals(0, second)
+        assertEquals(40, market.state.value.graduates.size)
+    }
 }

@@ -39,6 +39,8 @@ interface StudentRepository {
     suspend fun getRecentGraduates(limit: Int = 50): List<Student>
     suspend fun getRecentDropouts(limit: Int = 20): List<Student>
     suspend fun getGraduatedStudents(): List<Student>
+    suspend fun getGraduatedStudentsByYear(year: Int): List<Student>
+    suspend fun getGraduatedStudentsMissingYear(): List<Student>
     suspend fun getActiveStudentCount(): Int
     suspend fun getGraduateCount(): Int
     suspend fun getCourseStudentCount(courseId: String): Int

@@ -2782,26 +2782,30 @@ class GameEngine @Inject constructor(
      */
     private suspend fun retroactivelyRegisterGraduates() {
         val school = schoolRepository.getSchool() ?: return
-        val graduates = studentRepository.getGraduatedStudents()
+        val years = (school.foundedYear..school.currentYear).toList()
+        val graduates = years.flatMap { year ->
+            studentRepository.getGraduatedStudentsByYear(year)
+        } + studentRepository.getGraduatedStudentsMissingYear()
         var registered = 0
 
         // 幂等补录：无论就业市场是否已有数据，都尝试注册缺失的历史毕业生
-        graduates.forEach { student ->
-            if (student.gaoKaoScore > 0) {
-                val tier = student.universityTier ?: com.arktools.xiao.domain.model.UniversityTier.NONE
-                val added = employmentMarket.registerGraduate(
-                    studentId = student.id,
-                    name = student.name,
-                    year = student.graduateYear ?: school.currentYear,
-                    month = student.graduateMonth ?: 6,
-                    gaoKaoScore = student.gaoKaoScore,
-                    universityTier = tier,
-                    universityName = student.admittedUniversity ?: "",
-                    satisfaction = student.satisfaction,
-                    courseId = student.courseId
-                )
-                if (added) registered++
-            }
+        val employmentInputs = graduates.filter { it.gaoKaoScore > 0 }.map { student ->
+            val tier = student.universityTier ?: com.arktools.xiao.domain.model.UniversityTier.NONE
+            com.arktools.xiao.domain.employment.StudentGraduationInput(
+                studentId = student.id,
+                name = student.name,
+                year = student.graduateYear ?: school.currentYear,
+                month = student.graduateMonth ?: 6,
+                gaoKaoScore = student.gaoKaoScore,
+                universityTier = tier,
+                universityName = student.admittedUniversity ?: "",
+                satisfaction = student.satisfaction,
+                courseId = student.courseId
+            )
+        }
+        if (employmentInputs.isNotEmpty()) {
+            registered = employmentMarket.registerGraduates(employmentInputs)
+            alumniNetwork.registerGraduates(graduates.filter { it.gaoKaoScore > 0 })
         }
 
         val historicalSummaryYears = graduates
@@ -3519,10 +3523,9 @@ class GameEngine @Inject constructor(
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 android.util.Log.e(
                     "GameEngine",
-                    "Student year-end isolated retry failed; date advance blocked",
+                    "Student year-end isolated retry failed; date still advances",
                     e
                 )
-                return
             }
         }
 
@@ -3670,9 +3673,11 @@ class GameEngine @Inject constructor(
         runGraduateSchoolMonth(school)
         runInternationalMonth(school)
 
-        // 每月1号执行尚未完成的月结；仅月结内部失败才会触发重试标记。
+        // 每月1号执行尚未完成的月结；失败只打日志并重试，不挡住日期。
         if (isMonthlySettlementDue(school) || pendingMonthlySettlementRetry) {
-            if (!runMonthlySettlement(school)) return
+            runCatching { runMonthlySettlement(school) }.onFailure {
+                android.util.Log.e("GameEngine", "Monthly settlement failed; date still advances", it)
+            }
         }
 
         val event = eventGenerator.generateEvent(school, _principal.value, studentRepository.getActiveStudentCount())
@@ -7322,6 +7327,8 @@ class GameEngine @Inject constructor(
         val facilityBonuses = FacilityBonusCalculator.calculate(school.facilities)
         val policyEffects = policyManager.getPolicyEffects()
         val teachingConfig = teachingManager.config
+        val campusEffects = FacilityStudentEffect.compileCampusEffects(school.facilities)
+        val teachersByCourse = mutableMapOf<String, List<Teacher>>()
 
         val updatedStudents = mutableListOf<Student>()
         val droppedStudents = mutableListOf<Student>()
@@ -7333,7 +7340,7 @@ class GameEngine @Inject constructor(
             }
 
             // === 设施→学生个体效果（每日五维成长 + 健康 + 生活质量） ===
-            val afterFacility = FacilityStudentEffect.applyDailyEffects(student, school.facilities)
+            val afterFacility = FacilityStudentEffect.applyDailyEffects(student, campusEffects)
             student.attributes = afterFacility.attributes
             student.healthStatus = afterFacility.healthStatus
             student.mealQuality = afterFacility.mealQuality
@@ -7342,8 +7349,10 @@ class GameEngine @Inject constructor(
             student.consecutiveSickDays = afterFacility.consecutiveSickDays
 
             // 按报考大类/专业匹配核心师资，缺编时教学质量会掉
-            val classTeachers = com.arktools.xiao.domain.model.UniversityAcademicCatalog
-                .matchingTeachers(student.courseId, allTeachers)
+            val classTeachers = teachersByCourse.getOrPut(student.courseId) {
+                com.arktools.xiao.domain.model.UniversityAcademicCatalog
+                    .matchingTeachers(student.courseId, allTeachers)
+            }
             val teacherAvgSkill = if (classTeachers.isNotEmpty()) {
                 classTeachers.map { it.averageSkill }.average().toFloat()
             } else 30f
@@ -8196,7 +8205,6 @@ class GameEngine @Inject constructor(
             return
         }
 
-        val allGraduates = studentRepository.getGraduatedStudents()
         val activeStudents = studentRepository.getActiveStudents()
         yearsToProcess.forEach { graduationYear ->
                 val graduates = pending.filter {
@@ -8215,26 +8223,29 @@ class GameEngine @Inject constructor(
                     val expectedSchool = schoolRepository.getSchool()
                         ?: error("School missing during graduation projection")
                     val expectedLastSaveTime = expectedSchool.lastSaveTime
-                    graduates.forEach { student ->
-                        alumniNetwork.registerGraduate(student)
-                        employmentMarket.registerGraduate(
-                            studentId = student.id,
-                            name = student.name,
-                            year = student.graduateYear ?: graduationYear,
-                            month = student.graduateMonth ?: 6,
-                            gaoKaoScore = student.gaoKaoScore,
-                            universityTier = student.universityTier
-                                ?: UniversityTier.NONE,
-                            universityName = student.admittedUniversity,
-                            satisfaction = student.satisfaction,
-                            courseId = student.courseId
+                    if (graduates.isNotEmpty()) {
+                        alumniNetwork.registerGraduates(graduates)
+                        employmentMarket.registerGraduates(
+                            graduates.map { student ->
+                                com.arktools.xiao.domain.employment.StudentGraduationInput(
+                                    studentId = student.id,
+                                    name = student.name,
+                                    year = student.graduateYear ?: graduationYear,
+                                    month = student.graduateMonth ?: 6,
+                                    gaoKaoScore = student.gaoKaoScore,
+                                    universityTier = student.universityTier
+                                        ?: UniversityTier.NONE,
+                                    universityName = student.admittedUniversity,
+                                    satisfaction = student.satisfaction,
+                                    courseId = student.courseId
+                                )
+                            }
                         )
                     }
 
-                    val graduationCohort = allGraduates.filter {
-                        (it.graduateYear ?: school.currentYear) ==
-                            graduationYear
-                    }
+                    val graduationCohort = studentRepository
+                        .getGraduatedStudentsByYear(graduationYear)
+                        .ifEmpty { graduates }
                     check(graduationCohort.isNotEmpty()) {
                         "Graduation cohort missing for $graduationYear"
                     }

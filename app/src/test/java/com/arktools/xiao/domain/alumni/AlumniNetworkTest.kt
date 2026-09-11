@@ -143,4 +143,23 @@ class AlumniNetworkTest {
         assertEquals(3L, summary.settledReputationDelta)
         assertFalse(network.completeGraduationSettlement(2025, 20.0, 6L))
     }
+
+    @Test
+    fun registerGraduatesIsIdempotentAndCapsTrackedAlumni() {
+        val network = AlumniNetwork()
+        val firstBatch = (1..AlumniNetwork.MAX_TRACKED_ALUMNI + 20).map { index ->
+            com.arktools.xiao.domain.model.Student(
+                id = "alumni-$index",
+                name = "校友$index",
+                courseId = "SCIENCE",
+                schoolId = "school",
+                satisfaction = 70f
+            )
+        }
+        val added = network.registerGraduates(firstBatch)
+        val again = network.registerGraduates(firstBatch.take(10))
+        assertEquals(AlumniNetwork.MAX_TRACKED_ALUMNI, network.alumni.value.size)
+        assertTrue(added >= AlumniNetwork.MAX_TRACKED_ALUMNI)
+        assertEquals(0, again)
+    }
 }

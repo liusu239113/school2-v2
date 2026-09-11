@@ -1229,7 +1229,7 @@ private data class Walker(
 
 private const val WALKER_TICK_MS = 100L
 private const val WALKER_STEP = 0.028f
-private const val WALKER_MAX = 1000     // 与在校生数同步（每10人1个），靠视口剔除保证性能
+private const val WALKER_MAX = 48      // 每10人1个小人，后期封顶避免校园地图把主线程拖死
 private const val WALKER_SUB = 1        // 横向多帧精灵图，一拍一切
 private const val WALKER_FRAME_COLS = 20
 
