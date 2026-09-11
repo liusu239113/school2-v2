@@ -150,10 +150,10 @@ object FacilityStudentEffect {
             }
         }
 
-        if (FacilityType.SPORTS_FIELD \!in types) {
+        if (FacilityType.SPORTS_FIELD !in types) {
             dPhysical -= NATURAL_PHYSICAL_DECAY
         }
-        if (FacilityType.GARDEN \!in types && FacilityType.AUDITORIUM \!in types) {
+        if (FacilityType.GARDEN !in types && FacilityType.AUDITORIUM !in types) {
             dSocial -= NATURAL_SOCIAL_DECAY
         }
 
