@@ -178,7 +178,16 @@ class CampusViewModel @Inject constructor(
         val management: Int = 0,
         val psychology: Int = 0,
         val assignedClass: String? = null,
-        val recommended: Boolean = false
+        val recommended: Boolean = false,
+        /** 该教师已任职的处室名（一人一岗，已任职的不能再任别处） */
+        val occupiedPost: String? = null
+    )
+
+    /** 行政楼细化策略面板的一行：一个事件类别 + 当前策略。 */
+    data class AdminStrategyRow(
+        val key: String,
+        val label: String,
+        val strategy: com.arktools.xiao.domain.autohandle.AutoStrategy
     )
 
     data class StudentOption(
@@ -221,6 +230,9 @@ class CampusViewModel @Inject constructor(
 
     private val _pickingAdminOffice = MutableStateFlow<String?>(null)
     val pickingAdminOffice = _pickingAdminOffice.asStateFlow()
+
+    private val _adminStrategyOffice = MutableStateFlow<String?>(null)
+    val adminStrategyOffice = _adminStrategyOffice.asStateFlow()
     val adminOfficeConfig = gameEngine.autoHandleManager.config
 
     private val _state = MutableStateFlow(CampusUiState())
@@ -764,24 +776,35 @@ class CampusViewModel @Inject constructor(
         return cachedTeachers.firstOrNull { it.id == id }?.name ?: "空缺"
     }
 
+    /** 处室策略摘要：几类自动、几类拒绝、几类仍手动。 */
     fun adminOfficeStrategyLabel(office: String): String {
-        val cfg = gameEngine.autoHandleManager.config.value
-        val strategy = when (office) {
-            "personnel" -> cfg.teacherRaiseStrategy
-            "student" -> cfg.activityApprovalStrategy
-            else -> cfg.logisticsRepairStrategy
-        }
-        return strategy.displayName
+        val rows = adminOfficeCategories(office)
+        val auto = rows.count { it.strategy == com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE }
+        val reject = rows.count { it.strategy == com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_REJECT }
+        val manual = rows.count { it.strategy == com.arktools.xiao.domain.autohandle.AutoStrategy.MANUAL }
+        val parts = mutableListOf<String>()
+        if (auto > 0) parts += "$auto 类自动同意"
+        if (reject > 0) parts += "$reject 类自动拒绝"
+        if (manual > 0) parts += "$manual 类仍手动"
+        return if (parts.isEmpty()) "全部手动" else parts.joinToString(" · ")
     }
 
     fun openAdminOfficePicker(office: String) {
         audioManager.playButtonClick()
         viewModelScope.safeLaunch {
+            val cfg = gameEngine.autoHandleManager.config.value
+            val holders = mapOf(
+                "人事处" to cfg.personnelOfficerId,
+                "学工处" to cfg.studentAffairsOfficerId,
+                "后勤处" to cfg.logisticsOfficerId
+            )
             val teachers = runCatching { teacherRepository.getTeachers() }
                 .getOrDefault(emptyList()).filter { it.isWorking }
             cachedTeachers = teachers
             val scored = teachers.map { teacher ->
                 val score = teacher.management * 2 + teacher.psychology + teacher.teaching
+                val occupied = holders.entries
+                    .firstOrNull { it.value == teacher.id }?.key
                 AdvisorOption(
                     id = teacher.id,
                     name = teacher.name,
@@ -791,10 +814,11 @@ class CampusViewModel @Inject constructor(
                     management = teacher.management,
                     psychology = teacher.psychology,
                     assignedClass = null,
-                    recommended = false
+                    recommended = false,
+                    occupiedPost = occupied
                 ) to score
             }.sortedByDescending { it.second }
-            val bestId = scored.firstOrNull()?.first?.id
+            val bestId = scored.firstOrNull { it.first.occupiedPost == null }?.first?.id
             _advisorOptions.value = scored.map { (option, _) ->
                 option.copy(recommended = option.id == bestId)
             }
@@ -803,36 +827,56 @@ class CampusViewModel @Inject constructor(
     }
 
     fun assignAdminOfficer(office: String, teacherId: String) {
-        audioManager.playButtonClick()
-        val current = gameEngine.autoHandleManager.config.value
-        val approve = com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE
-        val next = when (office) {
-            "personnel" -> current.copy(
-                personnelOfficerId = teacherId,
-                teacherRaiseStrategy = approve,
-                teacherRenewalStrategy = approve,
-                teacherResignStrategy = approve
-            )
-            "student" -> current.copy(
-                studentAffairsOfficerId = teacherId,
-                activityApprovalStrategy = approve,
-                clubApprovalStrategy = approve
-            )
-            "logistics" -> current.copy(
-                logisticsOfficerId = teacherId,
-                logisticsRepairStrategy = approve
-            )
-            else -> current
-        }
-        persistAdminOffice(next)
-        _pickingAdminOffice.value = null
-        val teacherName = cachedTeachers.firstOrNull { it.id == teacherId }?.name ?: "教师"
+        val cfg = gameEngine.autoHandleManager.config.value
         val officeName = when (office) {
             "personnel" -> "人事处"
             "student" -> "学工处"
             else -> "后勤处"
         }
-        _state.value = _state.value.copy(message = "已任命 $teacherName 为${officeName}。这个月开始自动批，点职位可改成拒绝或改回手动。")
+        val alreadyIn = when {
+            cfg.personnelOfficerId == teacherId && office != "personnel" -> "人事处"
+            cfg.studentAffairsOfficerId == teacherId && office != "student" -> "学工处"
+            cfg.logisticsOfficerId == teacherId && office != "logistics" -> "后勤处"
+            else -> null
+        }
+        if (alreadyIn != null) {
+            val name = cachedTeachers.firstOrNull { it.id == teacherId }?.name ?: "该教师"
+            _state.value = _state.value.copy(
+                message = "$name 已在$alreadyIn任职。一个人只能管一个处，请先撤职再任命到$officeName。"
+            )
+            audioManager.playEventNegative()
+            return
+        }
+        audioManager.playButtonClick()
+        // 任命后该处事件默认开始自动批；已经手动设过的策略保留不动。
+        val approve = com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE
+        val next = when (office) {
+            "personnel" -> cfg.copy(
+                personnelOfficerId = teacherId,
+                teacherRaiseStrategy = cfg.teacherRaiseStrategy.autoIfManual(approve),
+                teacherRenewalStrategy = cfg.teacherRenewalStrategy.autoIfManual(approve),
+                teacherResignStrategy = cfg.teacherResignStrategy.autoIfManual(approve),
+                teacherStoryStrategy = cfg.teacherStoryStrategy.autoIfManual(approve)
+            )
+            "student" -> cfg.copy(
+                studentAffairsOfficerId = teacherId,
+                activityApprovalStrategy = cfg.activityApprovalStrategy.autoIfManual(approve),
+                clubApprovalStrategy = cfg.clubApprovalStrategy.autoIfManual(approve),
+                studentWelfareStrategy = cfg.studentWelfareStrategy.autoIfManual(approve),
+                monthlyDecisionStrategy = cfg.monthlyDecisionStrategy.autoIfManual(approve)
+            )
+            "logistics" -> cfg.copy(
+                logisticsOfficerId = teacherId,
+                logisticsRepairStrategy = cfg.logisticsRepairStrategy.autoIfManual(approve)
+            )
+            else -> cfg
+        }
+        persistAdminOffice(next)
+        _pickingAdminOffice.value = null
+        val teacherName = cachedTeachers.firstOrNull { it.id == teacherId }?.name ?: "教师"
+        _state.value = _state.value.copy(
+            message = "已任命 $teacherName 为${officeName}。点「细化策略」可以逐类决定同意、拒绝还是仍然手动。"
+        )
     }
 
     fun clearAdminOfficer(office: String) {
@@ -847,37 +891,58 @@ class CampusViewModel @Inject constructor(
         _state.value = _state.value.copy(message = "这个职位空了，相关审批会重新弹给你。")
     }
 
-    fun cycleAdminOfficeStrategy(office: String) {
-        val current = gameEngine.autoHandleManager.config.value
-        val now = when (office) {
-            "personnel" -> current.teacherRaiseStrategy
-            "student" -> current.activityApprovalStrategy
-            else -> current.logisticsRepairStrategy
+    /** 该处室逐类事件的策略清单，供细化面板渲染。 */
+    fun adminOfficeCategories(office: String): List<AdminStrategyRow> {
+        val cfg = gameEngine.autoHandleManager.config.value
+        return when (office) {
+            "personnel" -> listOf(
+                AdminStrategyRow("teacherRaise", "教师加薪", cfg.teacherRaiseStrategy),
+                AdminStrategyRow("teacherRenewal", "教师续约", cfg.teacherRenewalStrategy),
+                AdminStrategyRow("teacherResign", "教师离职", cfg.teacherResignStrategy),
+                AdminStrategyRow("teacherStory", "教师故事", cfg.teacherStoryStrategy)
+            )
+            "student" -> listOf(
+                AdminStrategyRow("activity", "学生活动", cfg.activityApprovalStrategy),
+                AdminStrategyRow("club", "学生社团", cfg.clubApprovalStrategy),
+                AdminStrategyRow("welfare", "食堂/宿舍/健康/心理投诉", cfg.studentWelfareStrategy),
+                AdminStrategyRow("monthly", "校长月度决策", cfg.monthlyDecisionStrategy)
+            )
+            else -> listOf(
+                AdminStrategyRow("repair", "设施维修（水管、设备、楼况）", cfg.logisticsRepairStrategy)
+            )
         }
-        val nextStrategy = when (now) {
-            com.arktools.xiao.domain.autohandle.AutoStrategy.MANUAL ->
-                com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE
-            com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE ->
-                com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_REJECT
-            com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_REJECT ->
-                com.arktools.xiao.domain.autohandle.AutoStrategy.MANUAL
-        }
-        setAdminOfficeStrategy(office, nextStrategy)
-        _state.value = _state.value.copy(message = "这个职位改成「${nextStrategy.displayName}」")
     }
 
-    fun setAdminOfficeStrategy(office: String, strategy: com.arktools.xiao.domain.autohandle.AutoStrategy) {
+    fun openAdminStrategyPanel(office: String) {
+        audioManager.playButtonClick()
+        _adminStrategyOffice.value = office
+    }
+
+    fun closeAdminStrategyPanel() {
+        _adminStrategyOffice.value = null
+    }
+
+    fun setOfficeCategoryStrategy(
+        office: String,
+        categoryKey: String,
+        strategy: com.arktools.xiao.domain.autohandle.AutoStrategy
+    ) {
         val current = gameEngine.autoHandleManager.config.value
         val next = when (office) {
-            "personnel" -> current.copy(
-                teacherRaiseStrategy = strategy,
-                teacherRenewalStrategy = strategy,
-                teacherResignStrategy = strategy
-            )
-            "student" -> current.copy(
-                activityApprovalStrategy = strategy,
-                clubApprovalStrategy = strategy
-            )
+            "personnel" -> when (categoryKey) {
+                "teacherRaise" -> current.copy(teacherRaiseStrategy = strategy)
+                "teacherRenewal" -> current.copy(teacherRenewalStrategy = strategy)
+                "teacherResign" -> current.copy(teacherResignStrategy = strategy)
+                "teacherStory" -> current.copy(teacherStoryStrategy = strategy)
+                else -> current
+            }
+            "student" -> when (categoryKey) {
+                "activity" -> current.copy(activityApprovalStrategy = strategy)
+                "club" -> current.copy(clubApprovalStrategy = strategy)
+                "welfare" -> current.copy(studentWelfareStrategy = strategy)
+                "monthly" -> current.copy(monthlyDecisionStrategy = strategy)
+                else -> current
+            }
             "logistics" -> current.copy(logisticsRepairStrategy = strategy)
             else -> current
         }
@@ -1008,6 +1073,11 @@ class CampusViewModel @Inject constructor(
         return cells
     }
 
+    /**
+     * 旧档自愈：只处理真正「楼压楼」的重叠，且只挪后放的那栋。
+     * - 认不出规格的建筑原样保留，绝不静默删除（玩家铺好的布局不能被系统清掉）
+     * - 与地面装饰/地形冲突不挪楼，避免整片布局被系统重排
+     */
     private fun relayoutOverlaps(
         placed: List<BT.PlacedBuilding>,
         terrain: Map<Long, BT.TileKind>,
@@ -1016,9 +1086,18 @@ class CampusViewModel @Inject constructor(
         val result = mutableListOf<BT.PlacedBuilding>()
         var changed = false
         placed.forEach { b ->
-            val spec = BT.specByKey(b.key) ?: return@forEach
-            val err = canPlaceAt(spec, b.x, b.y, result, terrain, campusLevel, b.facilityId.ifBlank { b.key })
-            if (err == null) {
+            val spec = BT.specByKey(b.key)
+            if (spec == null) {
+                // 未知规格：保留原位，绝不删除
+                result.add(b)
+                return@forEach
+            }
+            val overlapsAnotherBuilding = result.any { other ->
+                val otherSpec = BT.specByKey(other.key) ?: return@any false
+                other.x < b.x + spec.w && b.x < other.x + otherSpec.w &&
+                    other.y < b.y + spec.h && b.y < other.y + otherSpec.h
+            }
+            if (!overlapsAnotherBuilding) {
                 result.add(b)
             } else {
                 val spot = firstFree(spec, result, terrain, campusLevel)
@@ -2047,3 +2126,12 @@ class CampusViewModel @Inject constructor(
         }
     }
 }
+
+/**
+ * 任命后默认生效：还是「手动」的类别改成自动同意；
+ * 玩家已经手动设过的「自动拒绝」保留不动，避免覆盖他的选择。
+ */
+private fun com.arktools.xiao.domain.autohandle.AutoStrategy.autoIfManual(
+    fallback: com.arktools.xiao.domain.autohandle.AutoStrategy
+): com.arktools.xiao.domain.autohandle.AutoStrategy =
+    if (this == com.arktools.xiao.domain.autohandle.AutoStrategy.MANUAL) fallback else this

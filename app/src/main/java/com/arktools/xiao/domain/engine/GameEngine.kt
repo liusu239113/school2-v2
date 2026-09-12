@@ -7624,6 +7624,43 @@ class GameEngine @Inject constructor(
             (rawEnroll * (1f + partnerEnrollBonus)).toInt().coerceIn(0, effectiveCapacityCap)
         }
         val enrollCount = (targetEnrollCount - existingGradeOneCount).coerceAtLeast(0)
+
+        // 上限卡住招生时，明确告诉玩家卡在哪一条，避免"人数长期不动"却找不到原因。
+        if (rawEnroll > 0 && effectiveCapacityCap < rawEnroll) {
+            when {
+                expansionHeadroomForFreshmen != null &&
+                    expansionHeadroomForFreshmen == effectiveCapacityCap -> {
+                    emitEvent(GameEvent.NegativeEvent(
+                        title = "校园用地容量已满",
+                        message = "全校用地容量上限 ${expansionCap} 人，目前在校 ${existingStudents} 人。" +
+                            "床位和教室可能还有空，但用地满了就招不进新生。" +
+                            "去「外联 → 区片开发」开发新的教学区/生活区，才能继续扩招。",
+                        penaltyCash = 0.0,
+                        penaltyReputation = 0
+                    ), school)
+                }
+                governmentHeadroomForFreshmen != null &&
+                    governmentHeadroomForFreshmen == effectiveCapacityCap -> {
+                    emitEvent(GameEvent.NegativeEvent(
+                        title = "教育局限制招生",
+                        message = "教育局给学校定的招生上限是 ${governmentCap} 人，目前在校 ${existingStudents} 人。" +
+                            "把评估等级提上去（教学质量、师资、设施达标），限制才会解除。",
+                        penaltyCash = 0.0,
+                        penaltyReputation = 0
+                    ), school)
+                }
+                penaltyHeadroomForFreshmen != null &&
+                    penaltyHeadroomForFreshmen == effectiveCapacityCap -> {
+                    emitEvent(GameEvent.NegativeEvent(
+                        title = "设施不达标，限制招生",
+                        message = "学校有必需设施缺失或停用（如教室、食堂），招生被限制在 ${penaltyCap} 人。" +
+                            "补齐并修好相关建筑，限制才会解除。",
+                        penaltyCash = 0.0,
+                        penaltyReputation = 0
+                    ), school)
+                }
+            }
+        }
         if (dormBeds <= 0 && rawEnroll > 0) {
             emitEvent(GameEvent.NegativeEvent(
                 title = "没有宿舍，报到率骤降",

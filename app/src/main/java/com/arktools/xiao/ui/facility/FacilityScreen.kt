@@ -438,6 +438,17 @@ private fun OwnedFacilityCard(
                 }
             }
 
+            // 升级收益：一眼看清升这栋楼能换来什么
+            upgradeBenefitText(facility)?.let { benefit ->
+                Text(
+                    text = "升级收益：$benefit",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF14648C),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+
             // Maintenance info
             Text(
                 text = "月维护: ${String.format("%.1f", facility.maintenanceCost)} 万",
@@ -447,6 +458,42 @@ private fun OwnedFacilityCard(
             )
         } // Column end
         } // Row end
+    }
+}
+
+/**
+ * 升级收益文案：容量类给具体数字，加成类给百分比变化。
+ */
+private fun upgradeBenefitText(facility: Facility): String? {
+    if (facility.level >= facility.type.maxLevel) return null
+    val lv = facility.level
+    val nl = lv + 1
+    val cap = com.arktools.xiao.domain.model.FacilityCapacity
+    return when (facility.type) {
+        FacilityType.CLASSROOM ->
+            "班槽 ${cap.classSlots(lv)} → ${cap.classSlots(nl)}（学位 ${cap.classSlots(lv) * 30} → ${cap.classSlots(nl) * 30}）"
+        FacilityType.DORMITORY ->
+            "床位 ${cap.bedsPerDorm(lv)} → ${cap.bedsPerDorm(nl)}"
+        FacilityType.CANTEEN ->
+            "餐位 ${cap.seatsPerCanteen(lv)} → ${cap.seatsPerCanteen(nl)}"
+        FacilityType.LIBRARY ->
+            "阅览席 ${cap.librarySeats(lv)} → ${cap.librarySeats(nl)}"
+        FacilityType.LABORATORY ->
+            "实验台位 ${cap.labBenches(lv)} → ${cap.labBenches(nl)}"
+        FacilityType.COMPUTER_LAB ->
+            "机位 ${cap.computerSeats(lv)} → ${cap.computerSeats(nl)}"
+        FacilityType.SPORTS_FIELD ->
+            "体育容量 ${cap.sportsCapacity(lv)} → ${cap.sportsCapacity(nl)}"
+        FacilityType.CLINIC ->
+            "接诊位 ${cap.clinicSlots(lv)} → ${cap.clinicSlots(nl)}"
+        FacilityType.COUNSELING ->
+            "辅导位 ${cap.counselingSlots(lv)} → ${cap.counselingSlots(nl)}"
+        FacilityType.ART_STUDIO ->
+            "工作室工位 ${cap.studioCapacity(lv)} → ${cap.studioCapacity(nl)}"
+        FacilityType.GARDEN ->
+            "园区地块 ${cap.gardenPlots(lv)} → ${cap.gardenPlots(nl)}"
+        else ->
+            "本楼加成按等级提升（升级后效果 +${lv} 档）"
     }
 }
 

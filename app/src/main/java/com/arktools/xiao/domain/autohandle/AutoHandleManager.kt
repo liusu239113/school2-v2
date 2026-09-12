@@ -64,10 +64,7 @@ class AutoHandleManager @Inject constructor() {
     fun shouldAutoHandle(event: GameEvent): AutoHandleResult? {
         val cfg = _config.value
         return when (event) {
-            is GameEvent.ChoiceEvent -> {
-                if (event.title.contains("校长月度决策")) null
-                else getChoiceAutoAction(event, cfg)
-            }
+            is GameEvent.ChoiceEvent -> getChoiceAutoAction(event, cfg)
             is GameEvent.PositiveEvent -> {
                 if (cfg.positiveAutoClose) {
                     AutoHandleResult.AutoClose
@@ -100,10 +97,18 @@ class AutoHandleManager @Inject constructor() {
         val message = event.message
         return when {
             title.startsWith("[突发危机]") || title.startsWith("[危机进展]") -> AdminOffice.NONE
+            // 人事处：教师相关
             title.contains("加薪") || title.contains("涨薪") || message.contains("请求加薪") -> AdminOffice.PERSONNEL
             title.contains("续约") || title.contains("合同到期") || message.contains("合同即将到期") -> AdminOffice.PERSONNEL
             title.contains("离职") || title.contains("辞职") || message.contains("提出离职") -> AdminOffice.PERSONNEL
+            title.contains("教师故事") || title.contains("挖角") -> AdminOffice.PERSONNEL
+            // 后勤处：楼相关
             title.contains("设施维修") || title.contains("水管") || title.contains("维修：") -> AdminOffice.LOGISTICS
+            // 学工处：学生相关 + 月度校务
+            title.contains("校长月度决策") -> AdminOffice.STUDENT_AFFAIRS
+            title.contains("食堂") || title.contains("宿舍") ||
+                title.contains("餐位") || title.contains("床位") -> AdminOffice.STUDENT_AFFAIRS
+            title.contains("心理") || title.contains("健康") -> AdminOffice.STUDENT_AFFAIRS
             title.contains("活动") || (title.contains("审批") && message.contains("活动")) -> AdminOffice.STUDENT_AFFAIRS
             title.contains("社团") || message.contains("社团申请") -> AdminOffice.STUDENT_AFFAIRS
             else -> AdminOffice.NONE
@@ -170,6 +175,29 @@ class AutoHandleManager @Inject constructor() {
             return cfg.teacherResignStrategy
         }
 
+        // 教师故事 / 被挖角
+        if (title.contains("教师故事") || title.contains("挖角")) {
+            return cfg.teacherStoryStrategy
+        }
+
+        // 设施维修优先于学生投诉（"设施维修：宿舍楼"里也带"宿舍"字样）
+        if (title.contains("设施维修") || title.contains("水管") || title.contains("维修：")) {
+            return cfg.logisticsRepairStrategy
+        }
+
+        // 校长月度决策
+        if (title.contains("校长月度决策")) {
+            return cfg.monthlyDecisionStrategy
+        }
+
+        // 学生吃住投诉（食堂、宿舍、健康、心理）
+        if (title.contains("食堂") || title.contains("宿舍") ||
+            title.contains("餐位") || title.contains("床位") ||
+            title.contains("心理") || title.contains("健康")
+        ) {
+            return cfg.studentWelfareStrategy
+        }
+
         // 活动审批
         if (title.contains("活动") || title.contains("审批") && message.contains("活动")) {
             return cfg.activityApprovalStrategy
@@ -178,10 +206,6 @@ class AutoHandleManager @Inject constructor() {
         // 社团审批
         if (title.contains("社团") || message.contains("社团申请")) {
             return cfg.clubApprovalStrategy
-        }
-
-        if (title.contains("设施维修") || title.contains("水管") || title.contains("维修：")) {
-            return cfg.logisticsRepairStrategy
         }
         return cfg.otherChoiceStrategy
     }

@@ -21,7 +21,11 @@ data class AutoHandleConfig(
     val personnelOfficerId: String = "",
     val studentAffairsOfficerId: String = "",
     val logisticsOfficerId: String = "",
+
+    /** 教师加薪请求 */
     val teacherRaiseStrategy: AutoStrategy = AutoStrategy.MANUAL,
+
+    /** 设施维修（水管、设备、楼况） */
     val logisticsRepairStrategy: AutoStrategy = AutoStrategy.AUTO_APPROVE,
 
     /** 教师续约请求 */
@@ -29,6 +33,15 @@ data class AutoHandleConfig(
 
     /** 教师离职请求 */
     val teacherResignStrategy: AutoStrategy = AutoStrategy.MANUAL,
+
+    /** 教师故事（青年才俊、教学名师等） */
+    val teacherStoryStrategy: AutoStrategy = AutoStrategy.MANUAL,
+
+    /** 学生吃住投诉（食堂、宿舍、健康、心理） */
+    val studentWelfareStrategy: AutoStrategy = AutoStrategy.MANUAL,
+
+    /** 校长月度决策（吃饭、床位、学位、月度重心） */
+    val monthlyDecisionStrategy: AutoStrategy = AutoStrategy.MANUAL,
 
     /** 活动审批（季节活动申请） */
     val activityApprovalStrategy: AutoStrategy = AutoStrategy.MANUAL,
