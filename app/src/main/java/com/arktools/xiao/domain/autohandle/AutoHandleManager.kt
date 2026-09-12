@@ -1,6 +1,5 @@
 package com.arktools.xiao.domain.autohandle
 
-import android.util.Log
 import com.arktools.xiao.domain.model.GameEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +17,6 @@ import javax.inject.Singleton
 class AutoHandleManager @Inject constructor() {
 
     companion object {
-        private const val TAG = "AutoHandleManager"
         private const val MAX_RECORDS = 50  // 最多保留50条自动处理记录
     }
 
@@ -41,9 +39,7 @@ class AutoHandleManager @Inject constructor() {
         if (configJson.isNullOrBlank()) return
         try {
             _config.value = json.decodeFromString<AutoHandleConfig>(configJson)
-            Log.d(TAG, "配置已加载: personnel=${_config.value.personnelOfficerId.isNotBlank()} student=${_config.value.studentAffairsOfficerId.isNotBlank()} logistics=${_config.value.logisticsOfficerId.isNotBlank()}")
-        } catch (e: Exception) {
-            Log.e(TAG, "配置加载失败，使用默认值", e)
+        } catch (_: Exception) {
         }
     }
 
@@ -59,7 +55,6 @@ class AutoHandleManager @Inject constructor() {
      */
     fun updateConfig(newConfig: AutoHandleConfig) {
         _config.value = newConfig
-        Log.d(TAG, "配置已更新: personnel=${newConfig.personnelOfficerId.isNotBlank()} student=${newConfig.studentAffairsOfficerId.isNotBlank()} logistics=${newConfig.logisticsOfficerId.isNotBlank()}")
     }
 
     /**
