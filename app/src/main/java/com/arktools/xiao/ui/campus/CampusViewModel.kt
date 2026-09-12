@@ -842,7 +842,7 @@ class CampusViewModel @Inject constructor(
         if (alreadyIn != null) {
             val name = cachedTeachers.firstOrNull { it.id == teacherId }?.name ?: "该教师"
             _state.value = _state.value.copy(
-                message = "$name 已在$alreadyIn任职。一个人只能管一个处，请先撤职再任命到$officeName。"
+                message = "$name 已在${alreadyIn}任职。一个人只能管一个处，请先撤职再任命到${officeName}。"
             )
             audioManager.playEventNegative()
             return
