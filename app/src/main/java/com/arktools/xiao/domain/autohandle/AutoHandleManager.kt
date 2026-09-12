@@ -11,10 +11,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 事件自动处理管理器
- * 
- * 根据校长办公室配置的策略，自动处理各类游戏事件，
- * 减少玩家需要手动点击的弹窗数量。
+ * 行政楼任职后的事件自动审批。
+ * 没人任职的职位一律弹窗；只有任命了教师、并且该职位策略不是手动，才会代批。
  */
 @Singleton
 class AutoHandleManager @Inject constructor() {
@@ -43,7 +41,7 @@ class AutoHandleManager @Inject constructor() {
         if (configJson.isNullOrBlank()) return
         try {
             _config.value = json.decodeFromString<AutoHandleConfig>(configJson)
-            Log.d(TAG, "配置已加载: enabled=${_config.value.enabled}")
+            Log.d(TAG, "配置已加载: personnel=${_config.value.personnelOfficerId.isNotBlank()} student=${_config.value.studentAffairsOfficerId.isNotBlank()} logistics=${_config.value.logisticsOfficerId.isNotBlank()}")
         } catch (e: Exception) {
             Log.e(TAG, "配置加载失败，使用默认值", e)
         }
@@ -61,7 +59,7 @@ class AutoHandleManager @Inject constructor() {
      */
     fun updateConfig(newConfig: AutoHandleConfig) {
         _config.value = newConfig
-        Log.d(TAG, "配置已更新: enabled=${newConfig.enabled}")
+        Log.d(TAG, "配置已更新: personnel=${newConfig.personnelOfficerId.isNotBlank()} student=${newConfig.studentAffairsOfficerId.isNotBlank()} logistics=${newConfig.logisticsOfficerId.isNotBlank()}")
     }
 
     /**
@@ -70,8 +68,6 @@ class AutoHandleManager @Inject constructor() {
      */
     fun shouldAutoHandle(event: GameEvent): AutoHandleResult? {
         val cfg = _config.value
-        if (!cfg.enabled) return null
-
         return when (event) {
             is GameEvent.ChoiceEvent -> {
                 if (event.title.contains("校长月度决策")) null
@@ -99,10 +95,38 @@ class AutoHandleManager @Inject constructor() {
     /**
      * 判断选择类事件的自动处理动作
      */
-    private fun getChoiceAutoAction(event: GameEvent.ChoiceEvent, cfg: AutoHandleConfig): AutoHandleResult? {
-        // 分类识别：根据事件标题/内容判断类型
-        val strategy = categorizeChoiceEvent(event, cfg)
+    enum class AdminOffice {
+        PERSONNEL, STUDENT_AFFAIRS, LOGISTICS, NONE
+    }
 
+    fun officeFor(event: GameEvent): AdminOffice {
+        if (event !is GameEvent.ChoiceEvent) return AdminOffice.NONE
+        val title = event.title
+        val message = event.message
+        return when {
+            title.startsWith("[突发危机]") || title.startsWith("[危机进展]") -> AdminOffice.NONE
+            title.contains("加薪") || title.contains("涨薪") || message.contains("请求加薪") -> AdminOffice.PERSONNEL
+            title.contains("续约") || title.contains("合同到期") || message.contains("合同即将到期") -> AdminOffice.PERSONNEL
+            title.contains("离职") || title.contains("辞职") || message.contains("提出离职") -> AdminOffice.PERSONNEL
+            title.contains("设施维修") || title.contains("水管") || title.contains("维修：") -> AdminOffice.LOGISTICS
+            title.contains("活动") || (title.contains("审批") && message.contains("活动")) -> AdminOffice.STUDENT_AFFAIRS
+            title.contains("社团") || message.contains("社团申请") -> AdminOffice.STUDENT_AFFAIRS
+            else -> AdminOffice.NONE
+        }
+    }
+
+    private fun officerIdFor(office: AdminOffice, cfg: AutoHandleConfig): String = when (office) {
+        AdminOffice.PERSONNEL -> cfg.personnelOfficerId
+        AdminOffice.STUDENT_AFFAIRS -> cfg.studentAffairsOfficerId
+        AdminOffice.LOGISTICS -> cfg.logisticsOfficerId
+        AdminOffice.NONE -> ""
+    }
+
+    private fun getChoiceAutoAction(event: GameEvent.ChoiceEvent, cfg: AutoHandleConfig): AutoHandleResult? {
+        val office = officeFor(event)
+        if (office == AdminOffice.NONE) return null
+        if (officerIdFor(office, cfg).isBlank()) return null
+        val strategy = categorizeChoiceEvent(event, cfg)
         return when (strategy) {
             AutoStrategy.MANUAL -> null
             AutoStrategy.AUTO_APPROVE -> {
@@ -161,8 +185,17 @@ class AutoHandleManager @Inject constructor() {
             return cfg.clubApprovalStrategy
         }
 
-        // 其他选择事件
+        if (title.contains("设施维修") || title.contains("水管") || title.contains("维修：")) {
+            return cfg.logisticsRepairStrategy
+        }
         return cfg.otherChoiceStrategy
+    }
+
+    fun officerNameHint(office: AdminOffice): String = when (office) {
+        AdminOffice.PERSONNEL -> "人事处"
+        AdminOffice.STUDENT_AFFAIRS -> "学工处"
+        AdminOffice.LOGISTICS -> "后勤处"
+        AdminOffice.NONE -> ""
     }
 
     /**

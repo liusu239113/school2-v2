@@ -58,6 +58,12 @@ class EventViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
+        viewModelScope.safeLaunch {
+            val fromSave = gameEngine.policyManager.policies.value.adminOfficeJson
+            if (fromSave.isNotBlank()) {
+                autoHandleManager.loadConfig(fromSave)
+            }
+        }
         collectEvents()
     }
 

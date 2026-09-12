@@ -180,7 +180,8 @@ class GameEngine @Inject constructor(
     val pressureSystemManager: PressureSystemManager,
     val crisisScenarioManager: CrisisScenarioManager,
     val suggestionBoxManager: com.arktools.xiao.domain.suggestion.SuggestionBoxManager,
-    val cashShortfallAdManager: com.arktools.xiao.domain.ad.CashShortfallAdManager
+    val cashShortfallAdManager: com.arktools.xiao.domain.ad.CashShortfallAdManager,
+    val autoHandleManager: com.arktools.xiao.domain.autohandle.AutoHandleManager
 ) {
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var gameLoopJob: Job? = null
@@ -1439,18 +1440,18 @@ class GameEngine @Inject constructor(
                     com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_DORM -> {
                         school.facilities.filter {
                             it.type == FacilityType.DORMITORY && it.isOperational
-                        }.let { list -> list.isNotEmpty() && list.all { it.condition >= 90f } }
+                        }.let { list -> list.isNotEmpty() && list.all { it.condition >= 70f } }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.REPAIR_GYM -> {
                         school.facilities.filter {
                             it.type == FacilityType.SPORTS_FIELD && it.isOperational
-                        }.let { list -> list.isNotEmpty() && list.all { it.condition >= 90f } }
+                        }.let { list -> list.isNotEmpty() && list.all { it.condition >= 70f } }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.OPEN_CLINIC -> {
                         val clinics = school.facilities.filter {
                             it.type == FacilityType.CLINIC && it.isOperational
                         }
-                        clinics.isNotEmpty() && clinics.all { it.condition >= 90f }
+                        clinics.isNotEmpty() && clinics.all { it.condition >= 70f }
                     }
                     com.arktools.xiao.domain.studentlife.ComplaintAction.EXPAND_CANTEEN -> {
                         val hasHall = school.facilities.any {
@@ -3083,6 +3084,7 @@ class GameEngine @Inject constructor(
         }
         restoreManagerField("policyJson", school.policyJson) {
             policyManager.restoreFromJson(school.policyJson)
+            autoHandleManager.loadConfig(policyManager.policies.value.adminOfficeJson)
         }
         restoreManagerField("seasonalJson", school.seasonalJson) {
             seasonalActivityManager.restoreFromJson(school.seasonalJson)
@@ -4329,7 +4331,10 @@ class GameEngine @Inject constructor(
                     val lifeResult = studentLifeManager.advanceMonth(
                         st.studentCount,
                         school.currentYear,
-                        school.currentMonth
+                        school.currentMonth,
+                        latest.facilities
+                            .filter { it.isOperational }
+                            .minOfOrNull { it.condition } ?: 100f
                     )
                     latest.cash = (
                         latest.cash - lifeResult.totalExpenses.toDouble()
@@ -6777,7 +6782,8 @@ class GameEngine @Inject constructor(
                 var shouldPersist = false
                 latest.facilities.forEach { facility ->
                     if (facility.isConstructing) return@forEach
-                    facility.condition = (facility.condition - 0.1f).coerceAtLeast(0f)
+                    if (facility.operationalMonths < 6) return@forEach
+                    facility.condition = (facility.condition - 0.03f).coerceAtLeast(0f)
                     if (facility.condition <= 20f) {
                         shouldPersist = true
                     }

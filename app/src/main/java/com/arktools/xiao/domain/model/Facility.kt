@@ -12,7 +12,8 @@ data class Facility(
     var level: Int = 1,
     var condition: Float = 100f,  // deteriorates over time, needs maintenance
     val id: String = java.util.UUID.randomUUID().toString(),  // 唯一标识，防止同类型设施操作错位
-    var constructionDaysLeft: Int = 0
+    var constructionDaysLeft: Int = 0,
+    var operationalMonths: Int = 0
 ) {
     val maintenanceCost: Double
         get() = if (isConstructing) 0.0 else type.baseMaintenance * level

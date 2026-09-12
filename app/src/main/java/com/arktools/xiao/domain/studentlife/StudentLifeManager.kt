@@ -466,7 +466,12 @@ class StudentLifeManager @Inject constructor() {
     /**
      * 每月推进
      */
-    fun advanceMonth(studentCount: Int, currentYear: Int, currentMonth: Int): LifeMonthlyResult {
+    fun advanceMonth(
+        studentCount: Int,
+        currentYear: Int,
+        currentMonth: Int,
+        campusMinCondition: Float = 100f
+    ): LifeMonthlyResult {
         if (hasProcessedMonth(currentYear, currentMonth)) {
             return LifeMonthlyResult()
         }
@@ -482,7 +487,7 @@ class StudentLifeManager @Inject constructor() {
             // 设施维护衰减 + 费用计算（按入住率缩放，避免空置设施收取全额费用）
             LifeAspect.entries.forEach { aspect ->
                 val facility = facilities[aspect] ?: return@forEach
-                val degradation = 2f + (facility.currentLoad.toFloat() / facility.capacity.coerceAtLeast(1)) * 3f
+                val degradation = 0.6f + (facility.currentLoad.toFloat() / facility.capacity.coerceAtLeast(1)) * 0.8f
                 val newMaintenance = (facility.maintenanceLevel - degradation).coerceAtLeast(0f)
 
                 // 维护费按入住率缩放：最低30%（设施开放基础成本），满载100%
@@ -544,7 +549,10 @@ class StudentLifeManager @Inject constructor() {
             val cafeLoad = if (cafe != null && cafe.capacity > 0) {
                 cafe.currentLoad.toFloat() / cafe.capacity
             } else 0f
-            val avgMaintenance = facilities.values.map { it.maintenanceLevel }.average().toFloat()
+            val avgMaintenance = minOf(
+                facilities.values.map { it.maintenanceLevel }.average().toFloat(),
+                campusMinCondition
+            )
             val healthLoad = facilities[LifeAspect.HEALTH]?.let { f ->
                 if (f.capacity > 0) f.currentLoad.toFloat() / f.capacity else 2f
             } ?: 2f
@@ -819,11 +827,11 @@ class StudentLifeManager @Inject constructor() {
                 IssueSeverity.HIGH, ComplaintAction.EXPAND_DORM, "去校园把宿舍楼加床或再建一栋，床位必须超过现住人数才能结案"
             )
         }
-        if (dormLoad >= 0.85f || avgMaintenance < 55f) {
+        if (dormLoad >= 0.95f || avgMaintenance < 40f) {
             pool += Candidate(
                 LifeAspect.DORMITORY, "宿舍漏水",
-                "住宿偏满或设施老化，卫生间渗水。",
-                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_DORM, "去校园把宿舍楼修好（楼况到90）才能结案"
+                "住宿过满或楼况已经很差，卫生间渗水。",
+                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_DORM, "去校园把宿舍楼修好（楼况到70）才能结案"
             )
         }
         if (cafeLoad >= 1.0f) {
@@ -853,11 +861,11 @@ class StudentLifeManager @Inject constructor() {
                 IssueSeverity.MEDIUM, ComplaintAction.OPEN_COUNSELING, "先去校园建/升级心理辅导站，再开减压工作坊才能结案"
             )
         }
-        if (avgMaintenance < 40f) {
+        if (avgMaintenance < 30f) {
             pool += Candidate(
                 LifeAspect.HEALTH, "运动设施损坏",
                 "维护度掉到 ${avgMaintenance.toInt()}，器材带伤运行。",
-                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_GYM, "去校园把体育馆修好（楼况到90）才能结案"
+                IssueSeverity.MEDIUM, ComplaintAction.REPAIR_GYM, "去校园把体育馆修好（楼况到70）才能结案"
             )
         }
         if (month in listOf(1, 2, 12) && healthLoad > 1.0f) {

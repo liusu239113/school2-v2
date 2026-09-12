@@ -14,17 +14,15 @@ enum class AutoStrategy(val displayName: String, val description: String) {
 
 /**
  * 事件自动处理配置
- * 存储在校长办公室，控制各类事件的自动处理策略
+ * 必须先在行政楼给对应职位任命教师，这个职位才会按策略自动批。
  */
 @Serializable
 data class AutoHandleConfig(
-    /** 总开关 */
-    val enabled: Boolean = false,
-
-    // ======== 选择类事件（ChoiceEvent）的分类策略 ========
-
-    /** 教师加薪请求 */
+    val personnelOfficerId: String = "",
+    val studentAffairsOfficerId: String = "",
+    val logisticsOfficerId: String = "",
     val teacherRaiseStrategy: AutoStrategy = AutoStrategy.MANUAL,
+    val logisticsRepairStrategy: AutoStrategy = AutoStrategy.AUTO_APPROVE,
 
     /** 教师续约请求 */
     val teacherRenewalStrategy: AutoStrategy = AutoStrategy.AUTO_APPROVE,

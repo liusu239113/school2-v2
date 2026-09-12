@@ -13,7 +13,6 @@ import com.arktools.xiao.domain.suggestion.SuggestionPenalty
 import com.arktools.xiao.domain.autohandle.AutoHandleConfig
 import com.arktools.xiao.domain.autohandle.AutoHandleManager
 import com.arktools.xiao.domain.autohandle.AutoHandledRecord
-import com.arktools.xiao.data.pref.SettingsDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -23,8 +22,7 @@ import com.arktools.xiao.util.safeLaunch
 class PrincipalOfficeViewModel @Inject constructor(
     private val gameEngine: GameEngine,
     private val schoolRepository: SchoolRepository,
-    private val autoHandleManager: AutoHandleManager,
-    private val settingsDataStore: SettingsDataStore
+    private val autoHandleManager: AutoHandleManager
 ) : ViewModel() {
 
     val principalState: StateFlow<Principal> = gameEngine.principalFlow
@@ -66,10 +64,11 @@ class PrincipalOfficeViewModel @Inject constructor(
                 }
             }
         }
-        // 加载自动处理配置
         viewModelScope.safeLaunch {
-            val configJson = settingsDataStore.getAutoHandleConfig()
-            autoHandleManager.loadConfig(configJson)
+            val fromSave = gameEngine.policyManager.policies.value.adminOfficeJson
+            if (fromSave.isNotBlank()) {
+                autoHandleManager.loadConfig(fromSave)
+            }
         }
     }
 
@@ -150,8 +149,13 @@ class PrincipalOfficeViewModel @Inject constructor(
      */
     fun updateAutoHandleConfig(newConfig: AutoHandleConfig) {
         autoHandleManager.updateConfig(newConfig)
+        val json = autoHandleManager.saveConfigToJson()
+        gameEngine.policyManager.setAdminOfficeJson(json)
         viewModelScope.safeLaunch {
-            settingsDataStore.setAutoHandleConfig(autoHandleManager.saveConfigToJson())
+            schoolRepository.mutateSchool { school ->
+                school.policyJson = gameEngine.policyManager.toJson()
+                true
+            }
         }
     }
 
@@ -159,8 +163,7 @@ class PrincipalOfficeViewModel @Inject constructor(
      * 切换自动处理总开关
      */
     fun toggleAutoHandleEnabled(enabled: Boolean) {
-        val current = autoHandleConfig.value
-        updateAutoHandleConfig(current.copy(enabled = enabled))
+        // 自动审批只看行政楼有没有人任职，不再用总开关。
     }
 
     /**

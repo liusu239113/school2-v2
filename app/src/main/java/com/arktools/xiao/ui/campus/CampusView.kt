@@ -1043,6 +1043,7 @@ fun CampusView(
                         onOpenStudentLife = { onNavigateTo(21) },
                         onOpenEmployment = { onNavigateTo(15) },
                         onOpenHiring = { onNavigateTo(2) },
+                        onOpenFacilities = { onNavigateTo(7) },
                         onOpenDiscipline = { onNavigateTo(45) },
                         onOpenDistrict = { onNavigateTo(4) },
                         onOpenGraduate = { onNavigateTo(46) },
@@ -1464,6 +1465,76 @@ private fun AppointmentPickers(viewModel: CampusViewModel) {
         )
     }
 
+    val pickingAdminOffice by viewModel.pickingAdminOffice.collectAsState()
+    pickingAdminOffice?.let { office ->
+        val options by viewModel.advisorOptions.collectAsState()
+        val officeName = when (office) {
+            "personnel" -> "人事处"
+            "student" -> "学工处"
+            else -> "后勤处"
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewModel.closePickers() },
+            title = { Text("任命$officeName") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        "从在职教师里选人。点名字立刻任职，这个职位开始按你选的策略自动批。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF617386)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (options.isEmpty()) Text("先去招聘教师", fontSize = 13.sp)
+                    options.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.assignAdminOfficer(office, option.id) }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (option.avatarRes != 0) {
+                                Image(
+                                    painter = painterResource(id = option.avatarRes),
+                                    contentDescription = option.name,
+                                    modifier = Modifier.size(40.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(option.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+                                    if (option.recommended) {
+                                        Text("推荐", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14648C))
+                                    }
+                                }
+                                Text(option.detail, fontSize = 11.sp, color = Color(0xFF617386))
+                                Text(
+                                    "教学${option.teaching} 管理${option.management} 心理${option.psychology}",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF14648C)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Text(
+                    "关闭",
+                    modifier = Modifier.clickable { viewModel.closePickers() }.padding(8.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        )
+    }
+
     val managingClassId by viewModel.managingOfficersClass.collectAsState()
     managingClassId?.let { classId ->
         val row = viewModel.classRows.collectAsState().value.firstOrNull { it.classId == classId }
@@ -1556,6 +1627,7 @@ private fun BuildingPanelContent(
     onOpenStudentLife: () -> Unit = {},
     onOpenEmployment: () -> Unit = {},
     onOpenHiring: () -> Unit = {},
+    onOpenFacilities: () -> Unit = {},
     onOpenDiscipline: () -> Unit = {},
     onOpenDistrict: () -> Unit = {},
     onOpenGraduate: () -> Unit = {},
@@ -1601,9 +1673,43 @@ private fun BuildingPanelContent(
                 )
                 OccupancyBar("用地", state.unlockedCells, state.totalCells)
                 OccupancyBar("满意度", state.avgSatisfaction.toInt(), 100)
+                val adminOffice by viewModel.adminOfficeConfig.collectAsState()
+                Text(
+                    "领导班子要在这里任命。没人任职的审批会一直弹给你；任命后按你选的策略每月自动批。",
+                    fontSize = 12.sp,
+                    color = Color(0xFF617386)
+                )
+                AdminOfficeRow(
+                    title = "人事处",
+                    duty = "涨薪、续约、离职",
+                    holder = if (adminOffice.personnelOfficerId.isBlank()) "空缺" else viewModel.adminOfficerName("personnel"),
+                    strategy = viewModel.adminOfficeStrategyLabel("personnel"),
+                    onAppoint = { viewModel.openAdminOfficePicker("personnel") },
+                    onClear = { viewModel.clearAdminOfficer("personnel") },
+                    onCycleStrategy = { viewModel.cycleAdminOfficeStrategy("personnel") }
+                )
+                AdminOfficeRow(
+                    title = "学工处",
+                    duty = "社团、活动",
+                    holder = if (adminOffice.studentAffairsOfficerId.isBlank()) "空缺" else viewModel.adminOfficerName("student"),
+                    strategy = viewModel.adminOfficeStrategyLabel("student"),
+                    onAppoint = { viewModel.openAdminOfficePicker("student") },
+                    onClear = { viewModel.clearAdminOfficer("student") },
+                    onCycleStrategy = { viewModel.cycleAdminOfficeStrategy("student") }
+                )
+                AdminOfficeRow(
+                    title = "后勤处",
+                    duty = "修楼、水管、设施维修",
+                    holder = if (adminOffice.logisticsOfficerId.isBlank()) "空缺" else viewModel.adminOfficerName("logistics"),
+                    strategy = viewModel.adminOfficeStrategyLabel("logistics"),
+                    onAppoint = { viewModel.openAdminOfficePicker("logistics") },
+                    onClear = { viewModel.clearAdminOfficer("logistics") },
+                    onCycleStrategy = { viewModel.cycleAdminOfficeStrategy("logistics") }
+                )
                 if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
                     PanelButton("升级校园") { onUpgradeCampus() }
                 }
+                PanelButton("建筑一览") { onOpenFacilities() }
                 PanelButton("人事招聘") { onOpenHiring() }
                 PanelButton("教学强度") { onOpenTeaching() }
                 PanelButton("校友与就业") { onOpenEmployment() }
@@ -2212,6 +2318,40 @@ private fun PanelButtonSmall(text: String, onClick: () -> Unit) {
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
+
+@Composable
+private fun AdminOfficeRow(
+    title: String,
+    duty: String,
+    holder: String,
+    strategy: String,
+    onAppoint: () -> Unit,
+    onClear: () -> Unit,
+    onCycleStrategy: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF0F4F8))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF182635))
+        Text("管$duty · 现任 $holder", fontSize = 12.sp, color = Color(0xFF617386))
+        Text(
+            if (holder == "空缺") "空缺时这些事仍要你亲自批" else "当前策略：$strategy",
+            fontSize = 12.sp,
+            color = Color(0xFF14648C)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PanelButtonSmall(if (holder == "空缺") "任命教师" else "更换") { onAppoint() }
+            if (holder != "空缺") {
+                PanelButtonSmall("改策略") { onCycleStrategy() }
+                PanelButtonSmall("撤职") { onClear() }
+            }
+        }
     }
 }
 

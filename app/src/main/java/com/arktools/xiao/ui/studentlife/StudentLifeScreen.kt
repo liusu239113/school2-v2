@@ -311,9 +311,9 @@ private fun FacilityDutyCard(
                 modifier = Modifier.weight(1.2f)
             )
             PixelButton(
-                text = if (facility.maintenanceLevel < 80f) desk.repairLabel else "暂无需修",
+                text = if (facility.maintenanceLevel < 70f) desk.repairLabel else "暂无需修",
                 onClick = onRepair,
-                enabled = facility.maintenanceLevel < 80f,
+                enabled = facility.maintenanceLevel < 70f,
                 style = PixelButtonStyle.SECONDARY,
                 height = 42.dp,
                 modifier = Modifier.weight(1f)

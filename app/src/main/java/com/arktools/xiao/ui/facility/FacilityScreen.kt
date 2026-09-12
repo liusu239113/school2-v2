@@ -75,7 +75,7 @@ fun FacilityScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
-        LegacyPageHeader("设施容量")
+        LegacyPageHeader("建筑一览")
         SnackbarHost(hostState = snackbarHostState)
 
         LazyColumn(
@@ -99,11 +99,12 @@ fun FacilityScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("全校容量总览", fontWeight = FontWeight.Bold, color = TextPrimaryDark)
+                        Text("建筑一览", fontWeight = FontWeight.Bold, color = TextPrimaryDark)
+                        Text("一眼看清哪栋该升级、哪栋该修。建造和搬楼仍在校园地图里做。", color = TextSecondaryDark)
                         Text("教室学位 ${state.classroomSeats} · 在校 ${state.studentCount} 人", color = TextSecondaryDark)
                         Text("宿舍床位 ${state.dormBeds} · 食堂餐位 ${state.canteenSeats}", color = TextSecondaryDark)
                         Text(
-                            "建造和搬楼只在校园地图里做。这里只看容量和维修。",
+                            "楼况低于 70 才需要修。新楼前 6 个月不会掉，也不会弹维修。",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondaryDark
                         )
@@ -112,11 +113,11 @@ fun FacilityScreen(
             }
 
             // 一键维修按钮
-            val needRepairCount = state.facilities.count { it.condition < 95f }
+            val needRepairCount = state.facilities.count { !it.isConstructing && it.condition < 70f }
             if (needRepairCount > 0) {
                 item {
                     val totalRepairCost = state.facilities
-                        .filter { it.condition < 95f }
+                        .filter { !it.isConstructing && it.condition < 70f }
                         .sumOf { it.type.baseMaintenance * 2 }
                     PixelButton(
                         text = "一键维修 ${needRepairCount} 项（${String.format("%.1f", totalRepairCost)}万）",
@@ -228,7 +229,7 @@ private fun FacilityHeader(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "校园设施",
+                        text = "建筑一览",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -394,7 +395,7 @@ private fun OwnedFacilityCard(
                     )
                 }
 
-                if (facility.condition < 95f) {
+                if (!facility.isConstructing && facility.condition < 70f) {
                     val repairCost = facility.type.baseMaintenance * 2
                     PixelButton(
                         text = "维修 ${String.format("%.1f", repairCost)}万",

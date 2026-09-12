@@ -183,19 +183,19 @@ class PressureSystemManager @Inject constructor() {
         val events = mutableListOf<MaintenanceEvent>()
         for (facility in facilities) {
             if (facility.isConstructing) continue
-            // 自然衰减：每月 condition -1.5~-3（等级越高衰减越慢但维修费越高）
-            val decay = (3.5f - facility.level * 0.3f).coerceAtLeast(1.0f)
+            facility.operationalMonths = (facility.operationalMonths + 1).coerceAtMost(240)
+            // 新楼前 6 个月不掉楼况，也不弹维修。之后每月掉得更慢。
+            if (facility.operationalMonths <= 6) continue
+            val decay = (1.2f - facility.level * 0.15f).coerceAtLeast(0.4f)
             facility.condition = (facility.condition - decay).coerceAtLeast(0f)
 
-            // 已有事件时跳过后续概率检查（但衰减照样计算）
             if (events.size >= 1) continue
 
-            // 突发维修概率大幅降低：condition越低概率越高
             val breakChance = when {
-                facility.condition < 30f -> 0.15f
-                facility.condition < 50f -> 0.07f
-                facility.condition < 70f -> 0.03f
-                else -> 0.01f
+                facility.condition < 30f -> 0.10f
+                facility.condition < 50f -> 0.04f
+                facility.condition < 70f -> 0.015f
+                else -> 0.0f
             }
 
             if (Random.nextFloat() < breakChance) {

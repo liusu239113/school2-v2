@@ -1260,19 +1260,19 @@ private fun AutoHandleConfigSection(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
-                Switch(
-                    checked = config.enabled,
-                    onCheckedChange = { onToggleEnabled(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF4CAF50)
-                    )
+                Text(
+                    "去校园点行政楼任命人事/学工/后勤，有人任职才会自动批。",
+                    fontSize = 12.sp,
+                    color = Color(0xFF33691E),
+                    modifier = Modifier.width(160.dp)
                 )
             }
 
             // 开启后显示详细配置
             AnimatedVisibility(
-                visible = config.enabled,
+                visible = config.personnelOfficerId.isNotBlank() ||
+                    config.studentAffairsOfficerId.isNotBlank() ||
+                    config.logisticsOfficerId.isNotBlank(),
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {

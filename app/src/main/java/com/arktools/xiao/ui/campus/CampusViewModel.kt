@@ -219,6 +219,10 @@ class CampusViewModel @Inject constructor(
     private val _pickingOfficer = MutableStateFlow<OfficerPickerTarget?>(null)
     val pickingOfficer = _pickingOfficer.asStateFlow()
 
+    private val _pickingAdminOffice = MutableStateFlow<String?>(null)
+    val pickingAdminOffice = _pickingAdminOffice.asStateFlow()
+    val adminOfficeConfig = gameEngine.autoHandleManager.config
+
     private val _state = MutableStateFlow(CampusUiState())
     val state: StateFlow<CampusUiState> = _state.asStateFlow()
 
@@ -745,6 +749,151 @@ class CampusViewModel @Inject constructor(
     fun closePickers() {
         _pickingAdvisorClass.value = null
         _pickingOfficer.value = null
+        _pickingAdminOffice.value = null
+    }
+
+    fun adminOfficerName(office: String): String {
+        val cfg = gameEngine.autoHandleManager.config.value
+        val id = when (office) {
+            "personnel" -> cfg.personnelOfficerId
+            "student" -> cfg.studentAffairsOfficerId
+            "logistics" -> cfg.logisticsOfficerId
+            else -> ""
+        }
+        if (id.isBlank()) return "空缺"
+        return cachedTeachers.firstOrNull { it.id == id }?.name ?: "空缺"
+    }
+
+    fun adminOfficeStrategyLabel(office: String): String {
+        val cfg = gameEngine.autoHandleManager.config.value
+        val strategy = when (office) {
+            "personnel" -> cfg.teacherRaiseStrategy
+            "student" -> cfg.activityApprovalStrategy
+            else -> cfg.logisticsRepairStrategy
+        }
+        return strategy.displayName
+    }
+
+    fun openAdminOfficePicker(office: String) {
+        audioManager.playButtonClick()
+        viewModelScope.safeLaunch {
+            val teachers = runCatching { teacherRepository.getTeachers() }
+                .getOrDefault(emptyList()).filter { it.isWorking }
+            cachedTeachers = teachers
+            val scored = teachers.map { teacher ->
+                val score = teacher.management * 2 + teacher.psychology + teacher.teaching
+                AdvisorOption(
+                    id = teacher.id,
+                    name = teacher.name,
+                    detail = teacher.level.name + "级 · " + teacher.role.displayName,
+                    avatarRes = com.arktools.xiao.ui.utils.TeacherAvatarHelper.getAvatarResId(teacher),
+                    teaching = teacher.teaching,
+                    management = teacher.management,
+                    psychology = teacher.psychology,
+                    assignedClass = null,
+                    recommended = false
+                ) to score
+            }.sortedByDescending { it.second }
+            val bestId = scored.firstOrNull()?.first?.id
+            _advisorOptions.value = scored.map { (option, _) ->
+                option.copy(recommended = option.id == bestId)
+            }
+            _pickingAdminOffice.value = office
+        }
+    }
+
+    fun assignAdminOfficer(office: String, teacherId: String) {
+        audioManager.playButtonClick()
+        val current = gameEngine.autoHandleManager.config.value
+        val approve = com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE
+        val next = when (office) {
+            "personnel" -> current.copy(
+                personnelOfficerId = teacherId,
+                teacherRaiseStrategy = approve,
+                teacherRenewalStrategy = approve,
+                teacherResignStrategy = approve
+            )
+            "student" -> current.copy(
+                studentAffairsOfficerId = teacherId,
+                activityApprovalStrategy = approve,
+                clubApprovalStrategy = approve
+            )
+            "logistics" -> current.copy(
+                logisticsOfficerId = teacherId,
+                logisticsRepairStrategy = approve
+            )
+            else -> current
+        }
+        persistAdminOffice(next)
+        _pickingAdminOffice.value = null
+        val teacherName = cachedTeachers.firstOrNull { it.id == teacherId }?.name ?: "教师"
+        val officeName = when (office) {
+            "personnel" -> "人事处"
+            "student" -> "学工处"
+            else -> "后勤处"
+        }
+        _state.value = _state.value.copy(message = "已任命 $teacherName 为${officeName}。这个月开始自动批，点职位可改成拒绝或改回手动。")
+    }
+
+    fun clearAdminOfficer(office: String) {
+        val current = gameEngine.autoHandleManager.config.value
+        val next = when (office) {
+            "personnel" -> current.copy(personnelOfficerId = "")
+            "student" -> current.copy(studentAffairsOfficerId = "")
+            "logistics" -> current.copy(logisticsOfficerId = "")
+            else -> current
+        }
+        persistAdminOffice(next)
+        _state.value = _state.value.copy(message = "这个职位空了，相关审批会重新弹给你。")
+    }
+
+    fun cycleAdminOfficeStrategy(office: String) {
+        val current = gameEngine.autoHandleManager.config.value
+        val now = when (office) {
+            "personnel" -> current.teacherRaiseStrategy
+            "student" -> current.activityApprovalStrategy
+            else -> current.logisticsRepairStrategy
+        }
+        val nextStrategy = when (now) {
+            com.arktools.xiao.domain.autohandle.AutoStrategy.MANUAL ->
+                com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE
+            com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_APPROVE ->
+                com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_REJECT
+            com.arktools.xiao.domain.autohandle.AutoStrategy.AUTO_REJECT ->
+                com.arktools.xiao.domain.autohandle.AutoStrategy.MANUAL
+        }
+        setAdminOfficeStrategy(office, nextStrategy)
+        _state.value = _state.value.copy(message = "这个职位改成「${nextStrategy.displayName}」")
+    }
+
+    fun setAdminOfficeStrategy(office: String, strategy: com.arktools.xiao.domain.autohandle.AutoStrategy) {
+        val current = gameEngine.autoHandleManager.config.value
+        val next = when (office) {
+            "personnel" -> current.copy(
+                teacherRaiseStrategy = strategy,
+                teacherRenewalStrategy = strategy,
+                teacherResignStrategy = strategy
+            )
+            "student" -> current.copy(
+                activityApprovalStrategy = strategy,
+                clubApprovalStrategy = strategy
+            )
+            "logistics" -> current.copy(logisticsRepairStrategy = strategy)
+            else -> current
+        }
+        persistAdminOffice(next)
+    }
+
+    private fun persistAdminOffice(config: com.arktools.xiao.domain.autohandle.AutoHandleConfig) {
+        gameEngine.autoHandleManager.updateConfig(config)
+        val json = gameEngine.autoHandleManager.saveConfigToJson()
+        policyManager.setAdminOfficeJson(json)
+        viewModelScope.safeLaunch {
+            schoolRepository.mutateSchool { school ->
+                school.policyJson = policyManager.toJson()
+                true
+            }
+        }
     }
 
     fun consumeOfficerMessage() {

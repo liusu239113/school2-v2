@@ -139,9 +139,9 @@ class FacilityViewModel @Inject constructor(
             var repairedCount = 0
             var totalCost = 0.0
             val result = schoolRepository.mutateSchool { school ->
-                val needRepair = school.facilities.filter { !it.isConstructing && it.condition < 95f }
+                val needRepair = school.facilities.filter { !it.isConstructing && it.condition < 70f }
                 if (needRepair.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(message = "所有设施状态良好，无需维修")
+                    _uiState.value = _uiState.value.copy(message = "所有设施楼况还行，不用修")
                     return@mutateSchool false
                 }
 
@@ -192,8 +192,8 @@ class FacilityViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(message = "${type.displayName}正在施工，竣工后才能维修")
                     return@mutateSchool false
                 }
-                if (facility.condition >= 95f) {
-                    _uiState.value = _uiState.value.copy(message = "${type.displayName} 状态良好，无需维护")
+                if (facility.condition >= 70f) {
+                    _uiState.value = _uiState.value.copy(message = "${type.displayName} 楼况还行，不用修")
                     return@mutateSchool false
                 }
 

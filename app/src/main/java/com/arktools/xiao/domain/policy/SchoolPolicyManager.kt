@@ -73,6 +73,10 @@ class SchoolPolicyManager @Inject constructor(
         _policies.value = _policies.value.copy(reservedDormBeds = beds.coerceIn(0, 500))
     }
 
+    fun setAdminOfficeJson(json: String) {
+        _policies.value = _policies.value.copy(adminOfficeJson = json)
+    }
+
     fun setUniversityStrategy(strategy: UniversityStrategy) {
         _policies.value = _policies.value.copy(universityStrategy = strategy)
     }
@@ -599,7 +603,8 @@ class SchoolPolicyManager @Inject constructor(
                 classFacilityMapJson = p.collegeDevelopment.classFacilityMapJson,
                 constructingColleges = p.collegeDevelopment.constructingColleges,
                 collegeDeadlines = p.collegeDevelopment.collegeDeadlines,
-                buildingOps = p.collegeDevelopment.buildingOps
+                buildingOps = p.collegeDevelopment.buildingOps,
+                adminOfficeJson = p.adminOfficeJson
             )
             Json.encodeToString(data)
         } catch (_: Exception) { "" }
@@ -653,6 +658,7 @@ class SchoolPolicyManager @Inject constructor(
                     collegeDeadlines = data.collegeDeadlines,
                     buildingOps = data.buildingOps
                 ),
+                adminOfficeJson = data.adminOfficeJson,
                 admissionTrackPlan = com.arktools.xiao.domain.model.AdmissionTrackPlan(
                     liberalWeight = data.liberalTrackWeight,
                     scienceWeight = data.scienceTrackWeight,
@@ -690,7 +696,8 @@ data class SchoolPolicies(
     val admissionTrackPlan: com.arktools.xiao.domain.model.AdmissionTrackPlan =
         com.arktools.xiao.domain.model.AdmissionTrackPlan(),
     /** 预留宿舍空位：招生时保留这些床位不招满，避免新生把宿舍占满引发差评 */
-    val reservedDormBeds: Int = 0
+    val reservedDormBeds: Int = 0,
+    val adminOfficeJson: String = ""
 )
 
 /**
@@ -1029,7 +1036,8 @@ data class PolicyPersistData(
     val classFacilityMapJson: String = "",
     val constructingColleges: Map<String, Int> = emptyMap(),
     val collegeDeadlines: Map<String, Long> = emptyMap(),
-    val buildingOps: BuildingOps = BuildingOps()
+    val buildingOps: BuildingOps = BuildingOps(),
+    val adminOfficeJson: String = ""
 )
 
 data class ManagedCollegeResult(
