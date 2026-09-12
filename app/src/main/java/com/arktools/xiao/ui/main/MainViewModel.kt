@@ -50,8 +50,6 @@ class MainViewModel @Inject constructor(
     private val policyManager: com.arktools.xiao.domain.policy.SchoolPolicyManager
 ) : ViewModel() {
 
-    val disciplinaryPause: StateFlow<GameEngine.DisciplinaryPause?> = gameEngine.disciplinaryPause
-
     private val _school = MutableStateFlow<School?>(null)
     val school: StateFlow<School?> = _school.asStateFlow()
 
@@ -466,16 +464,8 @@ class MainViewModel @Inject constructor(
 
     /** 广告结束后恢复引擎 tick */
     fun resumeAfterAd() {
-        if (wasRunningBeforeAd && gameEngine.disciplinaryPause.value == null) {
+        if (wasRunningBeforeAd) {
             gameEngine.resume()
-        }
-    }
-
-    fun recoverFromDisciplinaryPause() {
-        viewModelScope.safeLaunch {
-            if (gameEngine.recoverFromDisciplinaryPause()) {
-                audioManager.resumeBgm()
-            }
         }
     }
 

@@ -132,7 +132,6 @@ import com.arktools.xiao.ui.international.InternationalScreen
 import com.arktools.xiao.ui.club.ClubScreen
 import com.arktools.xiao.ui.seasonal.SeasonalScreen
 import com.arktools.xiao.ui.reputation.ReputationScreen
-import com.arktools.xiao.ui.principal.PrincipalOfficeScreen
 import com.arktools.xiao.ui.parent.ParentScreen
 import com.arktools.xiao.ui.government.GovernmentScreen
 import com.arktools.xiao.ui.stock.StockScreen
@@ -170,7 +169,6 @@ fun MainScreen(
     val gameOverReason by gameOverViewModel.gameOverReason.collectAsState()
     val healthReport by gameOverViewModel.healthReport.collectAsState()
     val activeConditions by gameOverViewModel.activeConditions.collectAsState()
-    val disciplinaryPause by viewModel.disciplinaryPause.collectAsState()
     val hasSaveData by menuViewModel.hasSaveData.collectAsState()
     val needsRestart by viewModel.needsRestart.collectAsState()
     var selectedTab by rememberSaveable { mutableStateOf(Screen.OVERVIEW) }
@@ -861,7 +859,6 @@ fun MainScreen(
                                 29 -> ScholarshipScreen()
                                 31 -> TimetableScreen()
                                 32 -> ExamScreen()
-                                33 -> PrincipalOfficeScreen()
                                 Screen.TEACHING_CONFIG -> TeachingScreen()
                                 Screen.RESEARCH_LAB -> ResearchScreen()
                                 Screen.DISCIPLINE -> DisciplineScreen()
@@ -947,31 +944,6 @@ fun MainScreen(
         )
     }
 
-
-    if (disciplinaryPause != null) {
-        val activity = context as? android.app.Activity
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text(disciplinaryPause!!.title) },
-            text = { Text(disciplinaryPause!!.message) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (activity != null) {
-                            viewModel.pauseForAd()
-                            AdHelper.showRewardAd(
-                                activity = activity,
-                                onRewarded = { viewModel.recoverFromDisciplinaryPause() }
-                            )
-                        }
-                    },
-                    enabled = activity != null && !isAdLoading
-                ) {
-                    Text(if (isAdLoading) "广告加载中" else "观看视频恢复经营")
-                }
-            }
-        )
-    }
 
     // 紧急救助弹窗（CRITICAL状态时显示）
     val capturedHealthReport = healthReport

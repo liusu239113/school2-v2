@@ -634,21 +634,35 @@ class EmploymentMarket @Inject constructor() {
         )
     }
 
+    /**
+     * 毕业生存档去重。
+     * 原实现是 indexOfFirst 的 O(n²)：毕业生上万后每次启动补录都要跑几千万次
+     * 身份比较（每次还拼字符串 key），直接把启动阶段卡住。
+     * 这里改为按 studentId / 旧档身份 key 建索引，单趟 O(n) 完成。
+     */
     private fun deduplicateGraduates(
         graduates: List<GraduateRecord>
     ): List<GraduateRecord> {
         val unique = mutableListOf<GraduateRecord>()
+        val indexById = HashMap<String, Int>()
+        val indexByLegacyKey = HashMap<String, Int>()
         graduates.forEach { graduate ->
-            val existingIndex = unique.indexOfFirst {
-                sameGraduateIdentity(it, graduate)
-            }
+            val graduateId = graduate.studentId?.takeIf { it.isNotBlank() }
+            val legacyKey = legacyGraduateKey(graduate)
+            val existingIndex = graduateId?.let { indexById[it] }
+                ?: indexByLegacyKey[legacyKey]
+                ?: -1
             if (existingIndex < 0) {
                 unique += graduate
+                val newIndex = unique.size - 1
+                if (graduateId != null) indexById[graduateId] = newIndex
+                indexByLegacyKey.putIfAbsent(legacyKey, newIndex)
             } else {
-                unique[existingIndex] = mergeDuplicateGraduate(
-                    unique[existingIndex],
-                    graduate
-                )
+                val merged = mergeDuplicateGraduate(unique[existingIndex], graduate)
+                unique[existingIndex] = merged
+                val mergedId = merged.studentId?.takeIf { it.isNotBlank() }
+                if (mergedId != null) indexById[mergedId] = existingIndex
+                indexByLegacyKey.putIfAbsent(legacyGraduateKey(merged), existingIndex)
             }
         }
         return unique

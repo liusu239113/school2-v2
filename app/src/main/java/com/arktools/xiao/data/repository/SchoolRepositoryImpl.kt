@@ -316,10 +316,28 @@ class SchoolRepositoryImpl @Inject constructor(
     private suspend fun persistSchool(school: School) {
         markUpdated(school, school.lastSaveTime)
         val chunkDao = database.schoolManagerStateChunkDao()
+        // 关键：Manager 状态序列化失败绝不允许阻塞核心行（日期/资金/声望）落库。
+        // 一旦 currentDay 写不进去，游戏时间会永久卡死，且重启后依旧卡死。
+        // 这里失败时回退到库中上一次的完好分片，保证核心行照常提交。
+        val chunks = try {
+            managerStateChunks(school)
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "SchoolRepo",
+                "manager state encoding failed; keeping last good chunks so the core row still commits",
+                e
+            )
+            chunkDao.getChunks(school.id)
+        }
         chunkDao.deleteBySchoolId(school.id)
-        chunkDao.upsertChunks(managerStateChunks(school))
+        chunkDao.upsertChunks(chunks)
         schoolDao.updateSchool(school.toEntity())
     }
+
+    /** JSON 不接受 NaN/Infinity：脏浮点会让整包落库失败，编码前统一收敛。 */
+    private fun Float.jsonSafe(): Float = if (isFinite()) this else 0f
+
+    private fun Double.jsonSafe(): Double = if (isFinite()) this else 0.0
 
     private suspend fun loadSchool(core: SchoolCoreEntity): School {
         val states = database.schoolManagerStateChunkDao().getChunks(core.id)
@@ -350,11 +368,30 @@ class SchoolRepositoryImpl @Inject constructor(
     private fun managerStates(school: School): List<SchoolManagerStateEntity> {
         val now = school.lastSaveTime
         return listOf(
-            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.FACILITIES, Json.encodeToString(ArrayList(school.facilities)), now),
+            SchoolManagerStateEntity(
+                school.id,
+                SchoolManagerStateKeys.FACILITIES,
+                Json.encodeToString(ArrayList(school.facilities.map { it.copy(condition = it.condition.jsonSafe()) })),
+                now
+            ),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.STUDENT_LIFE, school.studentLifeJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.COMMISSION, school.commissionJson, now),
-            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.MARKETING, Json.encodeToString(ArrayList(school.marketingCampaigns)), now),
-            SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.STOCK_INVESTMENTS, Json.encodeToString(ArrayList(school.stockInvestments)), now),
+            SchoolManagerStateEntity(
+                school.id,
+                SchoolManagerStateKeys.MARKETING,
+                Json.encodeToString(ArrayList(school.marketingCampaigns.map {
+                    it.copy(budget = it.budget.jsonSafe(), totalSpent = it.totalSpent.jsonSafe())
+                })),
+                now
+            ),
+            SchoolManagerStateEntity(
+                school.id,
+                SchoolManagerStateKeys.STOCK_INVESTMENTS,
+                Json.encodeToString(ArrayList(school.stockInvestments.map {
+                    it.copy(buyPrice = it.buyPrice.jsonSafe(), currentPrice = it.currentPrice.jsonSafe())
+                })),
+                now
+            ),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.REPUTATION, school.reputationJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.ACHIEVEMENT, school.achievementJson, now),
             SchoolManagerStateEntity(school.id, SchoolManagerStateKeys.MILESTONE, school.milestoneJson, now),

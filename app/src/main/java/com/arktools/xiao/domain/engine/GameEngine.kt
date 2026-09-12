@@ -23,7 +23,6 @@ import com.arktools.xiao.domain.model.TeacherAction
 import com.arktools.xiao.domain.model.GameEvent
 import com.arktools.xiao.domain.model.MarketingCalculator
 import com.arktools.xiao.domain.model.Principal
-import com.arktools.xiao.domain.model.InvestigationResult
 import com.arktools.xiao.domain.model.School
 import com.arktools.xiao.domain.model.SubjectConfig
 import com.arktools.xiao.domain.model.Teacher
@@ -170,7 +169,6 @@ class GameEngine @Inject constructor(
     val parentSatisfactionManager: com.arktools.xiao.domain.parent.ParentSatisfactionManager,
     val governmentInspectionManager: com.arktools.xiao.domain.government.GovernmentInspectionManager,
     val scholarshipManager: com.arktools.xiao.domain.scholarship.ScholarshipManager,
-    val corruptionManager: CorruptionManager,
     val connectionManager: ConnectionManager,
     val factionManager: FactionManager,
     val classManager: ClassManager,
@@ -197,12 +195,86 @@ class GameEngine @Inject constructor(
 
     private val baseTickIntervalMs: Long = 5000L
 
+    private companion object {
+        /** 看门狗巡检间隔。 */
+        const val LOOP_WATCHDOG_INTERVAL_MS = 30_000L
+
+        /** 未暂停状态下超过该时长没有心跳，视为 tick 挂死，重启循环。 */
+        const val LOOP_STALL_TIMEOUT_MS = 180_000L
+
+        /** 存档标记持续为真的上限，超过视为存档流程卡死并强制解除。 */
+        const val SAVE_STALL_TIMEOUT_MS = 120_000L
+    }
+
     // Save-in-progress flag: blocks tick without affecting UI pause state
     @Volatile
     private var isSaving: Boolean = false
 
+    /** 存档开始时间：存档流程卡死时，看门狗据此解除 isSaving，避免日期被永久挡住。 */
+    @Volatile
+    private var savingStartedAt: Long = 0L
+
     fun setSaving(saving: Boolean) {
         isSaving = saving
+        savingStartedAt = if (saving) System.currentTimeMillis() else 0L
+    }
+
+    /** 游戏循环心跳（毫秒时间戳）。看门狗据此判断循环是"还活着"还是已经死掉/卡住。 */
+    @Volatile
+    private var loopHeartbeatAt: Long = 0L
+
+    /** 看门狗协程：循环意外死亡时自动重启，避免日期永久停摆。 */
+    private var watchdogJob: Job? = null
+
+    /** DataStore 读取失败时沿用的速度，保证主循环永远不会因为读速度失败而退出。 */
+    private var lastKnownSpeed: Float = 1.0f
+
+    /** 启动步骤守护：任何一步失败都不得杀死游戏循环（循环一死日期就永久停摆）。 */
+    private suspend fun runStartupStep(name: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            android.util.Log.e("GameEngine", "$name failed (non-fatal, loop still starts)", e)
+        }
+    }
+
+    /**
+     * 看门狗：周期性检查日期推进循环是否还活着。
+     * 循环协程一旦死亡或长时间无心跳（tick 挂死），日期就再也不会推进，且重启也无法自愈。
+     * 这里发现异常立即取消并重启循环。
+     */
+    private fun startLoopWatchdog() {
+        if (watchdogJob?.isActive == true) return
+        watchdogJob = engineScope.launch {
+            while (isActive) {
+                delay(LOOP_WATCHDOG_INTERVAL_MS)
+                if (engineStopping) break
+                val now = System.currentTimeMillis()
+                // 存档流程若卡死，isSaving 会一直挡住 tick，日期就再也不推进。
+                if (isSaving && savingStartedAt > 0L && now - savingStartedAt > SAVE_STALL_TIMEOUT_MS) {
+                    android.util.Log.e(
+                        "GameEngine",
+                        "watchdog: save flag stuck for ${now - savingStartedAt}ms, releasing it"
+                    )
+                    setSaving(false)
+                }
+                val loop = gameLoopJob ?: continue
+                val dead = !loop.isActive
+                val stalled = !isPaused && !isSaving &&
+                    loopHeartbeatAt > 0L && now - loopHeartbeatAt > LOOP_STALL_TIMEOUT_MS
+                if (!dead && !stalled) continue
+                android.util.Log.e(
+                    "GameEngine",
+                    if (dead) "watchdog: game loop is dead, restarting" else
+                        "watchdog: game loop stalled for ${now - loopHeartbeatAt}ms, restarting"
+                )
+                if (!dead) loop.cancel()
+                gameLoopJob = null
+                start(isPaused)
+                // 继续留在看门狗循环里，保证第二次死亡同样能被救回来。
+            }
+        }
     }
 
     // 事件流必须永不阻塞游戏循环：慢/无消费者时丢弃最旧事件而不是让 tick 挂起。
@@ -1732,14 +1804,6 @@ class GameEngine @Inject constructor(
     )
     val monthlyRevenueBonus: SharedFlow<Double> = _monthlyRevenueBonus.asSharedFlow()
 
-    data class DisciplinaryPause(
-        val title: String,
-        val message: String
-    )
-
-    private val _disciplinaryPause = MutableStateFlow<DisciplinaryPause?>(null)
-    val disciplinaryPause: StateFlow<DisciplinaryPause?> = _disciplinaryPause.asStateFlow()
-
     // 迷你游戏触发信号：活动进入 ACTIVE 阶段时发出，UI 弹出对应迷你游戏
     // 必须不阻塞游戏循环：无消费者时丢弃而不是让 tick 挂起。
     private val _miniGameTrigger = MutableSharedFlow<com.arktools.xiao.domain.seasonal.SeasonalActivity>(
@@ -1918,235 +1982,6 @@ class GameEngine @Inject constructor(
             _principal.value = result.principal
         }
         result
-    }
-
-    data class CorruptActionOutcome(
-        val result: CorruptActResult,
-        val investigationEvent: InvestigationEvent? = null
-    )
-
-    /**
-     * 原子执行一次腐败操作。
-     * Principal 使用副本计算，School 在 Repository 锁内读取最新值并同行写入 principalJson。
-     */
-    suspend fun executeCorruptAction(
-        option: CorruptionOption
-    ): CorruptActionOutcome = engineOperationMutex.withLock {
-        if ("principalJson" in managerRestoreFailedFields) {
-            return@withLock CorruptActionOutcome(
-                CorruptActResult(
-                    false,
-                    0.0,
-                    false,
-                    "校长数据恢复失败，为保护原存档，本次操作已阻止。"
-                )
-            )
-        }
-        val principalCopy = _principal.value.copy(
-            recentCorruptActs = _principal.value.recentCorruptActs.map {
-                it.copy()
-            }.toMutableList(),
-            connections = _principal.value.connections.map {
-                it.copy()
-            }.toMutableList(),
-            purchasedLuxuryItems = _principal.value.purchasedLuxuryItems.toMutableList(),
-            factionRelations = _principal.value.factionRelations.toMutableMap()
-        )
-
-        var outcome: CorruptActionOutcome? = null
-        val persistedSchool = schoolRepository.mutateSchool { school ->
-            val result = corruptionManager.executeCorruptAct(
-                principal = principalCopy,
-                school = school,
-                type = option.type,
-                amount = option.amount,
-                description = option.description,
-                witnessCount = option.witnessCount
-            )
-
-            if (!result.success && !result.immediatelyExposed) {
-                outcome = CorruptActionOutcome(result)
-                return@mutateSchool false
-            }
-
-            if (option.connectionGain > 0) {
-                principalCopy.connectionBonus = (
-                    principalCopy.connectionBonus + option.connectionGain
-                ).coerceAtMost(80)
-                principalCopy.connectionLevel = (
-                    principalCopy.connectionLevel + option.connectionGain
-                ).coerceAtMost(100)
-            }
-            if (option.reputationGain > 0) {
-                school.reputation += option.reputationGain
-            }
-
-            var investigation: InvestigationEvent? = null
-            if (result.immediatelyExposed) {
-                investigation = createImmediateInvestigation(
-                    principalCopy,
-                    option,
-                    result
-                )
-                val schoolFine = corruptionManager.applyInvestigationPenalty(
-                    principalCopy,
-                    school,
-                    investigation
-                )
-                if (schoolFine > 0.0) {
-                    school.cash = (school.cash - schoolFine).coerceAtLeast(-100.0)
-                }
-                if (investigation.result == InvestigationResult.ARRESTED) {
-                    school.cash = 0.0
-                }
-            }
-
-            principalCopy.version++
-            school.principalJson = kotlinx.serialization.json.Json.encodeToString(
-                kotlinx.serialization.serializer<Principal>(),
-                principalCopy
-            )
-            outcome = CorruptActionOutcome(result, investigation)
-            true
-        }
-
-        val committed = outcome
-            ?: CorruptActionOutcome(
-                CorruptActResult(false, 0.0, false, "学校存档不可用，操作未执行。")
-            )
-        if (persistedSchool != null) {
-            _principal.value = principalCopy
-            val investigation = committed.investigationEvent
-            if (investigation?.result == InvestigationResult.ARRESTED) {
-                val graduateCount = studentRepository.getGraduateCount()
-                gameOverDetector.confirmGameOver(
-                    GameOverReason(
-                        conditions = listOf(FailureCondition.PRINCIPAL_ARRESTED),
-                        finalCash = persistedSchool.cash,
-                        finalReputation = persistedSchool.reputation,
-                        totalYearsPlayed = persistedSchool.currentYear - persistedSchool.foundedYear,
-                        totalStudentsGraduated = graduateCount,
-                        peakReputation = persistedSchool.reputation,
-                        peakCash = persistedSchool.totalRevenue
-                    )
-                )
-                isPaused = true
-            } else if (
-                investigation?.result == InvestigationResult.SUSPENSION ||
-                investigation?.result == InvestigationResult.DEMOTION
-            ) {
-                requireDisciplinaryRecovery(
-                    title = if (investigation.result == InvestigationResult.DEMOTION) {
-                        "校长被免职降级"
-                    } else {
-                        "校长被停职调查"
-                    },
-                    message = investigation.message +
-                        "\n\n观看完整视频并接受纪律教育后，才可恢复学校经营。"
-                )
-            }
-        }
-        committed
-    }
-
-    private data class MonthlyInvestigationOutcome(
-        val event: InvestigationEvent,
-        val schoolFine: Double,
-        val school: School
-    )
-
-    /** 月度腐败调查的 School/Principal 变更必须同行持久化。 */
-    private suspend fun processMonthlyCorruption(
-        principal: Principal
-    ): MonthlyInvestigationOutcome? {
-        if ("principalJson" in managerRestoreFailedFields) {
-            android.util.Log.e(
-                "GameEngine",
-                "Skip monthly corruption because principalJson restore failed"
-            )
-            return null
-        }
-        var event: InvestigationEvent? = null
-        var schoolFine = 0.0
-        val persistedSchool = schoolRepository.mutateSchool { latestSchool ->
-            val investigation = corruptionManager.monthlyRiskCheck(
-                principal,
-                latestSchool
-            ) ?: return@mutateSchool false
-
-            schoolFine = corruptionManager.applyInvestigationPenalty(
-                principal,
-                latestSchool,
-                investigation
-            )
-            if (schoolFine > 0.0) {
-                latestSchool.cash = (
-                    latestSchool.cash - schoolFine
-                ).coerceAtLeast(-100.0)
-            }
-            if (investigation.result == InvestigationResult.ARRESTED) {
-                latestSchool.cash = 0.0
-            }
-            latestSchool.principalJson = kotlinx.serialization.json.Json.encodeToString(
-                kotlinx.serialization.serializer<Principal>(),
-                principal
-            )
-            event = investigation
-            true
-        } ?: return null
-
-        return MonthlyInvestigationOutcome(
-            event = event ?: return null,
-            schoolFine = schoolFine,
-            school = persistedSchool
-        )
-    }
-
-    private fun createImmediateInvestigation(
-        principal: Principal,
-        option: CorruptionOption,
-        result: CorruptActResult
-    ): InvestigationEvent = when {
-        principal.totalEmbezzled >= 300.0 || principal.timesCaughtMajor >= 2 -> {
-            principal.isArrested = true
-            InvestigationEvent(
-                result = InvestigationResult.ARRESTED,
-                fineAmount = principal.personalFunds + kotlin.math.abs(option.amount) * 3,
-                reputationLoss = 10000L,
-                suspensionDays = 365,
-                message = "${result.exposureMessage}\n当场人赃俱获！纪检监察立即介入，校长被带走调查！" +
-                    "累计贪污 ${String.format("%.1f", principal.totalEmbezzled)} 万元，证据确凿！",
-                discoveredActs = emptyList()
-            )
-        }
-        principal.corruptionLevel >= 80 || principal.timesCaughtMajor >= 1 -> {
-            InvestigationEvent(
-                result = InvestigationResult.SUSPENSION,
-                fineAmount = kotlin.math.abs(option.amount) * 2 + principal.totalEmbezzled * 0.1,
-                reputationLoss = 3000L,
-                suspensionDays = 60,
-                message = "${result.exposureMessage}\n情节严重！纪检部门决定停职调查两个月！",
-                discoveredActs = emptyList()
-            )
-        }
-        principal.corruptionLevel >= 50 || principal.timesCaughtMinor >= 2 -> {
-            InvestigationEvent(
-                result = InvestigationResult.FINE,
-                fineAmount = kotlin.math.abs(option.amount) * 1.5 + 10.0,
-                reputationLoss = 1500L,
-                suspensionDays = 0,
-                message = "${result.exposureMessage}\n上级部门决定从重处罚，处以高额罚款！",
-                discoveredActs = emptyList()
-            )
-        }
-        else -> InvestigationEvent(
-            result = InvestigationResult.WARNING,
-            fineAmount = kotlin.math.abs(option.amount) * 1.2,
-            reputationLoss = 800L,
-            suspensionDays = 0,
-            message = "${result.exposureMessage}\n教育局约谈警告，责令退还款项。",
-            discoveredActs = emptyList()
-        )
     }
 
     // === 班级系统 ===
@@ -2586,12 +2421,16 @@ class GameEngine @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("GameEngine", "retroactivelyRegisterGraduates failed (non-fatal)", e)
             }
-            // 一次性纪检清算：没收旧版bug导致的非法贪污所得
-            performAntiCorruptionCheckIfNeeded()
-            // 恢复持久化的停职/逮捕状态，避免提交后强杀绕过纪律处分。
-            restorePrincipalDisciplineState()
+            // 旧档残留的停职/被捕标记清理（玩法已下线，只清标记不再暂停时间）
+            runStartupStep("restorePrincipalDisciplineState") {
+                restorePrincipalDisciplineState()
+            }
             // 新游戏开局欢迎事件（第1天触发）
-            emitWelcomeEventIfNeeded()
+            runStartupStep("emitWelcomeEventIfNeeded") {
+                emitWelcomeEventIfNeeded()
+            }
+            // 循环正式进入运转前先打一次心跳，避免启动阶段被看门狗误判为卡死。
+            loopHeartbeatAt = System.currentTimeMillis()
             while (isActive) {
                 if (!isPaused && !isSaving && !engineStopping) {
                     try {
@@ -2606,10 +2445,22 @@ class GameEngine @Inject constructor(
                         // 月结恢复由数据库中的完成年月驱动；任意日常异常不得触发整段月结重放。
                     }
                 }
-                val speed = settingsDataStore.gameSpeed.first().coerceAtLeast(0.25f)
-                delay((baseTickIntervalMs / speed).toLong())
+                // 心跳：只要这一轮跑完就说明日期循环还活着。
+                loopHeartbeatAt = System.currentTimeMillis()
+                // 读速度失败不得终止循环：DataStore 异常/损坏时沿用上一次速度继续跑。
+                val rawSpeed = try {
+                    settingsDataStore.gameSpeed.first()
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    android.util.Log.e("GameEngine", "read gameSpeed failed, reuse last speed", e)
+                    lastKnownSpeed
+                }
+                val speed = rawSpeed.coerceAtLeast(0.25f)
+                lastKnownSpeed = speed
+                delay((baseTickIntervalMs / speed).toLong().coerceAtLeast(200L))
             }
         }
+        startLoopWatchdog()
     }
 
     /**
@@ -2925,102 +2776,49 @@ class GameEngine @Inject constructor(
     }
 
     /**
-     * 一次性纪检清算：对旧版本利用bug贪污的玩家执行反腐行动
-     * - 检测条件：totalEmbezzled > 0 且尚未执行过清算
-     * - 处罚：没收全部个人资金、清零贪污记录、重置腐败值
-     * - 不结束游戏：给玩家一次改过自新的机会
+     * 旧档自愈：腐败/纪检玩法已经下线（UI 里没有入口），但老存档里可能残留
+     * isSuspended / isArrested / 贪腐记录。以前这些标记会让游戏每次启动都暂停，
+     * 玩家表现为"日期卡死、退出重进也没用"。这里启动时直接清干净，绝不暂停。
      */
-    private suspend fun performAntiCorruptionCheckIfNeeded() {
-        if ("principalJson" in managerRestoreFailedFields) {
-            android.util.Log.e(
-                "GameEngine",
-                "Skip anti-corruption migration because principalJson restore failed"
-            )
-            return
-        }
-        val p = _principal.value
-        // 已执行过或无贪污记录 → 跳过
-        if (p.antiCorruptionApplied || p.totalEmbezzled <= 0.0) return
-
-        val confiscatedAmount = p.personalFunds
-        val embezzledTotal = p.totalEmbezzled
-
-        // 执行清算
-        p.personalFunds = 0.0
-        p.totalEmbezzled = 0.0
-        p.corruptionLevel = 0
-        p.recentCorruptActs.clear()
-        p.timesInvestigated = 0
-        p.timesCaughtMinor = 0
-        p.timesCaughtMajor = 0
-        p.isSuspended = false
-        p.suspendedDaysLeft = 0
-        p.antiCorruptionApplied = true
-        _principal.value = p.copy(version = p.version + 1)
-
-        // 持久化清算结果
-        try {
-            val principalJson = kotlinx.serialization.json.Json.encodeToString(
-                kotlinx.serialization.serializer<Principal>(),
-                _principal.value
-            )
-            schoolRepository.mutateSchool { latest ->
-                latest.principalJson = principalJson
-                true
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("GameEngine", "Failed to persist anti-corruption result", e)
-        }
-
-        // 弹出纪检通报事件
-        val message = buildString {
-            append("【中共中央纪律检查委员会通报】\n\n")
-            append("经群众举报及专项巡视组调查核实，")
-            append("查明校长在任职期间存在严重违纪违法行为：\n\n")
-            append("● 累计贪污公款：${String.format("%.1f", embezzledTotal)}万元\n")
-            if (confiscatedAmount > 0) {
-                append("● 违法所得已全部没收：${String.format("%.1f", confiscatedAmount)}万元\n")
-            }
-            append("\n鉴于当事人认罪态度良好，且未造成不可挽回的损失，")
-            append("经研究决定：\n\n")
-            append("一、没收全部违法所得\n")
-            append("二、免予刑事处罚，保留职务\n")
-            append("三、给予党内严重警告处分\n\n")
-            append("望引以为戒，廉洁从教。")
-        }
-
-        _events.emit(GameEvent.NegativeEvent(
-            title = "纪检监察通报",
-            message = message,
-            penaltyCash = 0.0,  // 不扣学校资金，只清个人资产
-            penaltyReputation = 0L
-        ))
-
-        android.util.Log.i("GameEngine", "Anti-corruption check applied: confiscated=$confiscatedAmount, embezzled=$embezzledTotal")
-    }
-
     private suspend fun restorePrincipalDisciplineState() {
         val principal = _principal.value
-        val school = schoolRepository.getSchool() ?: return
-        if (principal.isArrested) {
-            val graduateCount = studentRepository.getGraduateCount()
-            gameOverDetector.confirmGameOver(
-                GameOverReason(
-                    conditions = listOf(FailureCondition.PRINCIPAL_ARRESTED),
-                    finalCash = school.cash,
-                    finalReputation = school.reputation,
-                    totalYearsPlayed = school.currentYear - school.foundedYear,
-                    totalStudentsGraduated = graduateCount,
-                    peakReputation = school.reputation,
-                    peakCash = school.totalRevenue
-                )
+        val hasLegacyDisciplineState = principal.isArrested ||
+            principal.isSuspended ||
+            principal.suspendedDaysLeft > 0 ||
+            principal.corruptionLevel > 0 ||
+            principal.totalEmbezzled > 0.0 ||
+            principal.recentCorruptActs.isNotEmpty() ||
+            principal.timesInvestigated > 0 ||
+            principal.timesCaughtMinor > 0 ||
+            principal.timesCaughtMajor > 0
+        if (!hasLegacyDisciplineState) return
+        if ("principalJson" in managerRestoreFailedFields) return
+
+        val cleaned = principal.copy(
+            version = principal.version + 1,
+            isSuspended = false,
+            isArrested = false,
+            suspendedDaysLeft = 0,
+            corruptionLevel = 0,
+            totalEmbezzled = 0.0,
+            timesInvestigated = 0,
+            timesCaughtMinor = 0,
+            timesCaughtMajor = 0,
+            recentCorruptActs = mutableListOf(),
+            antiCorruptionApplied = true
+        )
+        val persisted = schoolRepository.mutateSchool { school ->
+            school.principalJson = kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.serializer<Principal>(),
+                cleaned
             )
-            isPaused = true
-        } else if (principal.isSuspended) {
-            requireDisciplinaryRecovery(
-                title = "校长仍在停职调查",
-                message = "存档记录显示校长尚未完成纪律教育。\n\n" +
-                    "观看完整视频并接受纪律教育后，才可恢复学校经营。"
+            true
+        }
+        if (persisted != null) {
+            _principal.value = cleaned
+            android.util.Log.i(
+                "GameEngine",
+                "Cleared legacy discipline state from save; clock keeps running"
             )
         }
     }
@@ -3173,54 +2971,7 @@ class GameEngine @Inject constructor(
     }
 
     fun resume() {
-        if (_disciplinaryPause.value == null) {
-            isPaused = false
-        }
-    }
-
-    fun requireDisciplinaryRecovery(title: String, message: String) {
-        _disciplinaryPause.value = DisciplinaryPause(title, message)
-        isPaused = true
-    }
-
-    suspend fun recoverFromDisciplinaryPause(): Boolean {
-        return engineOperationMutex.withLock {
-            val currentPrincipal = _principal.value
-            if (currentPrincipal.isArrested) return@withLock false
-            val recovered = currentPrincipal.copy(
-                version = currentPrincipal.version + 1,
-                isSuspended = false,
-                suspendedDaysLeft = 0,
-                corruptionLevel =
-                    (currentPrincipal.corruptionLevel - 20).coerceAtLeast(0),
-                recentCorruptActs = currentPrincipal.recentCorruptActs
-                    .map { it.copy() }
-                    .toMutableList(),
-                connections = currentPrincipal.connections
-                    .map { it.copy() }
-                    .toMutableList(),
-                purchasedLuxuryItems = currentPrincipal.purchasedLuxuryItems
-                    .toMutableList(),
-                factionRelations = currentPrincipal.factionRelations
-                    .toMutableMap()
-            )
-            val principalJson = kotlinx.serialization.json.Json.encodeToString(
-                kotlinx.serialization.serializer<Principal>(),
-                recovered
-            )
-            val persisted = schoolRepository.mutateSchool { latest ->
-                latest.principalJson = principalJson
-                true
-            } ?: return@withLock false
-            _principal.value = recovered
-            _disciplinaryPause.value = null
-            isPaused = false
-            android.util.Log.i(
-                "GameEngine",
-                "Disciplinary recovery persisted at revision ${persisted.lastSaveTime}"
-            )
-            true
-        }
+        isPaused = false
     }
 
     private fun isMonthlySettlementDue(school: School): Boolean =
@@ -3315,6 +3066,9 @@ class GameEngine @Inject constructor(
     suspend fun stopAndJoin() {
         engineStopping = true
         isPaused = true
+        val watchdog = watchdogJob
+        watchdogJob = null
+        watchdog?.cancel()
         val job = gameLoopJob
         job?.cancel()
         if (job != null) {
@@ -3334,6 +3088,8 @@ class GameEngine @Inject constructor(
 
     fun stop() {
         engineStopping = true
+        watchdogJob?.cancel()
+        watchdogJob = null
         gameLoopJob?.cancel()
         isPaused = true
     }
@@ -3350,11 +3106,18 @@ class GameEngine @Inject constructor(
         }
         engineStopping = false
         isPaused = false
-        _disciplinaryPause.value = null
         pendingMonthlySettlementRetry = false
         pendingStudentYearEndRecovery = false
         pendingGraduationProjectionRetry = false
         eventsSuppressed = false
+        // 循环"活着但卡住"时同样需要重建：只判断 isActive 不足以救回挂死的 tick。
+        val stalled = loopHeartbeatAt > 0L &&
+            System.currentTimeMillis() - loopHeartbeatAt > LOOP_STALL_TIMEOUT_MS
+        if (stalled) {
+            android.util.Log.w("GameEngine", "Force resume: loop stalled, rebuilding it")
+            gameLoopJob?.cancel()
+            gameLoopJob = null
+        }
         if (gameLoopJob?.isActive != true) {
             start()
         }
@@ -3378,7 +3141,6 @@ class GameEngine @Inject constructor(
         // Core in-memory state
         gameOverDetector.reset()
         _principal.value = Principal()
-        _disciplinaryPause.value = null
         connectionManager.initializeConnections(_principal.value)
         _classes.value = emptyList()
         isPaused = false
@@ -3509,8 +3271,10 @@ class GameEngine @Inject constructor(
 
     private suspend fun tick() {
         if (pendingStudentYearEndRecovery) {
-            val recoverySchool = schoolRepository.getSchool() ?: return
-            try {
+            // 注意：这里以前是 `?: return`，学校行读不到时会整段跳过 tick，
+            // 连 advanceDay 都不执行 —— 日期会直接卡死。改为跳过本段即可。
+            val recoverySchool = schoolRepository.getSchool()
+            if (recoverySchool != null) try {
                 val recoveredClasses = processStudentYearEnd(
                     school = recoverySchool,
                     currentClasses = _classes.value
@@ -5569,78 +5333,8 @@ class GameEngine @Inject constructor(
                 }
             }
 
-            // 腐败系统月度风险检查：School/Principal/罚款/声誉同行持久化。
-            if (!principalForMonth.isSuspended && !principalForMonth.isArrested) {
-                val investigation = processMonthlyCorruption(principalForMonth)
-                if (investigation != null) {
-                    val investigationEvent = investigation.event
-                    val schoolFine = investigation.schoolFine
-                    val latestSchool = investigation.school
-                    st.monthlyExpenses += schoolFine
-
-                    val gameEvent = when (investigationEvent.result) {
-                        InvestigationResult.ARRESTED -> GameEvent.NegativeEvent(
-                            title = "🚔 校长被逮捕！",
-                            message = investigationEvent.message,
-                            penaltyCash = 0.0,
-                            penaltyReputation = 0L
-                        )
-                        InvestigationResult.DEMOTION -> GameEvent.NegativeEvent(
-                            title = "⚠️ 校长被免职降级！",
-                            message = investigationEvent.message,
-                            penaltyCash = 0.0,
-                            penaltyReputation = 0L
-                        )
-                        InvestigationResult.SUSPENSION -> GameEvent.NegativeEvent(
-                            title = "纪检调查: 停职反省",
-                            message = investigationEvent.message,
-                            penaltyCash = 0.0,
-                            penaltyReputation = 0L
-                        )
-                        InvestigationResult.FINE -> GameEvent.NegativeEvent(
-                            title = "纪检调查: 罚款处分",
-                            message = investigationEvent.message,
-                            penaltyCash = 0.0,
-                            penaltyReputation = 0L
-                        )
-                        InvestigationResult.WARNING -> GameEvent.NegativeEvent(
-                            title = "纪检警告",
-                            message = investigationEvent.message,
-                            penaltyCash = 0.0,
-                            penaltyReputation = 0L
-                        )
-                        InvestigationResult.CLEARED -> GameEvent.PositiveEvent(
-                            title = "纪检调查通过",
-                            message = investigationEvent.message,
-                            bonusCash = 0.0,
-                            bonusReputation = 0
-                        )
-                    }
-                    emitEvent(gameEvent, latestSchool)
-                    _principal.value = principalForMonth.copy(
-                        version = principalForMonth.version + 1
-                    )
-
-                    if (investigationEvent.result == InvestigationResult.ARRESTED) {
-                        handlePrincipalArrest(latestSchool)
-                    } else if (
-                        investigationEvent.result == InvestigationResult.SUSPENSION ||
-                        investigationEvent.result == InvestigationResult.DEMOTION
-                    ) {
-                        requireDisciplinaryRecovery(
-                            title = if (
-                                investigationEvent.result == InvestigationResult.DEMOTION
-                            ) {
-                                "校长被免职降级"
-                            } else {
-                                "校长被停职调查"
-                            },
-                            message = investigationEvent.message +
-                                "\n\n观看完整视频并接受纪律教育后，才可恢复学校经营。"
-                        )
-                    }
-                }
-            }
+            // 腐败/纪检玩法没有 UI 入口，已下线。这里不再做月度调查，
+            // 避免旧档残留的贪腐记录把校长停职/逮捕、把游戏时间永久按停。
 
             // 人脉系统月度衰减
             connectionManager.monthlyDecay(principalForMonth)
