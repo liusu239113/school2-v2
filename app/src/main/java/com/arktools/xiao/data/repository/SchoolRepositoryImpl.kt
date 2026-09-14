@@ -319,6 +319,7 @@ class SchoolRepositoryImpl @Inject constructor(
         // 关键：Manager 状态序列化失败绝不允许阻塞核心行（日期/资金/声望）落库。
         // 一旦 currentDay 写不进去，游戏时间会永久卡死，且重启后依旧卡死。
         // 这里失败时回退到库中上一次的完好分片，保证核心行照常提交。
+        val previousChunks = chunkDao.getChunks(school.id)
         val chunks = try {
             managerStateChunks(school)
         } catch (e: Exception) {
@@ -327,11 +328,42 @@ class SchoolRepositoryImpl @Inject constructor(
                 "manager state encoding failed; keeping last good chunks so the core row still commits",
                 e
             )
-            chunkDao.getChunks(school.id)
+            previousChunks
         }
-        chunkDao.deleteBySchoolId(school.id)
-        chunkDao.upsertChunks(chunks)
+        writeChunksIncrementally(chunkDao, school.id, previousChunks, chunks)
         schoolDao.updateSchool(school.toEntity())
+    }
+
+    /**
+     * 增量写入 Manager 分片：只重写内容真正变化的 stateKey。
+     *
+     * 背景：月度结算/日常推进会在同一次 tick 里连续调用多次 mutateSchool，
+     * 早先每次都"删光全部分片 + 重插 35 个 Manager 状态"，存档一大就成倍放大写入量，
+     * 表现为玩到后期卡顿、跨年月（1 月 1 日）格外卡。这里按 key 比对后只写变化的部分。
+     */
+    private suspend fun writeChunksIncrementally(
+        chunkDao: com.arktools.xiao.data.local.dao.SchoolManagerStateChunkDao,
+        schoolId: String,
+        previousChunks: List<SchoolManagerStateChunkEntity>,
+        newChunks: List<SchoolManagerStateChunkEntity>
+    ) {
+        fun joinPayload(chunks: List<SchoolManagerStateChunkEntity>): String =
+            chunks.sortedBy { it.chunkIndex }.joinToString("") { it.payload }
+
+        val previousPayloadByKey = previousChunks.groupBy { it.stateKey }
+            .mapValues { (_, chunks) -> joinPayload(chunks) }
+        val newChunksByKey = newChunks.groupBy { it.stateKey }
+        val changedKeys = newChunksByKey
+            .filter { (key, chunkList) -> previousPayloadByKey[key] != joinPayload(chunkList) }
+            .keys
+        // 本次不再产出的 key（例如某 Manager 关闭）也要把旧分片清掉
+        val removedKeys = previousPayloadByKey.keys - newChunksByKey.keys
+        val keysToRewrite = changedKeys + removedKeys
+        if (keysToRewrite.isEmpty()) return
+        chunkDao.deleteByKeys(schoolId, keysToRewrite.toList())
+        if (changedKeys.isNotEmpty()) {
+            chunkDao.upsertChunks(newChunks.filter { it.stateKey in changedKeys })
+        }
     }
 
     /** JSON 不接受 NaN/Infinity：脏浮点会让整包落库失败，编码前统一收敛。 */

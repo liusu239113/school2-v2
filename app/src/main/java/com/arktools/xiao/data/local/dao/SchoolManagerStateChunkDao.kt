@@ -20,6 +20,13 @@ interface SchoolManagerStateChunkDao {
     @Query("DELETE FROM school_manager_state_chunks WHERE schoolId = :schoolId")
     suspend fun deleteBySchoolId(schoolId: String)
 
+    /** 只清理指定 Manager 的分片，供增量落库使用（未变化的 Manager 保持原行不动）。 */
+    @Query(
+        "DELETE FROM school_manager_state_chunks " +
+            "WHERE schoolId = :schoolId AND stateKey IN (:stateKeys)"
+    )
+    suspend fun deleteByKeys(schoolId: String, stateKeys: List<String>)
+
     @Query("DELETE FROM school_manager_state_chunks")
     suspend fun deleteAll()
 }

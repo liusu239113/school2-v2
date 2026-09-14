@@ -2191,10 +2191,16 @@ private fun BuildMenuContent(
         }
 
         Text("功能建筑", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E96C8))
+        val buildingSlotsFull = state.facilities.size >= state.maxFacilities
         Text(
-            "已建 ${state.facilities.size}/${state.maxFacilities} · 点建筑打开对应系统",
+            if (buildingSlotsFull) {
+                "已建 ${state.facilities.size}/${state.maxFacilities}（已达当前校园等级上限）\n" +
+                    "还能扩容：宿舍加床、食堂加窗口、已有建筑升级都不占新建位；升级校园等级可提高上限"
+            } else {
+                "已建 ${state.facilities.size}/${state.maxFacilities} · 点建筑打开对应系统"
+            },
             fontSize = 12.sp,
-            color = Color(0xFF617386)
+            color = if (buildingSlotsFull) Color(0xFFE65100) else Color(0xFF617386)
         )
         val hospitalLocked = state.campusLevel < BT.HOSPITAL.unlockLevel ||
             CollegeType.MEDICINE !in state.foundedColleges || state.affiliatedHospital ||
@@ -2235,7 +2241,11 @@ private fun BuildMenuContent(
                 levelLocked -> "校园 Lv.${spec.unlockLevel}"
                 prerequisiteCollege != null -> "需${prerequisiteCollege.displayName}竣工"
                 prerequisiteFacility != null -> "需${prerequisiteFacility.displayName}"
-                capLocked -> "建筑已满"
+                capLocked -> when (type) {
+                    FacilityType.DORMITORY -> "已满·可楼内加床"
+                    FacilityType.CANTEEN -> "已满·可楼内加窗口"
+                    else -> "建筑已满"
+                }
                 shortOfCash -> "钱不够"
                 else -> null
             }

@@ -1941,7 +1941,18 @@ class CampusViewModel @Inject constructor(
                 if (classroomSlots < req.minClasses) {
                     add("教室班槽 ${req.minClasses}间（现在 $classroomSlots 间，1级教室楼=3间，升级或再建一栋）")
                 }
-                if (studentCount < req.minStudents) add("学生 ${req.minStudents}人")
+                if (studentCount < req.minStudents) {
+                    // 说清楚"人不够"卡在哪：招生上限=床位与班槽，而床位/班槽都能在楼内扩容，不用新建建筑
+                    val dormBeds = com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities)
+                    val dormCount = school.facilities.count {
+                        it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational
+                    }
+                    val bedHeadroom = 40 * dormCount.coerceAtLeast(1)
+                    add(
+                        "学生 ${req.minStudents}人（现在 $studentCount 人；全校床位 $dormBeds 张，" +
+                            "点宿舍楼还能加床 +$bedHeadroom 张 → 床位够了每年 9 月就会继续招）"
+                    )
+                }
                 if (yearsAtLevel < req.minYearsAtCurrentLevel) add("运营满 ${req.minYearsAtCurrentLevel}年")
                 if (req.minAverageTeacherSkill > 0 && avgSkill < req.minAverageTeacherSkill)
                     add("师资均分 ${req.minAverageTeacherSkill}")

@@ -4447,7 +4447,9 @@ class GameEngine @Inject constructor(
                     val monthlyResult = teacherDevelopmentManager.advanceMonth(
                         school.currentYear,
                         school.currentMonth,
-                        school.reputation
+                        school.reputation,
+                        // 教师档案的"流失风险"要和教师列表的忠诚度口径一致
+                        teachersById.mapValues { (_, teacher) -> teacher.loyalty }
                     )
                     val departedIds = monthlyResult.departures
                         .map { it.teacherId }

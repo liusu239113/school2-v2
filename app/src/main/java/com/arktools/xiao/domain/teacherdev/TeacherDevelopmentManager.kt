@@ -448,7 +448,8 @@ class TeacherDevelopmentManager @Inject constructor() {
     fun advanceMonth(
         currentYear: Int,
         currentMonth: Int,
-        schoolReputation: Long
+        schoolReputation: Long,
+        loyaltyByTeacherId: Map<String, Int> = emptyMap()
     ): TeacherDevMonthlyResult {
         if (hasProcessedMonth(currentYear, currentMonth)) {
             return TeacherDevMonthlyResult()
@@ -510,11 +511,13 @@ class TeacherDevelopmentManager @Inject constructor() {
             }
             val newSatisfaction = (profile.satisfaction + satisfactionDelta).coerceIn(20f, 100f)
 
-            // 离职风险评估
+            // 离职风险评估：满意度和忠诚度共同决定，避免"档案显示危险、教师列表忠诚度却满格"的矛盾。
+            // 忠诚度 <30 本身就是倦怠离职的触发线（见 PressureSystemManager）。
+            val loyalty = loyaltyByTeacherId[profile.teacherId] ?: 100
             val risk = when {
-                newSatisfaction < 40f -> TurnoverRisk.CRITICAL
-                newSatisfaction < 55f -> TurnoverRisk.HIGH
-                newSatisfaction < 70f -> TurnoverRisk.MEDIUM
+                newSatisfaction < 40f || loyalty < 30 -> TurnoverRisk.CRITICAL
+                newSatisfaction < 55f || loyalty < 50 -> TurnoverRisk.HIGH
+                newSatisfaction < 70f || loyalty < 70 -> TurnoverRisk.MEDIUM
                 else -> TurnoverRisk.LOW
             }
 
@@ -847,6 +850,33 @@ class TeacherDevelopmentManager @Inject constructor() {
 
     fun getPromotionRequirements(teacherId: String): PromotionRequirements? {
         val profile = _state.value.teacherProfiles.find { it.teacherId == teacherId } ?: return null
+        return requirementsOf(profile)
+    }
+
+    /**
+     * 一次性算出所有教师的晋升要求。
+     * UI 每个教师卡片都调一次 getPromotionRequirements 会退化成 O(n²)，
+     * 教师上百后每次重组都在空转，这里提供单趟 O(n) 的批量版本。
+     */
+    fun getPromotionRequirementsMap(): Map<String, PromotionRequirements> {
+        val nextTitles = TeacherTitle.entries
+        val result = HashMap<String, PromotionRequirements>()
+        _state.value.teacherProfiles.forEach { profile ->
+            val nextTitle = nextTitles.getOrNull(profile.title.ordinal + 1) ?: return@forEach
+            result[profile.teacherId] = PromotionRequirements(
+                nextTitle = nextTitle,
+                monthsNeeded = nextTitle.requiredMonths,
+                monthsHad = profile.monthsSinceLastPromotion,
+                evalNeeded = nextTitle.requiredEvalScore,
+                evalHad = profile.evaluationScore,
+                creditsNeeded = nextTitle.requiredCredits,
+                creditsHad = profile.trainingCredits
+            )
+        }
+        return result
+    }
+
+    private fun requirementsOf(profile: TeacherProfile): PromotionRequirements? {
         val nextTitle = TeacherTitle.entries.getOrNull(profile.title.ordinal + 1) ?: return null
         return PromotionRequirements(
             nextTitle = nextTitle,

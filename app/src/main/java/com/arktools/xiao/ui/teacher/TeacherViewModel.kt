@@ -74,6 +74,27 @@ class TeacherViewModel @Inject constructor(
             .toSortedMap()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+    /** teacherId -> Teacher。列表项里逐个 find 会退化成 O(n²)，统一在这里建一次索引。 */
+    val teacherById: StateFlow<Map<String, Teacher>> = _teachers.map { list ->
+        list.associateBy { it.id }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** teacherId -> 发展档案。教师团队页要看培训学分/是否在训，逐个 find 同样是 O(n²)。 */
+    val devProfileById: StateFlow<Map<String, TeacherProfile>> = teacherDevManager.state
+        .map { state -> state.teacherProfiles.associateBy { it.teacherId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** 教师发展档案的排序结果，避免每次重组重新排序。 */
+    val sortedDevProfiles: StateFlow<List<TeacherProfile>> = teacherDevManager.state
+        .map { state -> state.teacherProfiles.sortedByDescending { it.title.ordinal } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** teacherId -> 晋升要求，随档案一次性算好（原实现每个卡片每次重组都做一次线性查找）。 */
+    val promotionRequirements: StateFlow<Map<String, PromotionRequirements>> =
+        teacherDevManager.state
+            .map { teacherDevManager.getPromotionRequirementsMap() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     private val _candidates = MutableStateFlow<List<Teacher>>(emptyList())
     val candidates: StateFlow<List<Teacher>> = _candidates.asStateFlow()
 
@@ -96,8 +117,16 @@ class TeacherViewModel @Inject constructor(
     private val _showHireDialog = MutableStateFlow(false)
     val showHireDialog: StateFlow<Boolean> = _showHireDialog.asStateFlow()
 
-    private val _selectedTeacher = MutableStateFlow<Teacher?>(null)
-    val selectedTeacher: StateFlow<Teacher?> = _selectedTeacher.asStateFlow()
+    private val _selectedTeacherId = MutableStateFlow<String?>(null)
+
+    /**
+     * 详情面板跟随最新教师数据。
+     * 之前存的是点击瞬间的对象快照，面板打开期间忠诚度/疲劳仍在变化，
+     * 于是出现"列表里忠诚度已经掉了、详情面板还是满格"的不一致。
+     */
+    val selectedTeacher: StateFlow<Teacher?> = combine(_teachers, _selectedTeacherId) { list, id ->
+        id?.let { teacherId -> list.firstOrNull { it.id == teacherId } }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _selectedChannel = MutableStateFlow<RecruitmentChannel?>(null)
     val selectedChannel: StateFlow<RecruitmentChannel?> = _selectedChannel.asStateFlow()
@@ -370,7 +399,7 @@ class TeacherViewModel @Inject constructor(
             gameEngine.refreshTimetablesForTeacherChange()
             // 通知派系系统：解雇教师
             gameEngine.notifyFactionDecision(com.arktools.xiao.domain.engine.SchoolDecision.FIRE_TEACHER)
-            _selectedTeacher.value = null
+            _selectedTeacherId.value = null
         }
     }
 
@@ -408,7 +437,9 @@ class TeacherViewModel @Inject constructor(
         val successCount: Int,
         val failCount: Int,
         val totalCost: Double,
-        val insufficientFunds: Boolean = false
+        val insufficientFunds: Boolean = false,
+        /** 本次实际排上培训的教师姓名（按优先级排序） */
+        val scheduledNames: List<String> = emptyList()
     )
 
     private val _batchTrainResult = MutableStateFlow<BatchTrainResult?>(null)
@@ -418,6 +449,11 @@ class TeacherViewModel @Inject constructor(
         _batchTrainResult.value = null
     }
 
+    /**
+     * 一键培训：优先补"最缺的"教师（学分最少 → 评估分最低 → 技能最低），
+     * 而不是按档案存储顺序从头排。培训名额有限（同时最多 5 人），
+     * 所以顺序决定了谁能被培训到，之前的实现总是培训最靠前的几个人。
+     */
     fun batchTrainAll() {
         viewModelScope.safeLaunch {
             val profiles = teacherDevManager.state.value.teacherProfiles
@@ -431,15 +467,28 @@ class TeacherViewModel @Inject constructor(
                 return@safeLaunch
             }
 
+            val onTrainingCount = profiles.count { it.isOnTraining }
+            val candidates = profiles
+                .filter { !it.isOnTraining }
+                .sortedWith(
+                    compareBy<TeacherProfile> { it.trainingCredits }
+                        .thenBy { it.evaluationScore }
+                        .thenBy { it.skillLevel }
+                )
+
             var scheduled = 0
-            var skipped = 0
-            for (profile in profiles) {
-                if (profile.isOnTraining) {
-                    skipped++
-                    continue
-                }
+            var skipped = onTrainingCount
+            val scheduledNames = mutableListOf<String>()
+            for (profile in candidates) {
+                // 名额满了就不再往后试，避免把一排人算成"失败"
+                if (scheduled >= TeacherDevelopmentManager.MAX_TRAINING_SLOTS) break
                 val result = gameEngine.startTeacherDevelopmentTraining(profile.teacherId, program)
-                if (result.success) scheduled++ else skipped++
+                if (result.success) {
+                    scheduled++
+                    scheduledNames += profile.name
+                } else {
+                    skipped++
+                }
             }
 
             audioManager.playLevelUp()
@@ -447,7 +496,32 @@ class TeacherViewModel @Inject constructor(
                 totalCount = profiles.size,
                 successCount = scheduled,
                 failCount = skipped,
-                totalCost = 0.0
+                totalCost = 0.0,
+                scheduledNames = scheduledNames
+            )
+        }
+    }
+
+    /** 教师发展页快捷加薪：直接按比例上调薪资（会即时提升忠诚度）。 */
+    fun raiseSalary(
+        teacherId: String,
+        percent: Double = 0.1,
+        onResult: (String) -> Unit = {}
+    ) {
+        viewModelScope.safeLaunch {
+            val teacher = _teachers.value.firstOrNull { it.id == teacherId }
+            if (teacher == null) {
+                onResult("教师不存在")
+                return@safeLaunch
+            }
+            val newSalary = (teacher.salary * (1.0 + percent)).coerceAtLeast(teacher.salary + 0.1)
+            val ok = teacherRepository.adjustSalary(teacherId, newSalary)
+            onResult(
+                if (ok) {
+                    "${teacher.name} 薪资 ${teacher.salary.toInt()} → ${newSalary.toInt()}万/年，忠诚度+10"
+                } else {
+                    "加薪失败，请重试"
+                }
             )
         }
     }
@@ -459,11 +533,11 @@ class TeacherViewModel @Inject constructor(
     }
 
     fun selectTeacher(teacher: Teacher) {
-        _selectedTeacher.value = teacher
+        _selectedTeacherId.value = teacher.id
     }
 
     fun clearSelectedTeacher() {
-        _selectedTeacher.value = null
+        _selectedTeacherId.value = null
     }
 
     fun setSortMode(mode: TeacherSortMode) {

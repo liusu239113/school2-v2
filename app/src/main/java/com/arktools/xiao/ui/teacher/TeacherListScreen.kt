@@ -133,7 +133,7 @@ private fun TeacherTeamContent(
     val displayTeachers by viewModel.displayTeachers.collectAsState()
     val teachersBySubject by viewModel.teachersBySubject.collectAsState()
     val sortMode by viewModel.sortMode.collectAsState()
-    val devState by viewModel.devState.collectAsState()
+    val devProfileById by viewModel.devProfileById.collectAsState()
     val showHireDialog by viewModel.showHireDialog.collectAsState()
     val selectedTeacher by viewModel.selectedTeacher.collectAsState()
     val currentGameDay by viewModel.currentGameDay.collectAsState()
@@ -158,6 +158,7 @@ private fun TeacherTeamContent(
             text = buildString {
                 append("将为 ${teachers.size} 名教师安排基础培训课程\n")
                 append("（已在培训中的教师会跳过，名额满后自动停止）\n\n")
+                append("优先安排：学分最少 → 评估分最低 → 技能最低的教师\n")
                 append("结业后每位教师将获得学分与技能提升")
             },
             confirmText = "开始培训",
@@ -177,8 +178,11 @@ private fun TeacherTeamContent(
             title = "一键安排培训完成",
             text = buildString {
                 append("已安排培训：${result.successCount} 人\n")
+                if (result.scheduledNames.isNotEmpty()) {
+                    append("　${result.scheduledNames.joinToString("、")}\n")
+                }
                 append("跳过：${result.failCount} 人\n")
-                append("（跳过原因：已在培训中或培训名额已满）")
+                append("（跳过原因：已在培训中或培训名额已满，下批会优先安排最缺培训的教师）")
             },
             confirmText = "确定",
             onConfirm = { viewModel.clearBatchTrainResult() }
@@ -287,30 +291,24 @@ private fun TeacherTeamContent(
                                     modifier = Modifier.padding(vertical = 4.dp)
                                 )
                             }
-                            items(group) { teacher ->
+                            items(group, key = { it.id }) { teacher ->
+                                val profile = devProfileById[teacher.id]
                                 TeacherCard(
                                     teacher = teacher,
-                                    trainingCredits = devState.teacherProfiles
-                                        .find { it.teacherId == teacher.id }
-                                        ?.trainingCredits ?: 0,
-                                    isOnTraining = devState.teacherProfiles
-                                        .find { it.teacherId == teacher.id }
-                                        ?.isOnTraining ?: false,
+                                    trainingCredits = profile?.trainingCredits ?: 0,
+                                    isOnTraining = profile?.isOnTraining ?: false,
                                     headClassSummary = classSummaryFor(teacher.id),
                                     onClick = { viewModel.selectTeacher(teacher) }
                                 )
                             }
                         }
                     } else {
-                        items(displayTeachers) { teacher ->
+                        items(displayTeachers, key = { it.id }) { teacher ->
+                            val profile = devProfileById[teacher.id]
                             TeacherCard(
                                 teacher = teacher,
-                                trainingCredits = devState.teacherProfiles
-                                    .find { it.teacherId == teacher.id }
-                                    ?.trainingCredits ?: 0,
-                                isOnTraining = devState.teacherProfiles
-                                    .find { it.teacherId == teacher.id }
-                                    ?.isOnTraining ?: false,
+                                trainingCredits = profile?.trainingCredits ?: 0,
+                                isOnTraining = profile?.isOnTraining ?: false,
                                 headClassSummary = classSummaryFor(teacher.id),
                                 onClick = { viewModel.selectTeacher(teacher) }
                             )
@@ -350,6 +348,9 @@ private fun TeacherDevContent(
     viewModel: TeacherViewModel
 ) {
     val state by viewModel.devState.collectAsState()
+    val sortedProfiles by viewModel.sortedDevProfiles.collectAsState()
+    val promotionReqs by viewModel.promotionRequirements.collectAsState()
+    val teacherById by viewModel.teacherById.collectAsState()
     var showTrainingDialog by remember { mutableStateOf(false) }
     var selectedTeacherId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -382,9 +383,17 @@ private fun TeacherDevContent(
             item {
                 Text("教师发展档案", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
-            items(state.teacherProfiles.sortedByDescending { it.title.ordinal }) { profile ->
+            items(sortedProfiles, key = { it.teacherId }) { profile ->
+                val teacher = teacherById[profile.teacherId]
                 TeacherProfileCard(
                     profile = profile,
+                    loyalty = teacher?.loyalty,
+                    salary = teacher?.salary,
+                    onRaise = {
+                        viewModel.raiseSalary(profile.teacherId) { msg ->
+                            scope.launch { snackbarHostState.showSnackbar(msg) }
+                        }
+                    },
                     onTrain = {
                         selectedTeacherId = profile.teacherId
                         showTrainingDialog = true
@@ -421,7 +430,7 @@ private fun TeacherDevContent(
                             }
                         }
                     },
-                    promotionReqs = viewModel.getPromotionRequirements(profile.teacherId)
+                    promotionReqs = promotionReqs[profile.teacherId]
                 )
             }
 
@@ -569,6 +578,26 @@ private fun TeacherCard(
                         color = when {
                             teacher.fatigue > 80 -> AccentRed
                             teacher.fatigue > 50 -> AccentOrange
+                            else -> AccentGreen
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 按忠诚度排序时列表里必须能看到忠诚度，否则玩家只能一个个点开详情去核对
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "忠诚: ${teacher.loyalty}%",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    LinearProgressIndicator(
+                        progress = { teacher.loyalty / 100f },
+                        modifier = Modifier.weight(1f),
+                        color = when {
+                            teacher.loyalty < 30 -> AccentRed
+                            teacher.loyalty < 60 -> AccentOrange
                             else -> AccentGreen
                         }
                     )
@@ -1217,11 +1246,26 @@ private fun TrainingCard(training: ActiveTraining) {
 @Composable
 private fun TeacherProfileCard(
     profile: TeacherProfile,
+    loyalty: Int?,
+    salary: Double?,
+    onRaise: () -> Unit,
     onTrain: () -> Unit,
     onPromote: () -> Unit,
     onEvaluate: () -> Unit,
     promotionReqs: PromotionRequirements?
 ) {
+    // 忠诚度与满意度共同决定风险等级，避免"档案显示危险、教师列表忠诚度却满格"的矛盾
+    val effectiveRisk = if (loyalty == null) {
+        profile.turnoverRisk
+    } else {
+        val byLoyalty = when {
+            loyalty < 30 -> TurnoverRisk.CRITICAL
+            loyalty < 50 -> TurnoverRisk.HIGH
+            loyalty < 70 -> TurnoverRisk.MEDIUM
+            else -> TurnoverRisk.LOW
+        }
+        if (byLoyalty.ordinal > profile.turnoverRisk.ordinal) byLoyalty else profile.turnoverRisk
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp)
@@ -1246,12 +1290,22 @@ private fun TeacherProfileCard(
                     }
                     Text("${profile.subject} · 服务${profile.yearsOfService}年", fontSize = 12.sp, color = Color.Gray)
                 }
-                Text(
-                    profile.turnoverRisk.displayName,
-                    fontSize = 11.sp,
-                    color = Color(profile.turnoverRisk.color),
-                    fontWeight = FontWeight.Bold
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        if (loyalty != null) "忠诚 $loyalty% · ${effectiveRisk.displayName}"
+                        else effectiveRisk.displayName,
+                        fontSize = 11.sp,
+                        color = Color(effectiveRisk.color),
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (salary != null && salary > 0.0) {
+                        Text(
+                            "薪资 ¥${salary.toInt()}万/年",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1302,6 +1356,21 @@ private fun TeacherProfileCard(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                 ) {
                     Text("评估", fontSize = 11.sp)
+                }
+            }
+
+            // 就地加薪：低忠诚/高风险教师在这里直接涨薪，不必再回教师团队页大海捞针
+            if (salary != null && salary > 0.0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FilledTonalButton(
+                    onClick = onRaise,
+                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        "加薪 10%（¥${salary.toInt()}万 → ¥${(salary * 1.1).toInt()}万/年 · 忠诚度+10）",
+                        fontSize = 11.sp
+                    )
                 }
             }
         }
