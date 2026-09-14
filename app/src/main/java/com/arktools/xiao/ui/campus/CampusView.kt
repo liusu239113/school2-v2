@@ -2250,7 +2250,8 @@ private fun BuildMenuContent(
                 else -> null
             }
             val capacityHint = when (type) {
-                FacilityType.CLASSROOM -> "班槽 ${state.classSlots} · 已建 ${owned} 栋"
+                // 学位是招生的硬上限，直接和在校人数并排显示，玩家才知道该不该继续建教室
+                FacilityType.CLASSROOM -> "学位 ${state.classSlots * 30} · 在校 ${state.studentCount} 人 · 已建 ${owned} 栋"
                 FacilityType.DORMITORY -> "在校 ${state.studentCount}/${state.dormBeds} 床 · 已建 ${owned} 栋"
                 FacilityType.CANTEEN -> "餐位 ${state.canteenSeats} · 已建 ${owned} 栋"
                 FacilityType.LIBRARY -> "阅览 ${state.librarySeats} · 已建 ${owned} 栋"

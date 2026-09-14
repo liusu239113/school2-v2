@@ -1967,16 +1967,26 @@ class CampusViewModel @Inject constructor(
                     add("教室班槽 ${req.minClasses}间（现在 $classroomSlots 间，1级教室楼=3间，升级或再建一栋）")
                 }
                 if (studentCount < req.minStudents) {
-                    // 说清楚"人不够"卡在哪：招生上限=床位与班槽，而床位/班槽都能在楼内扩容，不用新建建筑
+                    // 说清楚"人不够"到底卡在哪一步：学位（教室班槽×30）和床位是两个独立上限
+                    val seatTotal = classroomSlots * 30
                     val dormBeds = com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities)
                     val dormCount = school.facilities.count {
                         it.type == com.arktools.xiao.domain.model.FacilityType.DORMITORY && it.isOperational
                     }
                     val bedHeadroom = 40 * dormCount.coerceAtLeast(1)
-                    add(
-                        "学生 ${req.minStudents}人（现在 $studentCount 人；全校床位 $dormBeds 张，" +
-                            "点宿舍楼还能加床 +$bedHeadroom 张 → 床位够了每年 9 月就会继续招）"
-                    )
+                    val hint = when {
+                        seatTotal < req.minStudents -> {
+                            val missing = req.minStudents - seatTotal
+                            val needBuildings = (missing + 269) / 270
+                            "学位只有 $seatTotal 个（1 栋满级教室=270 学位），要达标还差 $missing 个" +
+                                " → 再建 $needBuildings 栋教室，或把现有教室升到 Lv.5"
+                        }
+                        seatTotal - studentCount <= 0 ->
+                            "学位 $seatTotal 个已住满（在校 $studentCount 人）→ 先建/升级教室才有新生名额"
+                        else ->
+                            "床位 $dormBeds 张，学生生活里还能加床 +$bedHeadroom 张"
+                    }
+                    add("学生 ${req.minStudents}人（现在 $studentCount 人；$hint）")
                 }
                 if (yearsAtLevel < req.minYearsAtCurrentLevel) add("运营满 ${req.minYearsAtCurrentLevel}年")
                 if (req.minAverageTeacherSkill > 0 && avgSkill < req.minAverageTeacherSkill)
