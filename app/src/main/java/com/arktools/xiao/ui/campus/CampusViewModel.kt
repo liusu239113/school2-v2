@@ -235,6 +235,10 @@ class CampusViewModel @Inject constructor(
     val adminStrategyOffice = _adminStrategyOffice.asStateFlow()
     val adminOfficeConfig = gameEngine.autoHandleManager.config
 
+    /** 行政楼代批计数与最近记录：让玩家能确认自动审批是否真的生效 */
+    val autoHandledCount = gameEngine.autoHandleManager.autoHandledCount
+    val autoHandledRecords = gameEngine.autoHandleManager.recentRecords
+
     private val _state = MutableStateFlow(CampusUiState())
     val state: StateFlow<CampusUiState> = _state.asStateFlow()
 
@@ -927,10 +931,13 @@ class CampusViewModel @Inject constructor(
                 AdminStrategyRow("teacherStory", "教师故事", cfg.teacherStoryStrategy)
             )
             "student" -> listOf(
+                AdminStrategyRow("daily", "学生日常事件（早恋/手机/欺凌/作弊）", cfg.studentDailyStrategy),
                 AdminStrategyRow("activity", "学生活动", cfg.activityApprovalStrategy),
                 AdminStrategyRow("club", "学生社团", cfg.clubApprovalStrategy),
                 AdminStrategyRow("welfare", "食堂/宿舍/健康/心理投诉", cfg.studentWelfareStrategy),
-                AdminStrategyRow("monthly", "校长月度决策", cfg.monthlyDecisionStrategy)
+                AdminStrategyRow("monthly", "校长月度决策", cfg.monthlyDecisionStrategy),
+                AdminStrategyRow("other", "其他未分类事件（兜底）", cfg.otherChoiceStrategy),
+                AdminStrategyRow("crisis", "突发危机（建议保持手动）", cfg.crisisStrategy)
             )
             else -> listOf(
                 AdminStrategyRow("repair", "设施维修（水管、设备、楼况）", cfg.logisticsRepairStrategy)
@@ -962,13 +969,28 @@ class CampusViewModel @Inject constructor(
                 else -> current
             }
             "student" -> when (categoryKey) {
+                "daily" -> current.copy(studentDailyStrategy = strategy)
                 "activity" -> current.copy(activityApprovalStrategy = strategy)
                 "club" -> current.copy(clubApprovalStrategy = strategy)
                 "welfare" -> current.copy(studentWelfareStrategy = strategy)
                 "monthly" -> current.copy(monthlyDecisionStrategy = strategy)
+                "other" -> current.copy(otherChoiceStrategy = strategy)
+                "crisis" -> current.copy(crisisStrategy = strategy)
                 else -> current
             }
             "logistics" -> current.copy(logisticsRepairStrategy = strategy)
+            else -> current
+        }
+        persistAdminOffice(next)
+    }
+
+    /** 信息类消息免打扰开关：正面 / 负面 / 里程碑。 */
+    fun setAutoClose(kind: String, enabled: Boolean) {
+        val current = gameEngine.autoHandleManager.config.value
+        val next = when (kind) {
+            "positive" -> current.copy(positiveAutoClose = enabled)
+            "negative" -> current.copy(negativeAutoClose = enabled)
+            "milestone" -> current.copy(milestoneAutoClose = enabled)
             else -> current
         }
         persistAdminOffice(next)

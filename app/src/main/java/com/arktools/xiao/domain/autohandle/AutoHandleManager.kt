@@ -106,13 +106,32 @@ class AutoHandleManager @Inject constructor() {
             title.contains("设施维修") || title.contains("水管") || title.contains("维修：") -> AdminOffice.LOGISTICS
             // 学工处：学生相关 + 月度校务
             title.contains("校长月度决策") -> AdminOffice.STUDENT_AFFAIRS
+            // 学生日常事件（早恋/网络沉迷/欺凌/作弊/心理等）全部归学工处，
+            // 老版本这里没有规则，导致"安排了老师也选了自动同意，这些弹窗照旧刷屏"
+            title.startsWith("学生事件") || title.contains("学生") -> AdminOffice.STUDENT_AFFAIRS
             title.contains("食堂") || title.contains("宿舍") ||
                 title.contains("餐位") || title.contains("床位") -> AdminOffice.STUDENT_AFFAIRS
             title.contains("心理") || title.contains("健康") -> AdminOffice.STUDENT_AFFAIRS
             title.contains("活动") || (title.contains("审批") && message.contains("活动")) -> AdminOffice.STUDENT_AFFAIRS
             title.contains("社团") || message.contains("社团申请") -> AdminOffice.STUDENT_AFFAIRS
+            // 收尾：仍未归类的选择事件由学工处兜底（见 fallbackOffice），
+            // 保证"安排了干部 + 自动同意"能覆盖全部日常事件，而不是只有被关键词命中的那些。
             else -> AdminOffice.NONE
         }
+    }
+
+    /**
+     * 未归类选择事件的兜底科室：优先学工处，其次任意一位在职干部。
+     *
+     * 老版本 getChoiceAutoAction 里 "office == NONE → return null" 会让所有没被关键词命中的
+     * 事件强制弹窗，玩家的自动审批配置形同虚设。这里让"有人任职"就能兜住杂项事件，
+     * 具体处理方式仍由「其他事件」策略决定（默认手动，不会误批）。
+     */
+    private fun fallbackOffice(cfg: AutoHandleConfig): AdminOffice = when {
+        cfg.studentAffairsOfficerId.isNotBlank() -> AdminOffice.STUDENT_AFFAIRS
+        cfg.logisticsOfficerId.isNotBlank() -> AdminOffice.LOGISTICS
+        cfg.personnelOfficerId.isNotBlank() -> AdminOffice.PERSONNEL
+        else -> AdminOffice.NONE
     }
 
     private fun officerIdFor(office: AdminOffice, cfg: AutoHandleConfig): String = when (office) {
@@ -122,10 +141,22 @@ class AutoHandleManager @Inject constructor() {
         AdminOffice.NONE -> ""
     }
 
+    /**
+     * 解析事件由谁代批。
+     * - 已归类到具体科室的：必须该科室有在职干部，否则继续弹窗（空缺的科室不代批，保持职责到人）。
+     * - 未归类的事件：退回到任意一位在职干部兜底，避免新加的事件类型没人管、只能刷屏。
+     */
+    private fun resolveOffice(event: GameEvent.ChoiceEvent, cfg: AutoHandleConfig): AdminOffice {
+        val categorized = officeFor(event)
+        if (categorized != AdminOffice.NONE) {
+            return if (officerIdFor(categorized, cfg).isNotBlank()) categorized else AdminOffice.NONE
+        }
+        return fallbackOffice(cfg)
+    }
+
     private fun getChoiceAutoAction(event: GameEvent.ChoiceEvent, cfg: AutoHandleConfig): AutoHandleResult? {
-        val office = officeFor(event)
+        val office = resolveOffice(event, cfg)
         if (office == AdminOffice.NONE) return null
-        if (officerIdFor(office, cfg).isBlank()) return null
         val strategy = categorizeChoiceEvent(event, cfg)
         return when (strategy) {
             AutoStrategy.MANUAL -> null
@@ -188,6 +219,12 @@ class AutoHandleManager @Inject constructor() {
         // 校长月度决策
         if (title.contains("校长月度决策")) {
             return cfg.monthlyDecisionStrategy
+        }
+
+        // 学生日常事件（早恋、网络沉迷、校园欺凌、考试作弊、心理危机）
+        // 只按"学生事件："前缀判定，避免把"学生食堂投诉"这类误判到日常事件分类
+        if (title.startsWith("学生事件")) {
+            return cfg.studentDailyStrategy
         }
 
         // 学生吃住投诉（食堂、宿舍、健康、心理）

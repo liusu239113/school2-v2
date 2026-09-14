@@ -33,6 +33,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -1755,8 +1756,11 @@ private fun BuildingPanelContent(
                 OccupancyBar("用地", state.unlockedCells, state.totalCells)
                 OccupancyBar("满意度", state.avgSatisfaction.toInt(), 100)
                 val adminOffice by viewModel.adminOfficeConfig.collectAsState()
+                val autoHandledCount by viewModel.autoHandledCount.collectAsState()
+                val autoHandledRecords by viewModel.autoHandledRecords.collectAsState()
                 Text(
-                    "一个教师只能管一个处。没人任职的审批会一直弹给你；任命后可以逐类细调：同意、拒绝，还是仍然手动。",
+                    "一个教师只能管一个处。只要行政楼有人在职，日常事件（含早恋/手机/成绩等学生事件）就有人代批；" +
+                        "处理方式按下面每一类单独设置：同意、拒绝，还是仍然手动。",
                     fontSize = 12.sp,
                     color = Color(0xFF617386)
                 )
@@ -1771,7 +1775,7 @@ private fun BuildingPanelContent(
                 )
                 AdminOfficeRow(
                     title = "学工处",
-                    duty = "社团、活动、食堂宿舍投诉、月度校务",
+                    duty = "学生事件（早恋/手机/欺凌/作弊）、社团、活动、食堂宿舍投诉、月度校务",
                     holder = if (adminOffice.studentAffairsOfficerId.isBlank()) "空缺" else viewModel.adminOfficerName("student"),
                     strategy = viewModel.adminOfficeStrategyLabel("student"),
                     onAppoint = { viewModel.openAdminOfficePicker("student") },
@@ -1787,6 +1791,41 @@ private fun BuildingPanelContent(
                     onClear = { viewModel.clearAdminOfficer("logistics") },
                     onCycleStrategy = { viewModel.openAdminStrategyPanel("logistics") }
                 )
+                // 信息类消息的免打扰：负面消息（家长投诉等）默认会弹窗，玩家在这里可以关掉
+                Text("消息免打扰（不弹窗，仍会进通知中心）", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                AutoCloseToggle("正面消息", adminOffice.positiveAutoClose) {
+                    viewModel.setAutoClose("positive", it)
+                }
+                AutoCloseToggle("负面消息（家长投诉、成绩波动等）", adminOffice.negativeAutoClose) {
+                    viewModel.setAutoClose("negative", it)
+                }
+                AutoCloseToggle("里程碑", adminOffice.milestoneAutoClose) {
+                    viewModel.setAutoClose("milestone", it)
+                }
+
+                // 代批可见性：之前玩家无法判断"自动审批到底有没有生效"，这里给出计数与最近记录
+                Text(
+                    if (autoHandledCount > 0) {
+                        "行政楼已代批 $autoHandledCount 件事件（最近）"
+                    } else {
+                        "行政楼还没有代批过事件：事件到达时才会触发，若一直为 0 说明对应分类仍是「手动处理」"
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (autoHandledCount > 0) Color(0xFF2E7D32) else Color(0xFFE65100)
+                )
+                autoHandledRecords.take(3).forEach { record ->
+                    val actionLabel = when (record.action) {
+                        "auto_approve" -> "自动同意"
+                        "auto_reject" -> "自动拒绝"
+                        else -> "自动关闭"
+                    }
+                    Text(
+                        "· ${record.eventTitle} — $actionLabel",
+                        fontSize = 11.sp,
+                        color = Color(0xFF617386)
+                    )
+                }
                 if (state.campusLevel < com.arktools.xiao.domain.engine.GameBalanceConfig.MAX_SCHOOL_LEVEL) {
                     PanelButton("升级校园") { onUpgradeCampus() }
                 }
@@ -2410,6 +2449,24 @@ private fun PanelButtonSmall(text: String, onClick: () -> Unit) {
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
+
+@Composable
+private fun AutoCloseToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, fontSize = 12.sp, color = Color(0xFF182635))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

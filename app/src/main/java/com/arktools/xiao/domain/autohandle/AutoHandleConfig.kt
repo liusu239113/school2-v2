@@ -37,6 +37,15 @@ data class AutoHandleConfig(
     /** 教师故事（青年才俊、教学名师等） */
     val teacherStoryStrategy: AutoStrategy = AutoStrategy.MANUAL,
 
+    /**
+     * 学生日常事件（早恋、网络沉迷、校园欺凌、考试作弊、心理危机）。
+     *
+     * 默认自动同意：这类事件每月都会来、数量最多也最像"杂事"，玩家任命学工处干部
+     * 本来就是为了不再被它们刷屏；老档缺这个字段时会用默认值，等于自动生效。
+     * 想亲自处理的可以在行政楼把它改回"手动"。
+     */
+    val studentDailyStrategy: AutoStrategy = AutoStrategy.AUTO_APPROVE,
+
     /** 学生吃住投诉（食堂、宿舍、健康、心理） */
     val studentWelfareStrategy: AutoStrategy = AutoStrategy.MANUAL,
 

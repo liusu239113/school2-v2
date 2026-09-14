@@ -163,4 +163,69 @@ class AutoHandleManagerTest {
         // 标题带「宿舍」但属于设施维修，应该走后勤处；后勤处设的是手动 → 仍弹窗
         assertNull(manager.shouldAutoHandle(repairEvent()))
     }
+
+    /** 玩家反馈的核心问题：学生日常事件（早恋/手机/成绩）以前没有归属，永远弹窗。 */
+    private fun studentBehaviorEvent(): GameEvent.ChoiceEvent = GameEvent.ChoiceEvent(
+        title = "学生事件：网络沉迷",
+        message = "多名学生沉迷手机游戏，上课频繁走神，成绩明显下滑。",
+        choices = listOf(
+            EventChoice("上课期间统一收手机+家校联动", EventConsequence()),
+            EventChoice("没收手机、严厉惩罚", EventConsequence()),
+            EventChoice("不做强制规定", EventConsequence())
+        )
+    )
+
+    @Test
+    fun studentDailyEventIsAutoHandledByDefault() {
+        val manager = AutoHandleManager()
+        // 只任命学工处，其余保持默认（老存档缺 studentDailyStrategy 字段时同样走默认值）
+        manager.updateConfig(AutoHandleConfig(studentAffairsOfficerId = "teacher-9"))
+        val result = manager.shouldAutoHandle(studentBehaviorEvent())
+        assertTrue(result is AutoHandleResult.AutoChoice)
+        assertEquals(0, (result as AutoHandleResult.AutoChoice).choiceIndex)
+    }
+
+    @Test
+    fun studentDailyEventStillPopsWhenNoOfficerAppointed() {
+        val manager = AutoHandleManager()
+        assertNull(manager.shouldAutoHandle(studentBehaviorEvent()))
+    }
+
+    @Test
+    fun manualStudentDailyStrategyStillPops() {
+        val manager = AutoHandleManager()
+        manager.updateConfig(
+            AutoHandleConfig(
+                studentAffairsOfficerId = "teacher-9",
+                studentDailyStrategy = AutoStrategy.MANUAL
+            )
+        )
+        assertNull(manager.shouldAutoHandle(studentBehaviorEvent()))
+    }
+
+    @Test
+    fun unclassifiedEventFallsBackToAnyOfficer() {
+        val unknown = GameEvent.ChoiceEvent(
+            title = "某个新加的选择事件",
+            message = "没有任何关键词能匹配",
+            choices = listOf(
+                EventChoice("同意", EventConsequence()),
+                EventChoice("拒绝", EventConsequence())
+            )
+        )
+        val manager = AutoHandleManager()
+        // 后勤处任职也够兜底，但「其他事件」默认手动 → 仍弹窗
+        manager.updateConfig(AutoHandleConfig(logisticsOfficerId = "teacher-3"))
+        assertNull(manager.shouldAutoHandle(unknown))
+        // 把「其他事件」调成自动拒绝后，兜底生效
+        manager.updateConfig(
+            AutoHandleConfig(
+                logisticsOfficerId = "teacher-3",
+                otherChoiceStrategy = AutoStrategy.AUTO_REJECT
+            )
+        )
+        val result = manager.shouldAutoHandle(unknown)
+        assertTrue(result is AutoHandleResult.AutoChoice)
+        assertEquals(1, (result as AutoHandleResult.AutoChoice).choiceIndex)
+    }
 }
