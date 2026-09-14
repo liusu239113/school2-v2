@@ -112,16 +112,16 @@ fun GraduateScreen(
                 item {
                     Text("待分配导师（进度减半）", color = Color(0xFFE0A05A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
-                items(unassigned.size) { i ->
-                    StudentCard(unassigned[i], showAssign = true) { viewModel.openPicker(it) }
+                items(unassigned, key = { it.student.id }) { row ->
+                    StudentCard(row, showAssign = true) { viewModel.openPicker(it) }
                 }
             }
             if (assigned.isNotEmpty()) {
                 item {
                     Text("培养中", color = Color(0xFF1E96C8), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
-                items(assigned.size) { i ->
-                    StudentCard(assigned[i], showAssign = false) { viewModel.openPicker(it) }
+                items(assigned, key = { it.student.id }) { row ->
+                    StudentCard(row, showAssign = false) { viewModel.openPicker(it) }
                 }
             }
             if (state.rows.isEmpty()) {

@@ -17,13 +17,17 @@ import com.arktools.xiao.domain.repository.EnrollmentCommitResult
 import com.arktools.xiao.domain.repository.GraduationProjectionCommit
 import com.arktools.xiao.domain.repository.StudentRepository
 import com.arktools.xiao.domain.repository.StudentYearEndTransition
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class StudentRepositoryImpl @Inject constructor(
@@ -32,21 +36,50 @@ class StudentRepositoryImpl @Inject constructor(
     private val settingsDataStore: SettingsDataStore
 ) : StudentRepository {
 
+    /**
+     * traits JSON 串 -> 枚举列表的缓存。
+     * 学生对象每次读取（每 tick 全表读）都会为每一行重新做 split/valueOf，
+     * 几千学生时就是纯浪费；不同特征组合实际只有几十种，缓存后基本零成本。
+     */
+    private val traitParseCache = java.util.concurrent.ConcurrentHashMap<String, List<StudentTrait>>()
+
+    private fun parseTraits(traitsJson: String): List<StudentTrait> {
+        traitParseCache[traitsJson]?.let { return it }
+        val parsed = try {
+            traitsJson.removeSurrounding("[", "]")
+                .split(",")
+                .filter { it.isNotBlank() }
+                .map { StudentTrait.valueOf(it.trim().removeSurrounding("\"")) }
+        } catch (_: Exception) {
+            emptyList()
+        }
+        // 上限保护：异常脏数据不应该把缓存撑大
+        if (traitParseCache.size < 512) traitParseCache[traitsJson] = parsed
+        return parsed
+    }
+
     // ======= 基础查询 =======
 
     override suspend fun getActiveStudents(): List<Student> {
         val schoolId = settingsDataStore.getSchoolId()
-        return studentDao.getActiveStudents(schoolId).map { it.toDomain() }
+        // 上千条记录的行对象映射是纯 CPU 工作，放到 Default 上做，别占主线程
+        return withContext(Dispatchers.Default) {
+            studentDao.getActiveStudents(schoolId).map { it.toDomain() }
+        }
     }
 
     override suspend fun getCurrentStudents(): List<Student> {
         val schoolId = settingsDataStore.getSchoolId()
-        return studentDao.getCurrentStudents(schoolId).map { it.toDomain() }
+        return withContext(Dispatchers.Default) {
+            studentDao.getCurrentStudents(schoolId).map { it.toDomain() }
+        }
     }
 
     override suspend fun getStudentsByCourse(courseId: String): List<Student> {
         val schoolId = settingsDataStore.getSchoolId()
-        return studentDao.getStudentsByCourse(schoolId, courseId).map { it.toDomain() }
+        return withContext(Dispatchers.Default) {
+            studentDao.getStudentsByCourse(schoolId, courseId).map { it.toDomain() }
+        }
     }
 
     override suspend fun getRecentGraduates(limit: Int): List<Student> {
@@ -190,6 +223,9 @@ class StudentRepositoryImpl @Inject constructor(
                 list.map { it.toDomain() }
             }
         }
+            // 表每天都会被写，内容没变时不必向上游发新值（否则界面每 5 秒白刷一遍）
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.Default)
 
     override fun observeDroppedStudents(): Flow<List<Student>> =
         settingsDataStore.schoolId.flatMapLatest { id ->
@@ -198,6 +234,8 @@ class StudentRepositoryImpl @Inject constructor(
                 list.map { it.toDomain() }
             }
         }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.Default)
 
     // ======= 变更 =======
 
@@ -512,12 +550,7 @@ class StudentRepositoryImpl @Inject constructor(
             backgroundTier = try { BackgroundTier.valueOf(backgroundTier) } catch (_: Exception) { BackgroundTier.NORMAL },
             talent = talent,
             motivation = motivation,
-            traits = try {
-                traitsJson.removeSurrounding("[", "]")
-                    .split(",")
-                    .filter { it.isNotBlank() }
-                    .map { StudentTrait.valueOf(it.trim().removeSurrounding("\"")) }
-            } catch (_: Exception) { emptyList() },
+            traits = parseTraits(traitsJson),
             status = try { StudentStatus.valueOf(status) } catch (_: Exception) { StudentStatus.ENROLLED },
             semesterMastery = semesterMastery,
             satisfaction = satisfaction,

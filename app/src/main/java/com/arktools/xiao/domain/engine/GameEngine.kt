@@ -6082,6 +6082,8 @@ class GameEngine @Inject constructor(
 
     private suspend fun updateActiveCourses(school: School) {
         val activeCourses = courseRepository.getActiveCourses()
+        // 教师表只读一次：原来每门课都全表读 + toDomain 一遍，课程/教师一多就是几十次全表扫描
+        val allTeachers = if (activeCourses.isEmpty()) emptyList() else teacherRepository.getTeachers()
         activeCourses.forEach { course ->
             // 兼容旧存档：如果有课程卡在TESTING状态，自动开课
             if (course.status == CourseStatus.TESTING) {
@@ -6102,18 +6104,22 @@ class GameEngine @Inject constructor(
                     schoolRepository.addReputation(5)
                 }
             } else {
-                updateCourseProgress(course, school)
+                updateCourseProgress(course, school, allTeachers)
             }
         }
     }
 
-    private suspend fun updateCourseProgress(course: CourseProject, school: School) {
-        val teachers = teacherRepository.getTeachers().filter { it.id in course.teamIds }
+    private suspend fun updateCourseProgress(
+        course: CourseProject,
+        school: School,
+        allTeachers: List<Teacher>
+    ) {
+        val courseTeamIds = course.teamIds.toSet()
+        val teachers = allTeachers.filter { it.id in courseTeamIds }
         val avgSkill = if (teachers.isNotEmpty()) {
             teachers.map { it.averageSkill }.average().toFloat()
         } else {
             // 没有分配教师时，使用学校所有教师的平均技能
-            val allTeachers = teacherRepository.getTeachers()
             if (allTeachers.isNotEmpty()) {
                 allTeachers.map { it.averageSkill }.average().toFloat()
             } else 30f // 没有教师时使用很低的技能值
@@ -6213,6 +6219,12 @@ class GameEngine @Inject constructor(
 
         // BonusType.TEACHER_LOYALTY: 已解锁教学方法中所有教师忠诚度加成累加
         val loyaltyBonus = researchRepository.getUnlockedBonusByType(BonusType.TEACHER_LOYALTY)
+        // 低薪惩罚要按市场薪资判断，通胀系数只跟年份有关，循环外算一次即可
+        val salaryInflation = GameBalanceConfig.getSalaryInflation(school.currentYear)
+        // 导师加成判定原本在每个教师循环里全量扫一遍教师列表（O(教师数²)），这里先算一次
+        val mentorTeacherId = teachers.firstOrNull { other ->
+            TeacherTrait.MENTOR in other.traits && other.isWorking && !other.isOnVacation
+        }?.id
 
         // 获取所有活跃课程中分配的教师ID集合（只有实际在教课/备课的教师才累积疲劳）
         val activeCourses = courseRepository.getActiveCourses()
@@ -6326,7 +6338,7 @@ class GameEngine @Inject constructor(
                 // 寒暑假期间也不扣（放假期间拿半薪是正常的）
                 val schoolAgeDays = ((school.currentYear - school.foundedYear) * 360) +
                     ((school.currentMonth - 1) * 30) + school.currentDay
-                if (effectivelyTeaching && schoolAgeDays > 90 && teacher.salary < getMarketSalary(teacher)) {
+                if (effectivelyTeaching && schoolAgeDays > 90 && teacher.salary < getMarketSalary(teacher, salaryInflation)) {
                     var salaryLoyaltyLoss = if (TeacherTrait.GREEDY in teacher.traits)
                         (GameBalanceConfig.TEACHER_LOW_SALARY_LOYALTY_DECREASE * 1.5f).toInt()
                     else GameBalanceConfig.TEACHER_LOW_SALARY_LOYALTY_DECREASE
@@ -6436,13 +6448,10 @@ class GameEngine @Inject constructor(
             // === SKILL GROWTH ===
             val growth = com.arktools.xiao.domain.model.TeacherGrowth.calculateDailyGrowth(teacher)
 
-            // MENTOR trait: team members in same course get +20% growth
-            // Check if any MENTOR teacher shares a course with this teacher
-            val mentorBonus = if (teachers.any { other ->
-                other.id != teacher.id &&
-                TeacherTrait.MENTOR in other.traits &&
-                other.isWorking && !other.isOnVacation
-            }) 1.2f else 1.0f
+            // MENTOR trait: 只要校内有在职的导师型教师，其他教师成长 +20%。
+            // 判定与当前教师无关（只看"是否存在另一位导师"），因此循环外先算一次，
+            // 避免每个教师都全量扫一遍教师列表（O(教师数²)）。
+            val mentorBonus = if (mentorTeacherId != null && mentorTeacherId != teacher.id) 1.2f else 1.0f
 
             teacher.teaching = (teacher.teaching + growth.teachingGrowth * mentorBonus).toInt().coerceAtMost(1000)
             teacher.research = (teacher.research + growth.researchGrowth * mentorBonus).toInt().coerceAtMost(1000)
@@ -6951,14 +6960,18 @@ class GameEngine @Inject constructor(
         }
     }
 
-    private suspend fun getMarketSalary(teacher: Teacher): Double {
-        val school = schoolRepository.getSchool()
-        val inflation = if (school != null) GameBalanceConfig.getSalaryInflation(school.currentYear) else 1.0
+    /**
+     * 市场薪资只跟教师等级和年份通胀有关。
+     * 原实现每位教师都重新 getSchool()（读全部分片 + 解码 35 个 Manager JSON），
+     * 教师上百时每 tick 会做上百次全量反序列化，这是"人一多就卡"的主要来源之一。
+     * 现在通胀系数由调用方在循环外算一次传入。
+     */
+    private fun getMarketSalary(teacher: Teacher, salaryInflation: Double): Double {
         return when (teacher.level) {
-            com.arktools.xiao.domain.model.TeacherLevel.C -> GameBalanceConfig.MARKET_SALARY_C * inflation
-            com.arktools.xiao.domain.model.TeacherLevel.B -> GameBalanceConfig.MARKET_SALARY_B * inflation
-            com.arktools.xiao.domain.model.TeacherLevel.A -> GameBalanceConfig.MARKET_SALARY_A * inflation
-            com.arktools.xiao.domain.model.TeacherLevel.S -> GameBalanceConfig.MARKET_SALARY_S * inflation
+            com.arktools.xiao.domain.model.TeacherLevel.C -> GameBalanceConfig.MARKET_SALARY_C * salaryInflation
+            com.arktools.xiao.domain.model.TeacherLevel.B -> GameBalanceConfig.MARKET_SALARY_B * salaryInflation
+            com.arktools.xiao.domain.model.TeacherLevel.A -> GameBalanceConfig.MARKET_SALARY_A * salaryInflation
+            com.arktools.xiao.domain.model.TeacherLevel.S -> GameBalanceConfig.MARKET_SALARY_S * salaryInflation
         }
     }
 
@@ -6972,13 +6985,14 @@ class GameEngine @Inject constructor(
      * 根据学生所在班级推断其班型（ClassTier）
      * 基于教学配置的classDistribution和班级序号推断
      */
-    private fun getStudentClassTier(student: Student): ClassTier {
-        val studentClass = student.classId?.let { cid ->
-            classes.find { it.id == cid }
-        } ?: return ClassTier.NORMAL
-
-        // 直接使用班级的 classTier 字段（新系统）
-        return studentClass.classTier
+    private fun getStudentClassTier(
+        student: Student,
+        classTierById: Map<String, ClassTier>? = null
+    ): ClassTier {
+        val classId = student.classId ?: return ClassTier.NORMAL
+        // 热路径（逐学生调用）走调用方预建的索引，避免 O(学生数×班级数)
+        classTierById?.get(classId)?.let { return it }
+        return classes.find { it.id == classId }?.classTier ?: ClassTier.NORMAL
     }
 
     /**
@@ -7031,6 +7045,8 @@ class GameEngine @Inject constructor(
         val teachingConfig = teachingManager.config
         val campusEffects = FacilityStudentEffect.compileCampusEffects(school.facilities)
         val teachersByCourse = mutableMapOf<String, List<Teacher>>()
+        // 班型查询先建索引：每个学生都做一次 classes.find 会退化成 O(学生数×班级数)
+        val classTierById = classes.associate { it.id to it.classTier }
 
         val updatedStudents = mutableListOf<Student>()
         val droppedStudents = mutableListOf<Student>()
@@ -7060,7 +7076,7 @@ class GameEngine @Inject constructor(
             } else 30f
 
             // 使用教学配置计算教学质量参数（乘以政策质量系数与学院核心课系数）
-            val studentClassTier = getStudentClassTier(student)
+            val studentClassTier = getStudentClassTier(student, classTierById)
             val studentCollege = com.arktools.xiao.domain.model.UniversityAcademicCatalog
                 .collegeOf(student.courseId)
             val coreCourseCount = studentCollege?.let {

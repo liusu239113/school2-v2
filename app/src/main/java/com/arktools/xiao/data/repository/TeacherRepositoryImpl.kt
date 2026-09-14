@@ -16,12 +16,15 @@ import com.arktools.xiao.domain.repository.PaidTrainingResult
 import com.arktools.xiao.domain.repository.PaidTrainingStatus
 import com.arktools.xiao.domain.repository.TeacherDevelopmentProfileUpdate
 import com.arktools.xiao.domain.repository.TeacherRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -48,10 +51,14 @@ class TeacherRepositoryImpl @Inject constructor(
             delay(1000)
         }
     }
+        // 教师对象的映射是纯 CPU 工作，放到 Default 执行，避免占用主线程
+        .flowOn(Dispatchers.Default)
 
     override suspend fun getTeachers(): List<Teacher> {
         val schoolId = settingsDataStore.schoolId.first() ?: return emptyList()
-        return teacherDao.getTeachersBySchool(schoolId).map { it.toDomain() }
+        return withContext(Dispatchers.Default) {
+            teacherDao.getTeachersBySchool(schoolId).map { it.toDomain() }
+        }
     }
 
     override suspend fun getTeacherById(teacherId: String): Teacher? {

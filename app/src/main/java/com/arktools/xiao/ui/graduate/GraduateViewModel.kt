@@ -89,8 +89,10 @@ class GraduateViewModel @Inject constructor(
         val capacityOf: (Teacher) -> Int = {
             com.arktools.xiao.domain.graduate.GraduateSchoolManager.advisorCapacity(it.level.name)
         }
+        // 教师索引：teacherCache 每 tick 都会刷新，逐个 firstOrNull 会退化成 O(研究生数×教师数)
+        val teacherById = teacherCache.associateBy { it.id }
         val rows = gm.state.value.students.map { s ->
-            val advisor = teacherCache.firstOrNull { it.id == s.advisorId }
+            val advisor = s.advisorId?.let { teacherById[it] }
             StudentRow(
                 student = s,
                 disciplineName = DisciplineCatalog.byId(s.disciplineId)?.name ?: "未定学科",

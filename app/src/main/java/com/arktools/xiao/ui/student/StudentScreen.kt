@@ -228,8 +228,8 @@ private fun StudentManageContent(viewModel: StudentViewModel) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 学生列表
-        val filteredStudents = viewModel.getFilteredStudents()
+        // 学生列表：过滤/搜索在几千人时是纯主线程开销，按 uiState 缓存，避免每次重组重算
+        val filteredStudents = remember(uiState) { viewModel.getFilteredStudents() }
 
         if (filteredStudents.isEmpty()) {
             Box(
@@ -249,7 +249,7 @@ private fun StudentManageContent(viewModel: StudentViewModel) {
                 )
             }
         } else if (uiState.groupByCourse) {
-            val grouped = viewModel.getGroupedStudents()
+            val grouped = remember(uiState, filteredStudents) { viewModel.getGroupedStudents() }
             val expandState = remember { mutableStateMapOf<String, Boolean>() }
 
             LazyColumn(

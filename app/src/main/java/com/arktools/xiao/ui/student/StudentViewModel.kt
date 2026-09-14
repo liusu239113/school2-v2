@@ -130,12 +130,14 @@ class StudentViewModel @Inject constructor(
         viewModelScope.safeLaunch {
             // 改为加载学生的年级/班级信息作为分组名
             val classes = gameEngine.classes
+            // 先建班级索引：每个学生都做一次 classes.find 会退化成 O(学生数×班级数)
+            val classById = classes.associateBy { it.id }
             val nameMap = mutableMapOf<String, String>()
             // 为每个学生的 courseId 提供显示名（兼容旧UI字段）
             // 同时为每个学生ID构建 "年级·班级" 的映射
             val students = _uiState.value.activeStudents + _uiState.value.recentGraduates
             students.forEach { student ->
-                val classInfo = classes.find { it.id == student.classId }
+                val classInfo = student.classId?.let { classById[it] }
                 val className = classInfo?.displayName ?: "未编入教学班"
                 val path = com.arktools.xiao.domain.model.UniversityAcademicCatalog.pathLabel(
                     student.gradeLevel,

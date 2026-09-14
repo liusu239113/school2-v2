@@ -255,6 +255,41 @@ class CampusViewModel @Inject constructor(
                 }
                 val students = cachedActiveStudents
                 val teachers = cachedTeachers
+                // 学生规模大时，7 次 map{}.average() 等于把全校学生扫 7 遍。
+                // 学校行每天都在写，这段在校园页存活期间每 5 秒跑一次，合并成单趟统计。
+                var avgDormSatisfaction = 0f
+                var avgMealQuality = 0f
+                var avgSatisfaction = 0f
+                var avgIntelligence = 0f
+                var avgPhysical = 0f
+                var avgSocial = 0f
+                var avgCreativity = 0f
+                if (students.isNotEmpty()) {
+                    var dormSum = 0.0
+                    var mealSum = 0.0
+                    var satSum = 0.0
+                    var intSum = 0.0
+                    var phySum = 0.0
+                    var socSum = 0.0
+                    var creSum = 0.0
+                    students.forEach { s ->
+                        dormSum += s.dormSatisfaction
+                        mealSum += s.mealQuality
+                        satSum += s.satisfaction
+                        intSum += s.attributes.intelligence
+                        phySum += s.attributes.physical
+                        socSum += s.attributes.social
+                        creSum += s.attributes.creativity
+                    }
+                    val count = students.size
+                    avgDormSatisfaction = (dormSum / count).toFloat()
+                    avgMealQuality = (mealSum / count).toFloat()
+                    avgSatisfaction = (satSum / count).toFloat()
+                    avgIntelligence = (intSum / count).toFloat()
+                    avgPhysical = (phySum / count).toFloat()
+                    avgSocial = (socSum / count).toFloat()
+                    avgCreativity = (creSum / count).toFloat()
+                }
                 val terrainCells = BT.decodeTerrain(dev.terrainMap)
                 val groundMap = terrainCells.filter { tileKindOf(it.kind).isGround }
                     .associate { (it.y * 1000L + it.x) to tileKindOf(it.kind) }
@@ -293,31 +328,17 @@ class CampusViewModel @Inject constructor(
                     tutorialDone = dev.tutorialDone,
                     studentCount = students.size,
                     teacherCount = teachers.count { it.isWorking },
-                    avgDormSatisfaction = if (students.isNotEmpty()) {
-                        students.map { it.dormSatisfaction }.average().toFloat()
-                    } else 0f,
-                    avgMealQuality = if (students.isNotEmpty()) {
-                        students.map { it.mealQuality }.average().toFloat()
-                    } else 0f,
-                    avgSatisfaction = if (students.isNotEmpty()) {
-                        students.map { it.satisfaction.toFloat() }.average().toFloat()
-                    } else 0f,
+                    avgDormSatisfaction = avgDormSatisfaction,
+                    avgMealQuality = avgMealQuality,
+                    avgSatisfaction = avgSatisfaction,
                     employmentRate = gameEngine.employmentMarket.state.value.stats.employmentRate,
                     clubCount = gameEngine.clubManager.clubs.value.size,
                     scholarshipRecipientCount = gameEngine.scholarshipManager.state.value.recipients.size,
                     decorCount = decorMap.size,
-                    avgIntelligence = if (students.isNotEmpty()) {
-                        students.map { it.attributes.intelligence }.average().toFloat()
-                    } else 0f,
-                    avgPhysical = if (students.isNotEmpty()) {
-                        students.map { it.attributes.physical }.average().toFloat()
-                    } else 0f,
-                    avgSocial = if (students.isNotEmpty()) {
-                        students.map { it.attributes.social }.average().toFloat()
-                    } else 0f,
-                    avgCreativity = if (students.isNotEmpty()) {
-                        students.map { it.attributes.creativity }.average().toFloat()
-                    } else 0f,
+                    avgIntelligence = avgIntelligence,
+                    avgPhysical = avgPhysical,
+                    avgSocial = avgSocial,
+                    avgCreativity = avgCreativity,
                     teachingQualityBonus = bonuses.teachingQualityBonus,
                     researchBonus = bonuses.researchBonus,
                     enrollmentBonus = bonuses.enrollmentBonus,
@@ -462,11 +483,15 @@ class CampusViewModel @Inject constructor(
         } else {
             runCatching { teacherRepository.getTeachers() }.getOrDefault(emptyList()).also { cachedTeachers = it }
         }
+        // 提前建索引：原来每个班级都要全量扫一遍学生/教师，班级一多就是 O(班级数×学生数)
+        val teacherById = teachers.associateBy { it.id }
+        val studentsByClass = cachedActiveStudents
+            .filter { it.classId != null }
+            .groupBy { it.classId!! }
         val rows = gameEngine.classes.map { cls ->
             val roomId = assignments[cls.id].orEmpty()
-            val advisor = cls.headTeacherId?.let { id -> teachers.firstOrNull { it.id == id } }
-            val classStudents = cachedActiveStudents
-                .filter { it.classId == cls.id }
+            val advisor = cls.headTeacherId?.let { id -> teacherById[id] }
+            val classStudents = (studentsByClass[cls.id] ?: emptyList())
                 .sortedBy { it.name }
                 .map { student ->
                     ClassStudentInfo(

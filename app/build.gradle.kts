@@ -26,8 +26,8 @@ android {
         applicationId = "com.arktools.xiao"
         minSdk = 24
         targetSdk = 35
-        versionCode = 267
-        versionName = "1.1.8"
+        versionCode = 268
+        versionName = "1.1.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -32,10 +32,12 @@ interface StudentDao {
     @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'DROPPED' ORDER BY graduateYear DESC, graduateMonth DESC LIMIT :limit")
     suspend fun getRecentDropouts(schoolId: String, limit: Int = 20): List<StudentEntity>
 
-    @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'GRADUATED' ORDER BY graduateYear DESC, graduateMonth DESC, id")
+    // 观察类查询只取最近 300 条：students 表每个 tick 都会被写，全量历史毕业生/退学生
+    // 会让界面每 5 秒重新映射一遍（人数越多越卡），按最近年份倒序截断即可。
+    @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'GRADUATED' ORDER BY graduateYear DESC, graduateMonth DESC, id LIMIT 300")
     fun observeGraduatedStudents(schoolId: String): Flow<List<StudentEntity>>
 
-    @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'DROPPED' ORDER BY graduateYear DESC, graduateMonth DESC, id")
+    @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'DROPPED' ORDER BY graduateYear DESC, graduateMonth DESC, id LIMIT 300")
     fun observeDroppedStudents(schoolId: String): Flow<List<StudentEntity>>
 
     @Query("SELECT * FROM students WHERE schoolId = :schoolId AND status = 'GRADUATED'")
