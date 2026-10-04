@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        API 29+：forceDarkAllowed 从 API 29 才开始支持，因此只能出现在这里。
+        放在 values/ 或 values-v27/ 会触发 lint 的 NewApi 错误
+        （android:forceDarkAllowed requires API level 29, current min is 24）。
+    -->
     <style name="Theme.SchoolTycoon" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>

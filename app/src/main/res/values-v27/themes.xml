@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        API 27+：增加 windowLightNavigationBar(API 27 起可用)。
+        forceDarkAllowed 需要 API 29，只能放在 values-v29。
+    -->
     <style name="Theme.SchoolTycoon" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>

@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        基础主题（适用于全部 API 等级）。
+        这里只放 minSdk(24) 已支持的属性：
+        - windowLightStatusBar: API 23 起可用
+        需要更高 API 的属性放到对应的 values-vXX 覆盖文件里，
+        例如 forceDarkAllowed(API 29) 在 values-v29/themes.xml。
+    -->
     <style name="Theme.SchoolTycoon" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>
