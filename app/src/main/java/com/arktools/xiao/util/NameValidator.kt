@@ -149,31 +149,31 @@ object NameValidator {
     fun validate(text: String, fieldName: String = "名称"): Result {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) {
-            return Result.reject("$fieldName不能为空")
+            return Result.reject("${fieldName}不能为空")
         }
         if (trimmed.length < 2) {
-            return Result.reject("$fieldName至少 2 个字")
+            return Result.reject("${fieldName}至少 2 个字")
         }
 
         val normalized = normalize(trimmed)
         if (normalized.isEmpty()) {
-            return Result.reject("$fieldName含有无效字符")
+            return Result.reject("${fieldName}含有无效字符")
         }
 
         BLOCKED_WORDS.firstOrNull { word ->
             val w = normalize(word)
             w.isNotEmpty() && (normalized.contains(w) || trimmed.lowercase().contains(word.lowercase()))
         }?.let { hit ->
-            return Result.reject("$fieldName含有不允许的词语，请换一个")
+            return Result.reject("${fieldName}含有不允许的词语，请换一个")
         }
 
         CONTACT_PATTERNS.firstOrNull { it.containsMatchIn(trimmed) }?.let {
-            return Result.reject("$fieldName不能包含联系方式或网址")
+            return Result.reject("${fieldName}不能包含联系方式或网址")
         }
 
         // 全符号 / 无意义输入
         if (trimmed.none { it.isLetterOrDigit() }) {
-            return Result.reject("$fieldName请包含文字或数字")
+            return Result.reject("${fieldName}请包含文字或数字")
         }
 
         return Result.OK
