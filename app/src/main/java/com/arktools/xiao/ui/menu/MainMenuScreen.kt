@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.arktools.xiao.R
 import com.arktools.xiao.ui.components.PixelNineSlice
 import com.arktools.xiao.ui.theme.Primary
+import com.arktools.xiao.util.NameValidator
 import kotlinx.coroutines.delay
 
 private enum class MenuState {
@@ -270,6 +271,16 @@ private fun NewGamePanel(
     var styleIndex by rememberSaveable { mutableIntStateOf(0) }
     var visible by remember { mutableStateOf(false) }
 
+    // 命名合规校验：拦真实高校/政治人物/敏感词/联系方式
+    val schoolNameCheck = remember(schoolName) {
+        if (schoolName.isBlank()) NameValidator.Result.OK
+        else NameValidator.validate(schoolName, "大学名称")
+    }
+    val principalNameCheck = remember(principalName) {
+        if (principalName.isBlank()) NameValidator.Result.OK
+        else NameValidator.validate(principalName, "校长姓名")
+    }
+
     val tiers = SchoolTier.entries
     val ownerships = SchoolOwnership.entries
     val styles = FoundingStyle.entries
@@ -317,11 +328,12 @@ private fun NewGamePanel(
                 StepLabel("① 创校登记")
                 OutlinedTextField(
                     value = schoolName,
-                    onValueChange = { if (it.length <= 12) schoolName = it },
+                    onValueChange = { if (it.length <= NameValidator.MAX_SCHOOL_NAME) schoolName = it },
                     label = { Text("大学名称") },
                     placeholder = { Text("例：星海大学", color = Color(0xFF6E8399)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    isError = !schoolNameCheck.ok,
                     shape = androidx.compose.ui.graphics.RectangleShape,
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -329,8 +341,8 @@ private fun NewGamePanel(
                         disabledTextColor = Color.White,
                         errorTextColor = Color.White,
                         cursorColor = Color(0xFFFFD54F),
-                        focusedBorderColor = Color(0xFF1E96C8),
-                        unfocusedBorderColor = Color(0xFF5A7186),
+                        focusedBorderColor = if (schoolNameCheck.ok) Color(0xFF1E96C8) else Color(0xFFE57373),
+                        unfocusedBorderColor = if (schoolNameCheck.ok) Color(0xFF5A7186) else Color(0xFFE57373),
                         focusedLabelColor = Color(0xFFFFD54F),
                         unfocusedLabelColor = Color(0xFF9EB3C6),
                         focusedPlaceholderColor = Color(0xFF9EB3C6),
@@ -339,19 +351,21 @@ private fun NewGamePanel(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White)
                 )
                 Text(
-                    text = "${schoolName.length}/12",
+                    text = if (schoolNameCheck.ok) "${schoolName.length}/${NameValidator.MAX_SCHOOL_NAME}"
+                    else schoolNameCheck.reason,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF9E9E9E),
+                    color = if (schoolNameCheck.ok) Color(0xFF9E9E9E) else Color(0xFFE57373),
                     modifier = Modifier.align(Alignment.End)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = principalName,
-                    onValueChange = { if (it.length <= 6) principalName = it },
+                    onValueChange = { if (it.length <= NameValidator.MAX_PRINCIPAL_NAME) principalName = it },
                     label = { Text("校长姓名") },
                     placeholder = { Text("例：张明", color = Color(0xFF6E8399)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    isError = !principalNameCheck.ok,
                     shape = androidx.compose.ui.graphics.RectangleShape,
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -359,8 +373,8 @@ private fun NewGamePanel(
                         disabledTextColor = Color.White,
                         errorTextColor = Color.White,
                         cursorColor = Color(0xFFFFD54F),
-                        focusedBorderColor = Color(0xFF1E96C8),
-                        unfocusedBorderColor = Color(0xFF5A7186),
+                        focusedBorderColor = if (principalNameCheck.ok) Color(0xFF1E96C8) else Color(0xFFE57373),
+                        unfocusedBorderColor = if (principalNameCheck.ok) Color(0xFF5A7186) else Color(0xFFE57373),
                         focusedLabelColor = Color(0xFFFFD54F),
                         unfocusedLabelColor = Color(0xFF9EB3C6),
                         focusedPlaceholderColor = Color(0xFF9EB3C6),
@@ -369,9 +383,10 @@ private fun NewGamePanel(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White)
                 )
                 Text(
-                    text = "${principalName.length}/6",
+                    text = if (principalNameCheck.ok) "${principalName.length}/${NameValidator.MAX_PRINCIPAL_NAME}"
+                    else principalNameCheck.reason,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF9E9E9E),
+                    color = if (principalNameCheck.ok) Color(0xFF9E9E9E) else Color(0xFFE57373),
                     modifier = Modifier.align(Alignment.End)
                 )
                 Spacer(modifier = Modifier.height(18.dp))
@@ -439,7 +454,8 @@ private fun NewGamePanel(
                         )
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
-                    enabled = schoolName.isNotBlank() && principalName.isNotBlank(),
+                    enabled = schoolName.isNotBlank() && principalName.isNotBlank() &&
+                        schoolNameCheck.ok && principalNameCheck.ok,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary),
                     shape = androidx.compose.ui.graphics.RectangleShape
                 ) {

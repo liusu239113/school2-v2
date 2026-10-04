@@ -43,13 +43,22 @@ enum class FacilityQuality(
 data class LifeFacility(
     val aspect: LifeAspect,
     var quality: FacilityQuality = FacilityQuality.BASIC,
-    var capacity: Int = 50,            // 容纳人数
+    var capacity: Int = 50,            // 容纳人数 = 建筑容量 + 玩家额外扩容
     var currentLoad: Int = 0,          // 当前使用人数
     var maintenanceLevel: Float = 100f, // 维护度(0-100)，逐月衰减
     var monthlyMaintenanceCost: Long = 5L,  // 单位：万元，默认=BASIC档
     var lastUpgradeYear: Int = 0,
     var staffCount: Int = 1,           // 工作人员数
-    var specialPrograms: MutableList<String> = mutableListOf()  // 特色项目
+    var specialPrograms: MutableList<String> = mutableListOf(),  // 特色项目
+    /**
+     * 校园建筑贡献的容量（宿舍楼/食堂按等级算出来的部分）。
+     * 与 capacity 的差值就是玩家自己花钱"加床/加窗口"追加的部分。
+     * 有了它，升级宿舍楼时才能正确地把新容量同步进去，而不会覆盖玩家的额外投入。
+     *
+     * -1 表示"未知"（老存档没有记录这个字段）：首次同步时按旧口径处理一次，
+     * 之后就能正常跟随建筑容量变化。
+     */
+    var buildingCapacity: Int = -1
 )
 
 data class LifeSatisfactionScore(
@@ -139,6 +148,14 @@ class StudentLifeManager @Inject constructor() {
     private val _state = MutableStateFlow(StudentLifeState())
     val state: StateFlow<StudentLifeState> = _state.asStateFlow()
 
+    /**
+     * 同步校园建筑的容量到生活系统。
+     *
+     * 这里必须"跟随建筑走"而不是只取 max：
+     * 原来用 maxOf 会让容量只增不减——宿舍升级后容量不会更新，
+     * 拆除后也降不下来，玩家看到的就是"本楼容量变了，全校床位不动"。
+     * 玩家通过"加床"额外投入的部分由 buildingCapacity 差值保留，不会被这次同步冲掉。
+     */
     fun syncCampusCapacity(
         dormBeds: Int,
         canteenSeats: Int,
@@ -147,18 +164,31 @@ class StudentLifeManager @Inject constructor() {
     ) {
         _state.update { state ->
             val facilities = state.facilities.toMutableMap()
-            facilities[LifeAspect.DORMITORY]?.let { dorm ->
-                facilities[LifeAspect.DORMITORY] = dorm.copy(capacity = maxOf(dorm.capacity, dormBeds.coerceAtLeast(0)))
+
+            fun applyBuildingCapacity(aspect: LifeAspect, buildingValue: Int) {
+                val facility = facilities[aspect] ?: return
+                val safeBuilding = buildingValue.coerceAtLeast(0)
+                if (facility.buildingCapacity < 0) {
+                    // 老存档首次同步：没有历史建筑面积可参照，
+                    // 沿用旧口径（只增不减）以免凭空抹掉玩家已投入的床位。
+                    facilities[aspect] = facility.copy(
+                        buildingCapacity = safeBuilding,
+                        capacity = maxOf(facility.capacity, safeBuilding)
+                    )
+                    return
+                }
+                // 玩家额外扩容的部分 = 当前容量 - 上次记录的建筑面积
+                val extra = (facility.capacity - facility.buildingCapacity).coerceAtLeast(0)
+                facilities[aspect] = facility.copy(
+                    buildingCapacity = safeBuilding,
+                    capacity = safeBuilding + extra
+                )
             }
-            facilities[LifeAspect.CAFETERIA]?.let { cafe ->
-                facilities[LifeAspect.CAFETERIA] = cafe.copy(capacity = maxOf(cafe.capacity, canteenSeats.coerceAtLeast(0)))
-            }
-            facilities[LifeAspect.HEALTH]?.let { health ->
-                facilities[LifeAspect.HEALTH] = health.copy(capacity = maxOf(health.capacity, clinicSlots.coerceAtLeast(0)))
-            }
-            facilities[LifeAspect.PSYCHOLOGY]?.let { psych ->
-                facilities[LifeAspect.PSYCHOLOGY] = psych.copy(capacity = maxOf(psych.capacity, counselingSlots.coerceAtLeast(0)))
-            }
+
+            applyBuildingCapacity(LifeAspect.DORMITORY, dormBeds)
+            applyBuildingCapacity(LifeAspect.CAFETERIA, canteenSeats)
+            applyBuildingCapacity(LifeAspect.HEALTH, clinicSlots)
+            applyBuildingCapacity(LifeAspect.PSYCHOLOGY, counselingSlots)
             state.copy(facilities = facilities)
         }
     }
@@ -169,6 +199,8 @@ class StudentLifeManager @Inject constructor() {
                 aspect = aspect,
                 quality = FacilityQuality.BASIC,
                 capacity = 50,
+                // 新档：建筑面积未知，首次 syncCampusCapacity 时按校园实际建筑写入
+                buildingCapacity = -1,
                 monthlyMaintenanceCost = when (aspect) {
                     LifeAspect.DORMITORY -> 3L
                     LifeAspect.CAFETERIA -> 4L
@@ -202,6 +234,8 @@ class StudentLifeManager @Inject constructor() {
                 aspect = aspect,
                 quality = FacilityQuality.BASIC,
                 capacity = 50,
+                // 新档：建筑面积未知，首次 syncCampusCapacity 时按校园实际建筑写入
+                buildingCapacity = -1,
                 monthlyMaintenanceCost = when (aspect) {  // 单位：万元 — 初始BASIC档每月维护费
                     LifeAspect.DORMITORY -> 1L   // 宿舍维护费（水电+保洁）
                     LifeAspect.CAFETERIA -> 1L   // 食堂费用（食材+人工）
@@ -306,7 +340,8 @@ class StudentLifeManager @Inject constructor() {
             facilities[aspect] = facility.copy(
                 quality = nextQuality,
                 maintenanceLevel = 100f,
-                capacity = (facility.capacity * 1.2f).toInt(),
+                // 不再按 20% 凭空加容量：容量口径统一为"校园建筑 + 玩家扩容"，
+                // 否则质量升级会把建筑面积的差值算错，导致升级宿舍后床位对不上。
                 monthlyMaintenanceCost = nextQuality.baseMaintenanceCost
             )
             applied = true
@@ -338,7 +373,7 @@ class StudentLifeManager @Inject constructor() {
             val updated = facility.copy(
                 quality = nextQuality,
                 maintenanceLevel = 100f,
-                capacity = (facility.capacity * 1.2f).toInt(),  // 升级增加20%容量
+                // 容量口径统一为"校园建筑 + 玩家扩容"，质量升级只提升服务档次
                 monthlyMaintenanceCost = nextQuality.baseMaintenanceCost  // 维护费随档次大幅增加
             )
             facilities[aspect] = updated
@@ -393,6 +428,8 @@ class StudentLifeManager @Inject constructor() {
             val facilities = state.facilities.toMutableMap()
             val facility = facilities[aspect] ?: return@update state
             facilities[aspect] = facility.copy(
+                // 只加 capacity，不动 buildingCapacity：差值即为玩家自费扩容的部分，
+                // 后续升级宿舍楼同步建筑面积时不会把这部分冲掉
                 capacity = facility.capacity + additionalCapacity,
                 monthlyMaintenanceCost = facility.monthlyMaintenanceCost +
                     (facility.quality.baseMaintenanceCost * additionalCapacity / 250).coerceAtLeast(1L)
@@ -932,7 +969,8 @@ class StudentLifeManager @Inject constructor() {
                     maintenanceLevel = f.maintenanceLevel,
                     monthlyMaintenanceCost = f.monthlyMaintenanceCost,
                     lastUpgradeYear = f.lastUpgradeYear,
-                    staffCount = f.staffCount
+                    staffCount = f.staffCount,
+                    buildingCapacity = f.buildingCapacity
                 )
             },
             activePrograms = state.programs.filter { it.active }.map { it.id },
@@ -994,7 +1032,10 @@ class StudentLifeManager @Inject constructor() {
                     maintenanceLevel = fp.maintenanceLevel,
                     monthlyMaintenanceCost = fp.monthlyMaintenanceCost,
                     lastUpgradeYear = fp.lastUpgradeYear,
-                    staffCount = fp.staffCount
+                    staffCount = fp.staffCount,
+                    // 老存档没有这个字段（默认 -1）：保持"未知"，首次同步时按旧口径迁移一次
+                    buildingCapacity = if (fp.buildingCapacity < 0) -1
+                    else fp.buildingCapacity.coerceIn(0, fp.capacity)
                 )
             }
             val unknownPrograms = data.activePrograms.filter { id ->
@@ -1079,5 +1120,7 @@ data class FacilityPersist(
     val maintenanceLevel: Float = 100f,
     val monthlyMaintenanceCost: Long = 5L,
     val lastUpgradeYear: Int = 0,
-    val staffCount: Int = 1
+    val staffCount: Int = 1,
+    /** 其中由校园建筑贡献的容量。-1 表示老存档未记录（首次同步时按旧口径迁移）。 */
+    val buildingCapacity: Int = -1
 )

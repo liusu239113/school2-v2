@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
+import com.arktools.xiao.util.NameValidator
 import com.arktools.xiao.util.safeLaunch
 import javax.inject.Inject
 
@@ -55,6 +56,14 @@ class MainViewModel @Inject constructor(
 
     private val _isGameRunning = MutableStateFlow(false)
     val isGameRunning: StateFlow<Boolean> = _isGameRunning.asStateFlow()
+
+    /** 新游戏参数校验失败等错误提示（命名违规等） */
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    fun clearErrorMessage() {
+        _errorMessage.value = null
+    }
 
     private val _storyTutorialPending = MutableStateFlow(false)
     val storyTutorialPending: StateFlow<Boolean> = _storyTutorialPending.asStateFlow()
@@ -524,6 +533,17 @@ class MainViewModel @Inject constructor(
     ) {
         viewModelScope.safeLaunch {
             try {
+                // 兜底：UI 已做实时校验，这里再拦一次，防止其它入口或旧版本绕过
+                val nameCheck = NameValidator.validate(schoolName, "大学名称")
+                if (!nameCheck.ok) {
+                    _errorMessage.value = nameCheck.reason
+                    return@safeLaunch
+                }
+                val principalCheck = NameValidator.validate(principalName, "校长姓名")
+                if (!principalCheck.ok) {
+                    _errorMessage.value = principalCheck.reason
+                    return@safeLaunch
+                }
                 val school = persistenceCoordinator.runExclusiveDestructiveOperation(
                     "new-game"
                 ) {

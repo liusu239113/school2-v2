@@ -261,14 +261,16 @@ class PressureSystemManager @Inject constructor() {
      * 效果：Lv6满配从原来 ~26600万 降至 ~8700万（仍是大额支出但不再离谱）
      */
     fun calculateQuarterlyTax(quarterlyRevenue: Double, campusLevel: Int): Double {
+        // v3.2 下调约 25%：季度税费是玩家反馈里"一次扣掉几百万"的主要来源之一，
+        // 原税率叠加月租/水电后中期容易直接亏损。分档折扣保留，后期仍是大额支出。
         val baseTaxRate = when (campusLevel) {
-            1 -> 0.05
-            2 -> 0.07
-            3 -> 0.09
-            4 -> 0.10
-            5 -> 0.11
-            6 -> 0.12
-            else -> 0.05
+            1 -> 0.04
+            2 -> 0.05
+            3 -> 0.07
+            4 -> 0.075
+            5 -> 0.085
+            6 -> 0.09
+            else -> 0.04
         }
         
         // 累进税率分档（单位：万元）

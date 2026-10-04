@@ -984,6 +984,43 @@ class CampusViewModel @Inject constructor(
         persistAdminOffice(next)
     }
 
+    /**
+     * 升级收益预览文案（校园地图里的建筑面板用）。
+     * 与设施页的 upgradeBenefitText 口径一致，让玩家在升级前就知道能换来什么。
+     */
+    fun upgradeBenefitPreview(facility: com.arktools.xiao.domain.model.Facility): String {
+        if (facility.level >= facility.type.maxLevel) return ""
+        val lv = facility.level
+        val nl = lv + 1
+        val cap = com.arktools.xiao.domain.model.FacilityCapacity
+        val type = facility.type
+        return when (type) {
+            com.arktools.xiao.domain.model.FacilityType.CLASSROOM ->
+                "学位 ${cap.classSlots(lv) * 30} → ${cap.classSlots(nl) * 30} 人"
+            com.arktools.xiao.domain.model.FacilityType.DORMITORY ->
+                "本楼床位 ${cap.bedsPerDorm(lv)} → ${cap.bedsPerDorm(nl)} 张"
+            com.arktools.xiao.domain.model.FacilityType.CANTEEN ->
+                "本楼餐位 ${cap.seatsPerCanteen(lv)} → ${cap.seatsPerCanteen(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.LIBRARY ->
+                "阅览席 ${cap.librarySeats(lv)} → ${cap.librarySeats(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.LABORATORY ->
+                "实验台位 ${cap.labBenches(lv)} → ${cap.labBenches(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.COMPUTER_LAB ->
+                "机位 ${cap.computerSeats(lv)} → ${cap.computerSeats(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.SPORTS_FIELD ->
+                "体育容量 ${cap.sportsCapacity(lv)} → ${cap.sportsCapacity(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.CLINIC ->
+                "接诊位 ${cap.clinicSlots(lv)} → ${cap.clinicSlots(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.COUNSELING ->
+                "辅导位 ${cap.counselingSlots(lv)} → ${cap.counselingSlots(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.ART_STUDIO ->
+                "工作室工位 ${cap.studioCapacity(lv)} → ${cap.studioCapacity(nl)}"
+            com.arktools.xiao.domain.model.FacilityType.GARDEN ->
+                "园区地块 ${cap.gardenPlots(lv)} → ${cap.gardenPlots(nl)}"
+            else -> ""
+        }
+    }
+
     /** 信息类消息免打扰开关：正面 / 负面 / 里程碑。 */
     fun setAutoClose(kind: String, enabled: Boolean) {
         val current = gameEngine.autoHandleManager.config.value
@@ -1719,6 +1756,8 @@ class CampusViewModel @Inject constructor(
                 policyManager.restoreFromJson(policySnapshot)
             }
             if (result != null) {
+                // 拆掉宿舍/食堂后要把容量降下来，否则"全校床位"会一直虚高
+                syncStudentLifeCapacity()
                 audioManager.playCashEarn()
                 val st = _state.value
                 val newPlaced = st.placed.filter { it.facilityId != placed.facilityId || it.key != placed.key }
@@ -2096,11 +2135,37 @@ class CampusViewModel @Inject constructor(
                 true
             }
             if (result != null) {
+                // 升级后立刻把新容量同步进学生生活系统。
+                // 否则要等到月末结算才更新，玩家看到的就是"本楼容量涨了、全校床位没动"。
+                syncStudentLifeCapacity()
                 audioManager.playLevelUp()
                 _state.value = _state.value.copy(message = "$name 升级到 Lv.$lv！")
             } else {
                 audioManager.playEventNegative()
             }
+        }
+    }
+
+    /**
+     * 把当前校园建筑的容量同步进学生生活系统（宿舍床位、食堂餐位、医务室、心理站）。
+     * 新建、升级、拆除、加床后都应调用，保证"本楼容量"和"全校容量"始终一致。
+     */
+    private suspend fun syncStudentLifeCapacity() {
+        val school = runCatching { schoolRepository.getSchool() }.getOrNull() ?: return
+        val life = gameEngine.studentLifeManager
+        life.syncCampusCapacity(
+            com.arktools.xiao.domain.model.FacilityCapacity.totalBeds(school.facilities),
+            com.arktools.xiao.domain.model.FacilityCapacity.totalCanteenSeats(
+                school.facilities,
+                policyManager.policies.value.collegeDevelopment.buildingOps.extraWindows
+            ),
+            com.arktools.xiao.domain.model.FacilityCapacity.totalClinicSlots(school.facilities),
+            com.arktools.xiao.domain.model.FacilityCapacity.totalCounselingSlots(school.facilities)
+        )
+        // 生活状态是独立持久化字段，同步后必须写回存档
+        schoolRepository.mutateSchool { s ->
+            s.studentLifeJson = life.toJson()
+            true
         }
     }
 
@@ -2183,6 +2248,7 @@ class CampusViewModel @Inject constructor(
                 true
             }
             if (result != null) {
+                syncStudentLifeCapacity()
                 val windows = buildingOps().extraWindows
                 audioManager.playBuildFacility()
                 _state.value = _state.value.copy(

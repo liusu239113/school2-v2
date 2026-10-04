@@ -2114,12 +2114,42 @@ private fun BuildingPanelContent(
                     }
                     OccupancyBar("月维护", facility.type.baseMaintenance.toInt(), 20.coerceAtLeast(facility.type.baseMaintenance.toInt()))
                     if (facility.level < facility.type.maxLevel) {
-                        val panelButtonText = if (placed?.isConstructing == true) {
-                            "施工中：还需 ${placed.constructionDaysLeft} 天"
+                        // 升级前把价格和收益写清楚，并加二次确认，避免误触（玩家反馈）
+                        val upgradeCost = com.arktools.xiao.domain.model.FacilityBonusCalculator
+                            .getUpgradeCost(facility)
+                        val benefit = viewModel.upgradeBenefitPreview(facility)
+                        if (placed?.isConstructing == true) {
+                            PanelButton("施工中：还需 ${placed.constructionDaysLeft} 天") { }
                         } else {
-                            "升级"
+                            Text(
+                                "升级到 Lv.${facility.level + 1}：需 ¥${upgradeCost.toInt()}万",
+                                fontSize = 12.sp,
+                                color = if (state.cash < upgradeCost) Color(0xFFB0413E) else Color(0xFF182635)
+                            )
+                            if (benefit.isNotBlank()) {
+                                Text(benefit, fontSize = 11.sp, color = Color(0xFF617386))
+                            }
+                            var confirmUpgrade by remember(building.id) { mutableStateOf(false) }
+                            PanelButton("升级 Lv.${facility.level + 1}（¥${upgradeCost.toInt()}万）") {
+                                confirmUpgrade = true
+                            }
+                            if (confirmUpgrade) {
+                                com.arktools.xiao.ui.components.PixelAlertDialog(
+                                    onDismissRequest = { confirmUpgrade = false },
+                                    title = "确认升级",
+                                    text = "将 ${facility.type.displayName} 从 Lv.${facility.level} 升到 Lv.${facility.level + 1}，" +
+                                        "花费 ¥${upgradeCost.toInt()}万。" +
+                                        (if (benefit.isNotBlank()) "\n\n升级后：$benefit" else ""),
+                                    confirmText = "确认升级",
+                                    dismissText = "取消",
+                                    onConfirm = {
+                                        confirmUpgrade = false
+                                        onUpgradeFacility()
+                                    },
+                                    onDismiss = { confirmUpgrade = false }
+                                )
+                            }
                         }
-                        PanelButton(panelButtonText) { if (placed?.isConstructing != true) onUpgradeFacility() }
                     } else {
                         Text("已达最大等级", fontSize = 13.sp, color = Color(0xFF2E9B78))
                     }
